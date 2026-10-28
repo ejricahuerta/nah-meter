@@ -1,6 +1,5 @@
 package dev.edmel.offerchecker.service
 
-import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
 import android.graphics.PixelFormat
@@ -11,9 +10,9 @@ import android.os.Handler
 import android.os.Looper
 import android.text.SpannableStringBuilder
 import android.text.Spanned
+import android.text.TextPaint
 import android.text.style.AbsoluteSizeSpan
 import android.text.style.ForegroundColorSpan
-import android.text.TextPaint
 import android.text.style.MetricAffectingSpan
 import android.util.TypedValue
 import android.view.Gravity
@@ -22,21 +21,21 @@ import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.animation.AccelerateInterpolator
 import android.view.animation.DecelerateInterpolator
-import android.widget.FrameLayout
-import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.content.res.ResourcesCompat
 import dev.edmel.offerchecker.R
 import dev.edmel.offerchecker.core.Evaluation
+import dev.edmel.offerchecker.core.Thresholds
 import dev.edmel.offerchecker.core.Verdict
 
 /**
- * The Worth It verdict, drawn over Uber as a TYPE_ACCESSIBILITY_OVERLAY window (no "draw over
- * other apps" permission needed). Two looks, from the design system:
- *  - the verdict card (`wi-badge`), docked 8dp above Uber's offer card at the same width;
- *  - the compact pill (`wi-pill`), centred at the top of the screen.
- * Tap to dismiss. It never takes focus from Uber.
+ * The nahmeter verdict, drawn over Uber as a TYPE_ACCESSIBILITY_OVERLAY window (no "draw over
+ * other apps" permission needed). Always black, in both themes, so it lifts off any map:
+ *  - the verdict card (`nah-card`): docked 8dp above Uber's offer card, 16dp from each side,
+ *    the word on the left in its colour, $/hr on the right, the reason underneath;
+ *  - the compact pill (`nah-pill`): at the top of the screen; tap it to expand to the card.
+ * Tapping the card dismisses it. It never takes focus from Uber.
  */
 class BadgeOverlay(private val context: Context) {
     private val wm = context.getSystemService(WindowManager::class.java)
@@ -54,28 +53,29 @@ class BadgeOverlay(private val context: Context) {
 
     val isShowing: Boolean get() = view != null
 
-    /** Where the badge is on screen, so the screenshot reader can ignore its own text. */
+    /** Where the verdict is on screen, so the screenshot reader can ignore its own text. */
     val screenRect: Rect?
         get() = view?.let {
             Rect(params.x, params.y, params.x + maxOf(it.width, it.measuredWidth), params.y + maxOf(it.height, it.measuredHeight))
         }
 
-    private val font400 = font(R.font.geist_400)
+    private val font500 = font(R.font.geist_500)
     private val font600 = font(R.font.geist_600)
-    private val font700 = font(R.font.geist_700)
     private val font800 = font(R.font.geist_800)
+    private val font900 = font(R.font.geist_900)
 
     /**
-     * Shows [e]. In card mode it docks above [cardTop] (the offer card's top edge in screen px);
-     * when that's unknown it sits near the top of the screen like the pill.
+     * Shows [e]. The card docks above [cardTop] (the offer card's top edge in screen px); when
+     * that's unknown it sits near the top of the screen like the pill.
      */
-    fun show(e: Evaluation, compact: Boolean, cardTop: Int?) {
+    fun show(e: Evaluation, t: Thresholds, compact: Boolean, cardTop: Int?) {
         hide(animate = false)
         val screen = context.resources.displayMetrics
-        val v = if (compact) pill(e) else card(e)
-        v.contentDescription = spoken(e)
+        val v = if (compact) pill(e) else card(e, t)
+        v.contentDescription = NahCopy.spoken(e, t)
         v.accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
-        v.setOnClickListener { hide() }
+        // Card: tap to dismiss. Pill: tap to expand to the full card.
+        v.setOnClickListener { if (compact) show(e, t, compact = false, cardTop = cardTop) else hide() }
 
         if (compact) {
             v.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED)
@@ -90,12 +90,13 @@ class BadgeOverlay(private val context: Context) {
             )
             params.width = width
             params.x = dp(SIDE_MARGIN_DP)
+            // Anchored by its bottom edge to the top of Uber's card, so it never covers the card.
             val docked = cardTop?.let { it - dp(DOCK_GAP_DP) - v.measuredHeight }
             params.y = if (docked != null && docked >= dp(TOP_MARGIN_DP)) docked else dp(TOP_MARGIN_DP)
         }
         wm.addView(v, params)
         view = v
-        // badge-in: fade in and rise 12dp; no bounce.
+        // card-in: fade in and rise 12dp. No bounce; haptics carry the attention.
         v.alpha = 0f
         v.translationY = dp(12f)
         v.animate().alpha(1f).translationY(0f).setDuration(IN_MS).setInterpolator(DecelerateInterpolator()).start()
@@ -111,86 +112,62 @@ class BadgeOverlay(private val context: Context) {
             runCatching { wm.removeView(v) }
             return
         }
-        // badge-out
+        // card-out
         v.animate().alpha(0f).setDuration(OUT_MS).setInterpolator(AccelerateInterpolator())
             .withEndAction { runCatching { wm.removeView(v) } }.start()
     }
 
-    // ---------- Verdict card (wi-badge) ----------
+    // ---------- Verdict card (nah-card) ----------
 
-    private fun card(e: Evaluation): View {
-        val (fill, onFill) = colors(e.verdict)
+    private fun card(e: Evaluation, t: Thresholds): View {
         val root = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(16), dp(16), dp(16), dp(16))
-            background = rounded(fill, dp(16f))
+            setPadding(dp(20), dp(18), dp(20), dp(18))
+            background = blackShape(dp(22f))
             elevation = dp(12f)
         }
-        val head = LinearLayout(context).apply {
+        val row = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            minimumHeight = dp(44)
+            gravity = Gravity.BOTTOM
         }
-        head.addView(disc(e.verdict, discColor = onFill, glyphColor = fill), LinearLayout.LayoutParams(dp(40), dp(40)))
-        head.addView(
-            text(word(e.verdict), 22f, font800, onFill, letterSpacing = 0.02f),
-            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = dp(12) },
+        val unknown = e.verdict == Verdict.GREY
+        row.addView(
+            text(NahCopy.word(e.verdict), if (unknown) 44f else 64f, font900, wordColor(e.verdict), if (unknown) -0.05f else -0.07f),
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
         )
-        if (e.verdict != Verdict.GREY) {
-            head.addView(
-                text(rate(e.hourly!!.toPlainString(), "/hr", 44f, 18f, onFill, null), 44f, font700, onFill, letterSpacing = -0.03f)
-                    .apply { maxLines = 1 },
+        if (!unknown) {
+            val stacked = if (e.offer?.stacked == true) " ×2" else ""
+            row.addView(
+                text(rate("$${e.hourly!!.toPlainString()}", "/hr$stacked", 15), 36f, font800, Color.WHITE, -0.04f)
+                    .apply { maxLines = 1; setPadding(dp(12), 0, 0, dp(6)) },
             )
         }
-        root.addView(head)
-
-        // Hairline in the text colour at 20%, then $/km and the reason.
+        root.addView(row)
         root.addView(
-            View(context).apply { setBackgroundColor(onFill); alpha = 0.2f },
-            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1.5f).toInt().coerceAtLeast(1))
-                .apply { topMargin = dp(12) },
+            text(NahCopy.cardReason(e, t), 15f, font500, CARD_MUTED),
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                .apply { topMargin = dp(6) },
         )
-        val foot = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, dp(12), 0, 0)
-        }
-        if (e.verdict != Verdict.GREY) {
-            val km = (e.perKm?.let { "$${it.toPlainString()}/km" } ?: "—/km") +
-                if (e.offer?.stacked == true) " · ×2" else ""
-            foot.addView(text(km, 17f, font700, onFill))
-        }
-        foot.addView(
-            text(reason(e), 15f, font600, onFill).apply { gravity = Gravity.END },
-            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = dp(12) },
-        )
-        root.addView(foot)
         return root
     }
 
-    // ---------- Compact pill (wi-pill) ----------
+    // ---------- Compact pill (nah-pill) ----------
 
     private fun pill(e: Evaluation): View {
-        val (fill, onFill) = colors(e.verdict)
         val root = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(6), dp(6), dp(20), dp(6))
+            setPadding(dp(22), 0, dp(22), 0)
             minimumHeight = dp(52)
-            background = rounded(Color.BLACK, dp(999f))
+            background = blackShape(dp(999f))
             elevation = dp(12f)
         }
-        root.addView(disc(e.verdict, discColor = fill, glyphColor = onFill), LinearLayout.LayoutParams(dp(40), dp(40)))
-        root.addView(
-            text(word(e.verdict), 15f, font800, Color.WHITE, letterSpacing = 0.04f),
-            LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-                .apply { marginStart = dp(12) },
-        )
+        root.addView(text(NahCopy.word(e.verdict), 24f, font900, wordColor(e.verdict), -0.05f))
         if (e.verdict != Verdict.GREY) {
             root.addView(
-                text(rate(e.hourly!!.toPlainString(), "/hr", 24f, 14f, Color.WHITE, INK_MUTED), 24f, font700, Color.WHITE, letterSpacing = -0.02f),
+                text(rate("$${e.hourly!!.toPlainString()}", "/hr", 13), 22f, font800, Color.WHITE, -0.03f),
                 LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-                    .apply { marginStart = dp(12) },
+                    .apply { marginStart = dp(10) },
             )
         }
         return root
@@ -198,26 +175,21 @@ class BadgeOverlay(private val context: Context) {
 
     // ---------- Pieces ----------
 
-    /** The verdict glyph in a filled disc. */
-    private fun disc(v: Verdict, discColor: Int, glyphColor: Int): View = FrameLayout(context).apply {
-        background = rounded(discColor, dp(999f))
-        addView(
-            ImageView(context).apply {
-                setImageResource(glyph(v))
-                setColorFilter(glyphColor)
-            },
-            FrameLayout.LayoutParams(dp(22), dp(22), Gravity.CENTER),
-        )
+    /** Black with a 1dp `card-edge` hairline. */
+    private fun blackShape(radius: Float) = GradientDrawable().apply {
+        cornerRadius = radius
+        setColor(Color.BLACK)
+        setStroke(dp(1f).toInt().coerceAtLeast(1), CARD_EDGE)
     }
 
-    /** "$15.83" big with a smaller "/hr". */
-    private fun rate(amount: String, unit: String, bigSp: Float, smallSp: Float, color: Int, unitColor: Int?): CharSequence {
-        val sb = SpannableStringBuilder("$$amount")
+    /** "$15.83" with a smaller, muted "/hr". */
+    private fun rate(amount: String, unit: String, unitSp: Int): CharSequence {
+        val sb = SpannableStringBuilder(amount)
         val start = sb.length
         sb.append(unit)
-        sb.setSpan(AbsoluteSizeSpan(smallSp.toInt(), true), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-        sb.setSpan(FontSpan(font600), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-        sb.setSpan(ForegroundColorSpan(unitColor ?: color), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        sb.setSpan(AbsoluteSizeSpan(unitSp, true), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        sb.setSpan(FontSpan(font600, 0f), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        sb.setSpan(ForegroundColorSpan(CARD_MUTED), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         return sb
     }
 
@@ -232,9 +204,10 @@ class BadgeOverlay(private val context: Context) {
             includeFontPadding = false
         }
 
-    private fun rounded(color: Int, radius: Float) = GradientDrawable().apply {
-        cornerRadius = radius
-        setColor(color)
+    /** A typeface (and tracking) for part of a text; TypefaceSpan(Typeface) needs Android 9. */
+    private class FontSpan(private val face: Typeface, private val tracking: Float) : MetricAffectingSpan() {
+        override fun updateMeasureState(paint: TextPaint) { paint.typeface = face; paint.letterSpacing = tracking }
+        override fun updateDrawState(paint: TextPaint) { paint.typeface = face; paint.letterSpacing = tracking }
     }
 
     private fun font(id: Int): Typeface = ResourcesCompat.getFont(context, id) ?: Typeface.DEFAULT_BOLD
@@ -242,53 +215,22 @@ class BadgeOverlay(private val context: Context) {
     private fun dp(v: Int) = (v * context.resources.displayMetrics.density).toInt()
     private fun dp(v: Float) = v * context.resources.displayMetrics.density
 
-    /** A typeface for part of a text (TypefaceSpan(Typeface) needs Android 9). */
-    private class FontSpan(private val face: Typeface) : MetricAffectingSpan() {
-        override fun updateMeasureState(paint: TextPaint) { paint.typeface = face }
-        override fun updateDrawState(paint: TextPaint) { paint.typeface = face }
-    }
-
     companion object {
         const val AUTO_HIDE_MS = 20_000L
-        private const val IN_MS = 180L
-        private const val OUT_MS = 120L
-        private const val SIDE_MARGIN_DP = 12
+        private const val IN_MS = 160L
+        private const val OUT_MS = 100L
+        private const val SIDE_MARGIN_DP = 16
         private const val DOCK_GAP_DP = 8
-        private const val TOP_MARGIN_DP = 48
-        private val INK_MUTED = Color.rgb(0xA6, 0xA6, 0xA6)
+        private const val TOP_MARGIN_DP = 44
+        private val CARD_EDGE = Color.rgb(0x2A, 0x2A, 0x2A)
+        private val CARD_MUTED = Color.rgb(0xA8, 0xA8, 0xA8)
 
-        /** Fill and the text/glyph colour on it (tokens go/on-go, maybe/on-maybe, skip/on-skip, unknown/on-unknown). */
-        fun colors(v: Verdict): Pair<Int, Int> = when (v) {
-            Verdict.GREEN -> Color.rgb(0x3E, 0xDB, 0x84) to Color.BLACK
-            Verdict.YELLOW -> Color.rgb(0xFF, 0xB0, 0x20) to Color.BLACK
-            Verdict.RED -> Color.rgb(0xC8, 0x23, 0x1B) to Color.WHITE
-            Verdict.GREY -> Color.rgb(0x54, 0x54, 0x54) to Color.WHITE
+        /** The verdict word's colour on the black card: bet green, eh yellow, nah red. */
+        fun wordColor(v: Verdict): Int = when (v) {
+            Verdict.GREEN -> Color.rgb(0x30, 0xD1, 0x58)
+            Verdict.YELLOW -> Color.rgb(0xFF, 0xD6, 0x0A)
+            Verdict.RED -> Color.rgb(0xFF, 0x3B, 0x30)
+            Verdict.GREY -> Color.rgb(0x8E, 0x8E, 0x93)
         }
-
-        fun word(v: Verdict) = when (v) {
-            Verdict.GREEN -> "GO"
-            Verdict.YELLOW -> "MAYBE"
-            Verdict.RED -> "SKIP"
-            Verdict.GREY -> "CAN'T READ"
-        }
-
-        fun glyph(v: Verdict) = when (v) {
-            Verdict.GREEN -> R.drawable.ic_verdict_go
-            Verdict.YELLOW -> R.drawable.ic_verdict_maybe
-            Verdict.RED -> R.drawable.ic_verdict_skip
-            Verdict.GREY -> R.drawable.ic_verdict_unknown
-        }
-
-        fun reason(e: Evaluation) = when (e.verdict) {
-            Verdict.GREEN -> "Meets all targets"
-            Verdict.GREY -> "Check this offer yourself"
-            else -> e.failedRule.orEmpty()
-        }
-
-        /** What TalkBack announces: "SKIP: $15.83 per hour, $0.53 per km. Under $20/hr target." */
-        fun spoken(e: Evaluation): String =
-            if (e.verdict == Verdict.GREY) "Can't read this offer. Check it yourself."
-            else "${word(e.verdict)}: $${e.hourly} per hour, " +
-                (e.perKm?.let { "$$it per km" } ?: "no distance") + ". ${reason(e)}."
     }
 }

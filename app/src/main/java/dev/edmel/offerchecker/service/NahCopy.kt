@@ -1,0 +1,50 @@
+package dev.edmel.offerchecker.service
+
+import dev.edmel.offerchecker.core.Check
+import dev.edmel.offerchecker.core.Evaluation
+import dev.edmel.offerchecker.core.Scorer
+import dev.edmel.offerchecker.core.Thresholds
+import dev.edmel.offerchecker.core.Verdict
+
+/**
+ * nahmeter's words for a verdict, from the design system's voice: lowercase verdicts that end in a
+ * full stop, then the number, then the reason ("nah. $15.83/hr · Under your $20").
+ */
+object NahCopy {
+    /** On cards and pills: always with the full stop. */
+    fun word(v: Verdict) = when (v) {
+        Verdict.GREEN -> "bet."
+        Verdict.YELLOW -> "eh."
+        Verdict.RED -> "nah."
+        Verdict.GREY -> "can't read."
+    }
+
+    /** In lists and chips the full stop becomes the coloured dot before the word. */
+    fun chipWord(v: Verdict) = word(v).removeSuffix(".")
+
+    private fun km(e: Evaluation) = e.perKm?.let { "$${it.toPlainString()}/km" } ?: "no distance"
+
+    /** Under the word on the verdict card: "Under your $20 · $0.53/km". */
+    fun cardReason(e: Evaluation, t: Thresholds): String = when {
+        e.verdict == Verdict.GREY -> "Check this offer yourself"
+        e.failed == Check.MIN_PAY -> "Under your ${Scorer.money(t.minPay)} min · ${km(e)}"
+        e.failed == Check.HOURLY -> "Under your ${Scorer.money(t.minHourly)} · ${km(e)}"
+        e.failed == Check.PER_KM -> "Pays the hour, short on $/km · ${km(e)}"
+        else -> "Clears your ${Scorer.money(t.minHourly)} · ${km(e)}"
+    }
+
+    /** The short reason after the offer's numbers: "$6.07 · 23 min · 11.5 km · under your $20". */
+    fun shortReason(e: Evaluation, t: Thresholds): String = when {
+        e.verdict == Verdict.GREY -> "check it yourself"
+        e.failed == Check.MIN_PAY -> "under your ${Scorer.money(t.minPay)} min"
+        e.failed == Check.HOURLY -> "under your ${Scorer.money(t.minHourly)}"
+        e.failed == Check.PER_KM -> "short on $/km"
+        else -> "clears your ${Scorer.money(t.minHourly)}"
+    }
+
+    /** What TalkBack announces: "nah. $15.83 per hour. Under your $20, $0.53 per km." */
+    fun spoken(e: Evaluation, t: Thresholds): String =
+        if (e.verdict == Verdict.GREY) "can't read. Check this offer yourself."
+        else "${word(e.verdict)} $${e.hourly} per hour. " +
+            cardReason(e, t).replace(" · ", ", ").replace("/km", " per km") + "."
+}

@@ -1,6 +1,7 @@
 package dev.edmel.offerchecker.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,9 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
@@ -21,10 +20,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
@@ -33,76 +32,76 @@ import androidx.compose.ui.unit.sp
 import dev.edmel.offerchecker.core.Scorer
 import dev.edmel.offerchecker.core.Thresholds
 import dev.edmel.offerchecker.core.Verdict
+import dev.edmel.offerchecker.service.NahCopy
 
-/** Welcome: what Worth It does, shown once before setup. */
+/** Welcome: what nahmeter does, shown once before setup. */
 @Composable
 fun OnboardingScreen(thresholds: Thresholds, onSetUp: () -> Unit, modifier: Modifier = Modifier) {
+    val c = Nah.c
     Column(
-        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 28.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp),
+        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 32.dp, bottom = 28.dp),
+        verticalArrangement = Arrangement.spacedBy(28.dp),
     ) {
-        Wordmark(26.sp)
-
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Know if an offer pays before you tap.", style = Wi.style(36.sp, 700, 40.sp, (-0.025).em))
-            Text("A verdict appears above every Uber Eats offer in about a second.", style = Wi.style(16.sp, 400, 24.sp, color = Wi.inkMuted))
-        }
-
-        // Illustration: the verdict card docked above a sketched offer card.
-        Column(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color1B).padding(12.dp)
-                .clearAndSetSemantics { },
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            VerdictCard(Verdict.GREEN, "$25.64", "$1.38/km", "Meets all targets")
-            Column(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Wi.surface).padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Box(Modifier.size(72.dp, 22.dp).clip(RoundedCornerShape(6.dp)).background(Wi.surfaceRaised))
-                Text("$9.40", style = Wi.style(28.sp, 700, 30.sp, (-0.03).em))
-                Box(Modifier.size(180.dp, 12.dp).clip(RoundedCornerShape(6.dp)).background(Wi.surfaceRaised))
-                Box(Modifier.size(220.dp, 12.dp).clip(RoundedCornerShape(6.dp)).background(Wi.surfaceRaised))
-            }
-        }
+        Wordmark(30.sp)
 
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Point(
-                1, "Your rules.",
-                "${Scorer.money(thresholds.minPay)} minimum, ${Scorer.money(thresholds.minHourly)}/hr, then ${Scorer.money(thresholds.minPerKm)}/km.",
+            Text(
+                buildAnnotatedString {
+                    append("Bad offer?\nJust say nah")
+                    withStyle(SpanStyle(color = c.stop)) { append(".") }
+                },
+                style = Nah.style(52.sp, 900, 50.sp, (-0.06).em, c.ink),
+                modifier = Modifier.semantics { heading() },
             )
-            Point(2, "You decide.", "It never taps Accept for you.")
-            Point(3, "Private.", "No account. Nothing leaves your phone.")
+            Text(
+                "nahmeter reads every Uber Eats offer and gives you a one-word answer before the timer runs out.",
+                style = Nah.style(17.sp, 400, 25.sp, color = c.inkMuted),
+            )
         }
 
-        Spacer(Modifier.height(8.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Example(Verdict.GREEN, "pays your rate, take it")
+            Example(Verdict.YELLOW, "pays the hour, long drive")
+            Example(Verdict.RED, "not worth your time")
+        }
+
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Point("Your rules: ${Scorer.money(thresholds.minPay)} min, ${Scorer.money(thresholds.minHourly)}/hr, ${Scorer.money(thresholds.minPerKm)}/km")
+            Point("Never taps Match for you. You decide.")
+            Point("No account. Nothing leaves your phone.")
+        }
+
+        Spacer(Modifier.height(4.dp))
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            WiButton("Set up", onSetUp, modifier = Modifier.fillMaxWidth())
+            NahButton("Set up", onSetUp, modifier = Modifier.fillMaxWidth())
             Text(
-                "Takes about 5 minutes · Android 8 or newer",
-                style = Wi.style(13.sp, 400, 18.sp, color = Wi.inkMuted).copy(textAlign = TextAlign.Center),
+                "About 5 minutes · Android 8 or newer",
+                style = Nah.style(13.sp, 400, 18.sp, color = c.inkMuted).copy(textAlign = TextAlign.Center),
                 modifier = Modifier.fillMaxWidth(),
             )
         }
     }
 }
 
-private val Color1B = androidx.compose.ui.graphics.Color(0xFF1B1B1B)
-
+/** A small black verdict card: the word and what it means. */
 @Composable
-private fun Point(n: Int, title: String, text: String) {
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
-        Box(Modifier.size(28.dp).clip(CircleShape).background(Wi.ink), contentAlignment = Alignment.Center) {
-            Text("$n", style = Wi.style(14.sp, 700, color = Wi.onInk))
-        }
-        Text(
-            buildAnnotatedString {
-                withStyle(SpanStyle(fontWeight = FontWeight.W600)) { append(title) }
-                append(" ")
-                withStyle(SpanStyle(color = Wi.inkMuted)) { append(text) }
-            },
-            style = Wi.body,
-            modifier = Modifier.weight(1f),
-        )
+private fun Example(v: Verdict, meaning: String) {
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(Nah.card)
+            .border(1.dp, Nah.cardEdge, RoundedCornerShape(22.dp)).padding(horizontal = 18.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.Bottom,
+    ) {
+        Text(NahCopy.word(v), style = Nah.style(40.sp, 900, 40.sp, (-0.07).em, Nah.verdictColor(v)), modifier = Modifier.weight(1f))
+        Text(meaning, style = Nah.style(15.sp, 400, 20.sp, color = Nah.cardMuted), modifier = Modifier.padding(bottom = 4.dp))
+    }
+}
+
+/** A list point marked with the square full stop. */
+@Composable
+private fun Point(text: String) {
+    val c = Nah.c
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Box(Modifier.padding(top = 7.dp)) { Stop(8.dp) }
+        Text(text, style = Nah.style(15.sp, 400, 22.sp, color = if (c.dark) androidx.compose.ui.graphics.Color(0xFFD4D4D4) else c.ink))
     }
 }

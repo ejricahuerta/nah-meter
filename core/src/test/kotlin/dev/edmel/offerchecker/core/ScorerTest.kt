@@ -56,6 +56,13 @@ class ScorerTest {
     @Test fun hourlyFailIsRedEvenWithHighPerKm() =
         check(offer("6.00", 30, "1.0"), Verdict.RED, "12.00", "6.00", "Under \$20/hr target")
 
+    @Test fun failedCheckIsNamed() {
+        assertEquals(Check.MIN_PAY, Scorer.score(offer("5.00", 8, "2.0"), defaults).failed)
+        assertEquals(Check.HOURLY, Scorer.score(offer("6.07", 23, "11.5"), defaults).failed)
+        assertEquals(Check.PER_KM, Scorer.score(offer("10.00", 25, "12.0"), defaults).failed)
+        assertEquals(null, Scorer.score(offer("9.40", 22, "6.8"), defaults).failed)
+    }
+
     @Test fun customThresholdsLabelled() {
         val t = Thresholds(BigDecimal("6"), BigDecimal("22.50"), BigDecimal("1.25"), 0)
         assertEquals("Under \$22.50/hr target", Scorer.score(offer("8.00", 24, "5.0"), t).failedRule)

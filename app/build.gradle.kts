@@ -15,7 +15,7 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "dev.edmel.offerchecker"
+        applicationId = "app.nahmeter"
         minSdk = 26
         targetSdk = 35
         versionCode = buildNumber

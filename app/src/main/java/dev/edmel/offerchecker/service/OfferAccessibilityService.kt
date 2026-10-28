@@ -239,7 +239,7 @@ class OfferAccessibilityService : AccessibilityService() {
 
     private fun onNewCard(e: Evaluation, raw: List<String>) {
         val s = settings
-        badge.show(e, s.compactBadge, cardTop ?: popupTop)
+        badge.show(e, s.thresholds, s.compactBadge, cardTop ?: popupTop)
         if (s.vibration) alerts.vibrate(e.verdict)
         ServiceState.lastReadFlow.value = LastRead(System.currentTimeMillis(), e, raw)
         val offer = e.offer ?: return
@@ -261,7 +261,7 @@ class OfferAccessibilityService : AccessibilityService() {
     fun showTestBadge() {
         val e = Scorer.score(Offer(BigDecimal("6.07"), 23, BigDecimal("11.5")), settings.thresholds)
         val s = settings
-        badge.show(e, s.compactBadge, null)
+        badge.show(e, s.thresholds, s.compactBadge, null)
         if (s.vibration) alerts.vibrate(e.verdict)
     }
 

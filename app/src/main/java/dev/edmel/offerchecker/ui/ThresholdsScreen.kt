@@ -32,6 +32,7 @@ import dev.edmel.offerchecker.core.Scorer
 import dev.edmel.offerchecker.data.AppSettings
 import dev.edmel.offerchecker.data.OfferDatabase
 import dev.edmel.offerchecker.data.SettingsRepository
+import dev.edmel.offerchecker.service.NahCopy
 import dev.edmel.offerchecker.service.ServiceState
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
@@ -43,6 +44,7 @@ fun ThresholdsScreen(settings: AppSettings, modifier: Modifier = Modifier) {
     val repo = remember { SettingsRepository(ctx) }
     val scope = rememberCoroutineScope()
     val t = settings.thresholds
+    val c = Nah.c
 
     // The offer to preview: the last one read, else the last logged, else the PRD's example.
     val lastRead by ServiceState.lastRead.collectAsState()
@@ -61,57 +63,57 @@ fun ThresholdsScreen(settings: AppSettings, modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("Thresholds", style = Wi.title)
-            Text("Checked in order. The first one missed sets the verdict.", style = Wi.label)
+            Text("Thresholds", style = Nah.title.copy(color = c.ink))
+            Text("Checked in order. The first one missed decides.", style = Nah.style(14.sp, 400, 20.sp, color = c.inkMuted))
         }
 
         Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Wi.surface)
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(c.surface)
                 .padding(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 12.dp)
                 .semantics(mergeDescendants = true) {
-                    contentDescription = "${if (isExample) "Example offer" else "Your last offer"} would be " +
-                        "${Wi.word(preview.verdict)}: ${preview.ratesText}"
+                    contentDescription = "${if (isExample) "An example offer" else "Your last offer"} would be " +
+                        "${NahCopy.word(preview.verdict)} $${preview.hourly} per hour"
                 },
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 buildAnnotatedString {
-                    append(if (isExample) "Example offer\n" else "Your last offer\n")
-                    withStyle(SpanStyle(color = Wi.ink, fontWeight = FontWeight.W600)) {
+                    append(if (isExample) "An example offer would be\n" else "Your last offer would be\n")
+                    withStyle(SpanStyle(color = c.ink, fontWeight = FontWeight.W600)) {
                         append("$${sample.pay.toPlainString()} · ${sample.minutes} min · ${sample.km.toPlainString()} km")
                     }
                 },
-                style = Wi.style(14.sp, 400, 18.sp, color = Wi.inkMuted),
+                style = Nah.style(14.sp, 400, 19.sp, color = c.inkMuted),
                 modifier = Modifier.weight(1f),
             )
-            VerdictPill(preview.verdict, background = Wi.surfaceRaised)
+            VerdictPill(preview.verdict, preview.hourly?.let { "$${it.toPlainString()}" })
         }
 
-        WiGroup {
+        NahGroup {
             ThresholdField(
-                "1 · Minimum pay", money(t.minPay), null, "Below this is always SKIP",
+                "1 · Minimum pay", money(t.minPay), null, "Below this is always nah.",
                 "Decrease minimum pay by $0.50", "Increase minimum pay by $0.50",
                 { scope.launch { repo.setMinPay(step(t.minPay, "-0.50", "0", "50")) } },
                 { scope.launch { repo.setMinPay(step(t.minPay, "0.50", "0", "50")) } },
             )
-            WiDivider()
+            NahDivider()
             val mins = sample.minutes + t.waitBufferMin
             ThresholdField(
-                "2 · Hourly target", money(t.minHourly), "/hr",
+                "2 · Hourly floor", money(t.minHourly), "/hr",
                 "$mins min offer needs ${money(t.minHourly * BigDecimal(mins) / BigDecimal(60))}",
-                "Decrease hourly target by $0.50", "Increase hourly target by $0.50",
+                "Decrease hourly floor by $0.50", "Increase hourly floor by $0.50",
                 { scope.launch { repo.setMinHourly(step(t.minHourly, "-0.50", "5", "80")) } },
                 { scope.launch { repo.setMinHourly(step(t.minHourly, "0.50", "5", "80")) } },
             )
-            WiDivider()
+            NahDivider()
             ThresholdField(
-                "3 · Per-km target", money(t.minPerKm), "/km",
+                "3 · Per-km floor", money(t.minPerKm), "/km",
                 "${sample.km.toPlainString()} km offer needs ${money(t.minPerKm * sample.km)}",
-                "Decrease per-km target by $0.05", "Increase per-km target by $0.05",
+                "Decrease per-km floor by $0.05", "Increase per-km floor by $0.05",
                 { scope.launch { repo.setMinPerKm(step(t.minPerKm, "-0.05", "0", "5")) } },
                 { scope.launch { repo.setMinPerKm(step(t.minPerKm, "0.05", "0", "5")) } },
             )
-            WiDivider()
+            NahDivider()
             ThresholdField(
                 "Restaurant wait buffer", "${t.waitBufferMin}", " min", "Added to Uber's time",
                 "Decrease wait buffer by 1 minute", "Increase wait buffer by 1 minute",
@@ -120,13 +122,13 @@ fun ThresholdsScreen(settings: AppSettings, modifier: Modifier = Modifier) {
             )
         }
 
-        WiGroup {
-            WiRow("Vibrate on verdict", "GO short · MAYBE double · SKIP long") {
-                WiSwitch(settings.vibration, { v -> scope.launch { repo.setVibration(v) } }, "Vibrate on verdict")
+        NahGroup {
+            NahRow("Buzz on verdict", "bet short · eh double · nah long") {
+                NahSwitch(settings.vibration, { v -> scope.launch { repo.setVibration(v) } }, "Buzz on verdict")
             }
-            WiDivider()
-            WiRow("Compact badge", "Pill at the top instead of the card") {
-                WiSwitch(settings.compactBadge, { v -> scope.launch { repo.setCompactBadge(v) } }, "Compact badge")
+            NahDivider()
+            NahRow("Compact verdict", "Small pill at the top instead") {
+                NahSwitch(settings.compactBadge, { v -> scope.launch { repo.setCompactBadge(v) } }, "Compact verdict")
             }
         }
     }

@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Notification icon: the n. monogram as a silhouette. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
@@ -6,5 +7,5 @@
     android:viewportHeight="24">
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M9,16.17L4.83,12l-1.42,1.41L9,19 21,7l-1.41,-1.41z" />
+        android:pathData="M1.14 4.35V20H6.87V11.91C6.87 9.67 7.46 8.4 8.9 8.4C10.44 8.4 10.7 9.67 10.7 11.91V20H16.46V9.93C16.46 6.1 14.31 4 11 4C8.96 4 7.28 4.71 6.39 6.75L6.25 4.35Z M18.06,15.20h4.80v4.80h-4.80z" />
 </vector>

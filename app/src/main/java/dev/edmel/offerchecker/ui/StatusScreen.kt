@@ -31,10 +31,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
-import dev.edmel.offerchecker.core.Verdict
 import dev.edmel.offerchecker.data.AppSettings
 import dev.edmel.offerchecker.data.SettingsRepository
-import dev.edmel.offerchecker.service.BadgeOverlay
+import dev.edmel.offerchecker.service.NahCopy
 import dev.edmel.offerchecker.service.ServiceState
 import kotlinx.coroutines.launch
 import java.text.DateFormat
@@ -60,19 +59,20 @@ fun StatusScreen(settings: AppSettings, modifier: Modifier = Modifier) {
     val uber = remember(refresh) { SystemSetup.uberInstalled(ctx) }
     val reading = a11y && running
 
+    val c = Nah.c
     Column(
         modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(ScreenPadding),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         Row(Modifier.fillMaxWidth().heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.weight(1f)) { Wordmark() }
-            WiSwitch(settings.readingEnabled, { v -> scope.launch { repo.setReadingEnabled(v) } }, "Read offers")
+            Box(Modifier.weight(1f)) { Wordmark(24.sp) }
+            NahSwitch(settings.readingEnabled, { v -> scope.launch { repo.setReadingEnabled(v) } }, "Read offers")
         }
 
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             when {
                 !reading -> StatusPill(false, "Accessibility is off · not reading")
-                !settings.readingEnabled -> StatusPill(false, "Paused · no badges")
+                !settings.readingEnabled -> StatusPill(false, "Paused · no verdicts")
                 else -> StatusPill(true, "Reading offers")
             }
         }
@@ -80,45 +80,41 @@ fun StatusScreen(settings: AppSettings, modifier: Modifier = Modifier) {
         Column {
             val l = last
             if (l == null) {
-                Text("Last offer", style = Wi.sectionLabel, modifier = Modifier.padding(bottom = 8.dp))
-                WiGroup {
-                    WiRow(
-                        "None read yet",
-                        "Go online in Uber and the next offer shows here. Or tap Test badge.",
-                    )
+                SectionLabel("Last offer")
+                NahGroup {
+                    NahRow("None read yet", "Go online in Uber and the next offer shows here. Or test the card below.")
                 }
             } else {
                 val e = l.evaluation
                 val time = SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(l.time))
-                Text("Last offer · $time", style = Wi.sectionLabel, modifier = Modifier.padding(bottom = 8.dp))
+                SectionLabel("Last offer · $time")
+                val t = settings.thresholds
                 VerdictCard(
                     verdict = e.verdict,
                     hourly = e.hourly?.let { "$${it.toPlainString()}" },
-                    footLeft = e.offer?.let { o ->
+                    reason = e.offer?.let { o ->
                         "$${o.pay.toPlainString()} · ${e.effectiveMinutes} min · ${o.km.toPlainString()} km" +
-                            if (o.stacked) " · ×2" else ""
-                    },
-                    reason = BadgeOverlay.reason(e).removeSuffix(" target"),
+                            (if (o.stacked) " · ×2" else "") + " · " + NahCopy.shortReason(e, t)
+                    } ?: NahCopy.cardReason(e, t),
+                    spoken = "Last offer: " + NahCopy.spoken(e, t),
                 )
             }
         }
 
-        // Setup steps, in the order the README's install guide gives them.
+        // Setup steps, in the order the PRD's install guide gives them.
         val restricted = Build.VERSION.SDK_INT >= 33 && !a11y
         val checkable = listOf(a11y, battery, notifs, uber.isNotEmpty())
+        val done = checkable.count { it }
         Column {
-            Text(
-                "Setup · ${checkable.count { it }} of ${checkable.size} done",
-                style = Wi.sectionLabel, modifier = Modifier.padding(bottom = 8.dp),
-            )
-            WiGroup {
+            SectionLabel(if (done == checkable.size) "Setup · all done" else "Setup · $done of ${checkable.size} done")
+            NahGroup {
                 if (restricted) {
                     SetupStep(
                         StepState.Todo, "Allow restricted settings",
                         "Android 13+: App info → ⋮ → Allow restricted settings, then turn on Accessibility",
                         "Open",
                     ) { SystemSetup.openAppInfo(ctx) }
-                    WiDivider()
+                    NahDivider()
                 }
                 SetupStep(
                     if (a11y) StepState.Done else StepState.Todo, "Accessibility",
@@ -129,31 +125,31 @@ fun StatusScreen(settings: AppSettings, modifier: Modifier = Modifier) {
                     },
                     if (reading) null else "Open",
                 ) { SystemSetup.openAccessibility(ctx) }
-                WiDivider()
+                NahDivider()
                 SetupStep(
                     if (battery) StepState.Done else StepState.Todo, "Battery unrestricted",
-                    if (battery) "Android won't pause the reader" else "Restricted · Android may stop the reader",
+                    if (battery) "Android won't pause nahmeter" else "Restricted · Android may stop nahmeter",
                     if (battery) null else "Allow",
                 ) { SystemSetup.requestUnrestrictedBattery(ctx) }
                 if (SystemSetup.isSamsung || SystemSetup.isXiaomi) {
-                    WiDivider()
+                    NahDivider()
                     SetupStep(
                         StepState.Manual,
                         if (SystemSetup.isSamsung) "Never sleeping (Samsung)" else "Autostart (Xiaomi)",
-                        if (SystemSetup.isSamsung) "Add Worth It to Never sleeping apps" else "Turn on Autostart, battery No restrictions",
+                        if (SystemSetup.isSamsung) "Survives long shifts · add nahmeter to Never sleeping apps" else "Turn on Autostart, battery No restrictions",
                         "Open",
                     ) { SystemSetup.openBrandBattery(ctx) }
                 }
-                WiDivider()
+                NahDivider()
                 SetupStep(
                     if (notifs) StepState.Done else StepState.Todo, "Notifications",
-                    if (notifs) "On · shows that Worth It is running" else "Off · needed to stay running",
+                    if (notifs) "On · shows that nahmeter is on" else "Off · needed to keep running",
                     if (notifs) null else "Allow",
                 ) {
                     if (Build.VERSION.SDK_INT >= 33) notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                     else SystemSetup.openNotificationSettings(ctx)
                 }
-                WiDivider()
+                NahDivider()
                 SetupStep(
                     if (uber.isNotEmpty()) StepState.Done else StepState.Todo, "Uber app",
                     if (uber.isNotEmpty()) "Found: ${uber.joinToString()}" else "Uber Driver isn't installed",
@@ -162,20 +158,20 @@ fun StatusScreen(settings: AppSettings, modifier: Modifier = Modifier) {
             }
         }
 
-        WiButton(
-            "Test badge",
+        NahButton(
+            "Test the card",
             onClick = {
                 if (!ServiceState.showTestBadge()) Toast.makeText(ctx, "Turn on Accessibility first", Toast.LENGTH_SHORT).show()
             },
-            kind = WiButtonKind.Secondary,
+            kind = NahButtonKind.Secondary,
             modifier = Modifier.fillMaxWidth(),
         )
 
         Diagnostics(a11y, running)
 
         Text(
-            "Read-only: never taps in Uber. No internet permission; nothing leaves your phone.",
-            style = Wi.style(13.sp, 400, 18.sp, color = Wi.inkMuted),
+            "Advice only: nahmeter never taps anything in Uber. No internet permission; nothing leaves your phone.",
+            style = Nah.style(13.sp, 400, 18.sp, color = c.inkMuted),
         )
     }
 }
@@ -190,7 +186,7 @@ private fun Diagnostics(a11y: Boolean, running: Boolean) {
     val windows by ServiceState.windows.collectAsState()
     val log by ServiceState.log.collectAsState()
     val diag = buildString {
-        appendLine("Worth It ${appVersion(ctx)}, Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}), ${Build.MANUFACTURER} ${Build.MODEL}")
+        appendLine("nahmeter ${appVersion(ctx)}, Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}), ${Build.MANUFACTURER} ${Build.MODEL}")
         appendLine("Accessibility enabled: $a11y, reader running: $running")
         appendLine("Uber screen events received: $uberEvents")
         appendLine("Windows at last scan: ${windows.joinToString().ifEmpty { "none" }}")
@@ -206,26 +202,26 @@ private fun Diagnostics(a11y: Boolean, running: Boolean) {
     }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Diagnostics", style = Wi.heading, modifier = Modifier.weight(1f))
-            WiButton(if (open) "Hide" else "Show", { open = !open }, kind = WiButtonKind.Tertiary)
+            Text("Diagnostics", style = Nah.heading.copy(color = Nah.c.ink), modifier = Modifier.weight(1f))
+            NahButton(if (open) "Hide" else "Show", { open = !open }, kind = NahButtonKind.Tertiary)
         }
         if (open) {
             Text(
                 "What the reader saw around recent offers. If a badge was wrong, copy this and send it.",
-                style = Wi.label,
+                style = Nah.label.copy(color = Nah.c.inkMuted),
             )
-            WiButton(
+            NahButton(
                 "Copy diagnostics",
                 onClick = {
                     val cm = ctx.getSystemService(android.content.ClipboardManager::class.java)
-                    cm.setPrimaryClip(android.content.ClipData.newPlainText("Worth It diagnostics", diag))
+                    cm.setPrimaryClip(android.content.ClipData.newPlainText("nahmeter diagnostics", diag))
                     Toast.makeText(ctx, "Copied", Toast.LENGTH_SHORT).show()
                 },
-                kind = WiButtonKind.Secondary, small = true,
+                kind = NahButtonKind.Secondary, small = true,
             )
-            WiGroup {
+            NahGroup {
                 Text(
-                    diag.trim(), color = Wi.inkMuted, fontFamily = FontFamily.Monospace, fontSize = 12.sp,
+                    diag.trim(), color = Nah.c.inkMuted, fontFamily = FontFamily.Monospace, fontSize = 12.sp,
                     lineHeight = 16.sp, modifier = Modifier.padding(12.dp),
                 )
             }
@@ -235,6 +231,3 @@ private fun Diagnostics(a11y: Boolean, running: Boolean) {
 
 private fun appVersion(ctx: android.content.Context): String =
     runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull() ?: "?"
-
-/** Verdict colour as a Compose colour, for small dots and bars. */
-fun verdictColor(v: Verdict) = Wi.fill(v).first

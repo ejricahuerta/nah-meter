@@ -4,6 +4,9 @@ import java.math.BigDecimal
 
 enum class Verdict { GREEN, YELLOW, RED, GREY }
 
+/** The decision rules, in the order they're checked. */
+enum class Check { MIN_PAY, HOURLY, PER_KM }
+
 /** One delivery offer as read from the card. Pay is in CAD; minutes are Uber's total. */
 data class Offer(
     val pay: BigDecimal,
@@ -42,6 +45,8 @@ data class Evaluation(
     val perKm: BigDecimal?,
     /** The first rule that failed, e.g. "Under $20/hr target". */
     val failedRule: String?,
+    /** Which check [failedRule] is, for wording it elsewhere. */
+    val failed: Check? = null,
 ) {
     /** "$15.83/hr · $0.53/km", or "Can't read" for grey. */
     val ratesText: String

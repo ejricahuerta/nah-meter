@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Worth It</string>
-    <string name="accessibility_description">Worth It reads the pay, minutes and km on each Uber Eats offer and shows GO, MAYBE or SKIP above it. Read-only: it never taps anything, and nothing leaves your phone.</string>
+    <string name="app_name">nahmeter</string>
+    <string name="accessibility_description">nahmeter reads the pay, minutes and km on each Uber Eats offer and answers in one word above it: bet., eh. or nah. Read-only: it never taps anything in Uber, and nothing leaves your phone.</string>
 </resources>

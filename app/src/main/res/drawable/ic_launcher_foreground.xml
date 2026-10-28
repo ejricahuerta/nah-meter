@@ -1,26 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Worth It meter mark: a heavy white arc whose last segment is green, needle pointing into it. -->
+<!-- nahmeter "n." monogram: Geist Black n with the square red full stop, black on a white tile. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
     <path
-        android:pathData="M34.95,71 A22,22 0,0 1,71.8 47.06"
-        android:strokeWidth="7"
-        android:strokeColor="#FFFFFFFF"
-        android:strokeLineCap="round" />
+        android:fillColor="#FF000000"
+        android:pathData="M26.85 34.89V74H41.17V53.78C41.17 48.17 42.64 45 46.26 45C50.1 45 50.76 48.17 50.76 53.78V74H65.15V48.83C65.15 39.24 59.76 34 51.5 34C46.41 34 42.2 35.77 39.99 40.86L39.62 34.89Z" />
     <path
-        android:pathData="M74.1,51.05 A22,22 0,0 1,73.05 71"
-        android:strokeWidth="7"
-        android:strokeColor="#FF3EDB84"
-        android:strokeLineCap="round" />
-    <path
-        android:pathData="M54,60 L70,57"
-        android:strokeWidth="4"
-        android:strokeColor="#FFFFFFFF"
-        android:strokeLineCap="round" />
-    <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M54,60m-4.5,0a4.5,4.5 0,1 1,9 0a4.5,4.5 0,1 1,-9 0" />
+        android:fillColor="#FFE5251B"
+        android:pathData="M69.15,62.00h12.00v12.00h-12.00z" />
 </vector>

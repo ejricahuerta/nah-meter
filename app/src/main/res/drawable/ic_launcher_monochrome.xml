@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Themed-icon version of the n. monogram (Android tints it). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M26.85 34.89V74H41.17V53.78C41.17 48.17 42.64 45 46.26 45C50.1 45 50.76 48.17 50.76 53.78V74H65.15V48.83C65.15 39.24 59.76 34 51.5 34C46.41 34 42.2 35.77 39.99 40.86L39.62 34.89Z M69.15,62.00h12.00v12.00h-12.00z" />
+</vector>

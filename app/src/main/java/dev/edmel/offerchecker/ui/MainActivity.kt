@@ -24,7 +24,10 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -48,28 +51,32 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Dark is the default (and only) theme: black bars with light icons.
+        // Mono (dark) by default, Daylight when the phone is in light mode; bars follow.
         enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.dark(AndroidColor.BLACK),
-            navigationBarStyle = SystemBarStyle.dark(AndroidColor.BLACK),
+            statusBarStyle = SystemBarStyle.auto(AndroidColor.WHITE, AndroidColor.BLACK),
+            navigationBarStyle = SystemBarStyle.auto(AndroidColor.WHITE, AndroidColor.BLACK),
         )
         setContent {
-            MaterialTheme(
-                colorScheme = darkColorScheme(
-                    background = Wi.ground, surface = Wi.surface, onSurface = Wi.ink,
-                    primary = Wi.ink, onPrimary = Wi.onInk, surfaceContainerHigh = Wi.surfaceRaised,
-                ),
-            ) {
-                App()
+            NahTheme {
+                val c = Nah.c
+                val scheme = if (c.dark) darkColorScheme() else lightColorScheme()
+                MaterialTheme(
+                    colorScheme = scheme.copy(
+                        background = c.ground, surface = c.surface, onSurface = c.ink,
+                        primary = c.ink, onPrimary = c.onInk, surfaceContainerHigh = c.surfaceRaised,
+                    ),
+                ) {
+                    CompositionLocalProvider(LocalContentColor provides c.ink) { App() }
+                }
             }
         }
     }
 }
 
 private enum class Tab(val label: String, val icon: ImageVector) {
-    STATUS("Status", WiIcons.status),
-    THRESHOLDS("Thresholds", WiIcons.sliders),
-    LOG("Log", WiIcons.list),
+    STATUS("Status", NahIcons.status),
+    THRESHOLDS("Thresholds", NahIcons.sliders),
+    LOG("Log", NahIcons.list),
 }
 
 @Composable
@@ -80,7 +87,7 @@ private fun App() {
     val settings by repo.settings.collectAsState(initial = null)
     var tab by rememberSaveable { mutableIntStateOf(0) }
 
-    Box(Modifier.fillMaxSize().background(Wi.ground).windowInsetsPadding(WindowInsets.safeDrawing)) {
+    Box(Modifier.fillMaxSize().background(Nah.c.ground).windowInsetsPadding(WindowInsets.safeDrawing)) {
         val s = settings ?: return@Box
         if (!s.onboarded) {
             OnboardingScreen(s.thresholds, onSetUp = { scope.launch { repo.setOnboarded() } })
@@ -103,10 +110,11 @@ private fun App() {
 @Composable
 private fun TabBar(selected: Int, onSelect: (Int) -> Unit) {
     Column {
-        Box(Modifier.fillMaxWidth().height(1.dp).background(Wi.line))
-        Row(Modifier.fillMaxWidth().background(Wi.ground).padding(start = 8.dp, end = 8.dp, top = 6.dp, bottom = 6.dp)) {
+        val c = Nah.c
+        Box(Modifier.fillMaxWidth().height(1.dp).background(c.line))
+        Row(Modifier.fillMaxWidth().background(c.ground).padding(start = 8.dp, end = 8.dp, top = 6.dp, bottom = 6.dp)) {
             Tab.entries.forEachIndexed { i, t ->
-                val color = if (i == selected) Wi.ink else Wi.inkMuted
+                val color = if (i == selected) c.ink else c.inkMuted
                 Column(
                     Modifier.weight(1f).heightIn(min = 56.dp)
                         .semantics { this.selected = i == selected }
@@ -115,7 +123,7 @@ private fun TabBar(selected: Int, onSelect: (Int) -> Unit) {
                     verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically),
                 ) {
                     Icon(t.icon, contentDescription = null, tint = color, modifier = Modifier.size(24.dp))
-                    Text(t.label, style = Wi.style(12.sp, 600, 16.sp, color = color))
+                    Text(t.label, style = Nah.style(12.sp, 600, 16.sp, color = color))
                 }
             }
         }

@@ -1,13 +1,14 @@
-# Worth It (Uber Eats Offer Checker)
+# nahmeter
 
-An Android app that reads each Uber Eats delivery offer as it appears and docks a verdict,
-**GO / MAYBE / SKIP**, just above the offer card within about a second, so you can accept or
-decline without doing math under the 15-second timer. The look follows the Worth It design
-system: black and white, Geist, and colour only on the verdict.
+An Android app that reads each Uber Eats delivery offer as it appears and answers in one word,
+docked just above the offer card within about a second: **bet.**, **eh.** or **nah.** So you can
+decide without doing math under the 15-second timer. "nah." for short.
 
-- **Read-only.** It never taps anything in Uber: no auto-accept, no auto-decline.
+- **Advice only.** It never taps anything in Uber: no auto-accept, no auto-decline.
 - **Offline.** No internet permission at all; nothing leaves the phone.
 - **Android 8.0+**, sideloaded APK (not on Google Play).
+- The look follows the nahmeter design system: black and white, Geist, heavy lowercase type, and
+  colour only on the verdict word. Mono (dark) by default, Daylight when the phone is in light mode.
 
 ## Download
 
@@ -20,36 +21,37 @@ system: black and white, Geist, and colour only on the verdict.
 
 | Order | Check                  | Default        | If it fails |
 |-------|------------------------|----------------|-------------|
-| 1     | Minimum pay            | pay ≥ $5.50    | SKIP        |
-| 2     | Hourly rate (priority) | ≥ $20.00/hr    | SKIP        |
-| 3     | Per-km rate            | ≥ $1.00/km     | MAYBE       |
-| 4     | All passed             | —              | GO          |
+| 1     | Minimum pay            | pay ≥ $5.50    | nah.        |
+| 2     | Hourly floor (priority)| ≥ $20.00/hr    | nah.        |
+| 3     | Per-km floor           | ≥ $1.00/km     | eh.         |
+| 4     | All passed             | —              | bet.        |
 
 The first check that fails sets the colour. Exactly meeting a target passes. If a number
-can't be read, the badge says **CAN'T READ**, never a guess. Every threshold is editable
+can't be read, the card says **can't read.**, never a guess. Every threshold is editable
 in Settings.
 
-Example: $6.07, 23 min, 11.5 km → **SKIP**, `$15.83/hr · $0.53/km`, "Under $20/hr target".
+Example: $6.07, 23 min, 11.5 km → **nah.** `$15.83/hr`, with "Under your $20 · $0.53/km" underneath.
 
 ## First-time setup on the phone (about 5 minutes)
 
 1. Download the APK on the phone and tap it.
 2. Allow **Install unknown apps** for your browser or file app when asked.
 3. If Play Protect warns, tap **More details → Install anyway**.
-4. Open **Offer Checker**; the Status screen lists what's missing, with a button for each.
-5. **Android 13+:** Settings → Apps → Offer Checker → **⋮ → Allow restricted settings**
+4. Open **nahmeter**; the Status screen lists what's missing, with a button for each.
+5. **Android 13+:** Settings → Apps → nahmeter → **⋮ → Allow restricted settings**
    (sideloaded apps need this before step 6).
-6. Settings → Accessibility → **Offer Checker → On**.
+6. Settings → Accessibility → **nahmeter → On**.
 7. Battery → **Unrestricted** for the app.
    Samsung: also add it to **Never sleeping apps**. Xiaomi/Redmi: turn on **Autostart** and set
    battery to **No restrictions**. The Status screen links to the right page.
 8. Allow notifications (for the "Offer checker on" notice).
-9. Open Uber Driver and wait for an offer, or tap **Test badge** on the Status screen.
+9. Open Uber Driver and wait for an offer, or tap **Test the card** on the Status screen.
 
-**Using the badge:** the verdict card docks just above Uber's offer card; turn on
-**Compact badge** in Thresholds for a small pill at the top instead. Tap it to dismiss. It
-disappears when the offer closes or after 20 s. Vibration: GO one short, MAYBE two short,
-SKIP one long (can be turned off). The **Read offers** switch on Status pauses everything.
+**Using the verdict:** a black card docks 8dp above Uber's offer card: the word, the $/hr and
+the reason. Turn on **Compact verdict** in Thresholds for a small pill at the top instead (tap it
+to expand). Tap the card to dismiss it; it also leaves when the offer closes or after 20 s. Haptics:
+bet. one short buzz, eh. two short, nah. one long. The **Read offers** switch on Status pauses
+everything.
 
 **Updates:** install the new APK over the old one. Settings and the offer log are kept as
 long as the signing secrets below are set, because every build is then signed with the same key.

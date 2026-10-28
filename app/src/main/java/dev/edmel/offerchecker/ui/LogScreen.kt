@@ -41,6 +41,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import dev.edmel.offerchecker.core.Check
 import dev.edmel.offerchecker.core.Offer
 import dev.edmel.offerchecker.core.Scorer
 import dev.edmel.offerchecker.core.Thresholds
@@ -49,6 +50,7 @@ import dev.edmel.offerchecker.data.OfferCsv
 import dev.edmel.offerchecker.data.OfferDao
 import dev.edmel.offerchecker.data.OfferDatabase
 import dev.edmel.offerchecker.data.OfferEntry
+import dev.edmel.offerchecker.service.NahCopy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -86,6 +88,7 @@ fun LogScreen(thresholds: Thresholds, modifier: Modifier = Modifier) {
     val today = offers.filter { it.time >= startOfDay }
     fun count(v: Verdict) = today.count { it.verdict == v.name }
 
+    val c = Nah.c
     LazyColumn(
         modifier.fillMaxSize(),
         contentPadding = ScreenPadding,
@@ -93,53 +96,55 @@ fun LogScreen(thresholds: Thresholds, modifier: Modifier = Modifier) {
     ) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Today", style = Wi.title, modifier = Modifier.weight(1f))
-                WiButton("Export CSV", {
-                    export.launch("offers-${SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())}.csv")
-                }, kind = WiButtonKind.Tertiary, enabled = offers.isNotEmpty())
+                Text("Today", style = Nah.title.copy(color = c.ink), modifier = Modifier.weight(1f))
+                NahButton("Export CSV", {
+                    export.launch("nahmeter-${SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())}.csv")
+                }, kind = NahButtonKind.Tertiary, enabled = offers.isNotEmpty())
             }
         }
         item {
             Column(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Wi.surface)
-                    .padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(c.surface)
+                    .padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 16.dp)
+                    .semantics(mergeDescendants = true) { },
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 if (today.isEmpty()) {
-                    Text("No offers yet today", style = Wi.bodyStrong)
-                    Text("Each offer Worth It reads is listed here.", style = Wi.label)
+                    Text("No offers yet today", style = Nah.bodyStrong.copy(color = c.ink))
+                    Text("Every offer nahmeter reads lands here.", style = Nah.style(14.sp, 400, 20.sp, color = c.inkMuted))
                 } else {
                     val avg = "%.2f".format(Locale.US, today.map { it.hourly }.average())
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text("Average offer", style = Nah.style(14.sp, 500, 20.sp, color = c.inkMuted))
+                            Text(
+                                buildAnnotatedString {
+                                    append("$$avg")
+                                    withStyle(SpanStyle(fontSize = 16.sp, fontWeight = FontWeight.W600, letterSpacing = 0.em, color = c.inkMuted)) {
+                                        append("/hr")
+                                    }
+                                },
+                                style = Nah.style(40.sp, 800, 42.sp, (-0.045).em, c.ink),
+                            )
+                        }
                         Text(
-                            "Average offer · ${today.size} offer${if (today.size == 1) "" else "s"}",
-                            style = Wi.style(14.sp, 500, 20.sp, color = Wi.inkMuted),
-                        )
-                        Text(
-                            buildAnnotatedString {
-                                append("$$avg")
-                                withStyle(SpanStyle(fontSize = 18.sp, fontWeight = FontWeight.W600, letterSpacing = 0.em, color = Wi.inkMuted)) {
-                                    append("/hr")
-                                }
-                            },
-                            style = Wi.style(44.sp, 700, 48.sp, (-0.03).em),
+                            "${today.size} offer${if (today.size == 1) "" else "s"}",
+                            style = Nah.style(14.sp, 400, 20.sp, color = c.inkMuted),
                         )
                     }
-                    // Share of GO / MAYBE / SKIP today.
+                    // Share of bet / eh / nah today.
                     Row(
-                        Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(999.dp))
-                            .clearAndSetSemantics { },
+                        Modifier.fillMaxWidth().height(10.dp).clearAndSetSemantics { },
                         horizontalArrangement = Arrangement.spacedBy(3.dp),
                     ) {
                         listOf(Verdict.GREEN, Verdict.YELLOW, Verdict.RED).forEach { v ->
                             val n = count(v)
-                            if (n > 0) Box(Modifier.weight(n.toFloat()).fillMaxSize().background(verdictColor(v)))
+                            if (n > 0) Box(Modifier.weight(n.toFloat()).fillMaxSize().background(Nah.verdictColor(v)))
                         }
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         listOf(Verdict.GREEN, Verdict.YELLOW, Verdict.RED).forEach { v ->
-                            if (count(v) > 0) VerdictChip(v, "${count(v)} ${Wi.word(v)}")
+                            if (count(v) > 0) VerdictChip(v, "${count(v)} ${NahCopy.chipWord(v)}")
                         }
                     }
                 }
@@ -147,17 +152,17 @@ fun LogScreen(thresholds: Thresholds, modifier: Modifier = Modifier) {
         }
         if (offers.isNotEmpty()) {
             item {
-                WiGroup {
+                NahGroup {
                     offers.forEachIndexed { i, e ->
-                        if (i > 0) WiDivider()
+                        if (i > 0) NahDivider()
                         OfferRow(e, thresholds, today = e.time >= startOfDay)
                     }
                 }
             }
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("The last ${OfferDao.MAX_OFFERS} offers are kept.", style = Wi.label)
-                    WiButton("Clear log", { confirmClear = true }, kind = WiButtonKind.Tertiary)
+                    Text("The last ${OfferDao.MAX_OFFERS} offers are kept.", style = Nah.style(14.sp, 400, 20.sp, color = c.inkMuted))
+                    NahButton("Clear log", { confirmClear = true }, kind = NahButtonKind.Tertiary)
                 }
             }
         }
@@ -179,37 +184,34 @@ fun LogScreen(thresholds: Thresholds, modifier: Modifier = Modifier) {
     }
 }
 
-/** OfferRow: time, the offer's numbers, its rates (or the target it missed) and a verdict chip. */
+/** OfferRow: time, the offer's numbers, its rates (or the floor it missed) and a verdict chip. */
 @Composable
 private fun OfferRow(e: OfferEntry, thresholds: Thresholds, today: Boolean) {
+    val c = Nah.c
     val verdict = runCatching { Verdict.valueOf(e.verdict) }.getOrDefault(Verdict.GREY)
     val time = remember(e.time, today) {
         SimpleDateFormat(if (today) "h:mm a" else "MMM d", Locale.getDefault()).format(Date(e.time))
     }
     val hr = "$" + "%.2f".format(Locale.US, e.hourly) + "/hr"
-    // A SKIP shows the target it missed, when today's targets still give the same verdict.
-    val missed = if (verdict == Verdict.RED) {
-        Scorer.score(
-            Offer(BigDecimal.valueOf(e.pay), e.minutes, BigDecimal.valueOf(e.km)),
-            thresholds.copy(waitBufferMin = 0),
-        ).takeIf { it.verdict == verdict }?.failedRule?.removeSuffix(" target")?.replaceFirstChar { it.lowercase() }
-    } else null
-    val rates = when {
-        missed != null && missed.endsWith("minimum") -> missed
-        missed != null -> "$hr · $missed"
+    // A nah shows the floor it missed, when today's floors still give the same verdict.
+    val rescored = Scorer.score(Offer(BigDecimal.valueOf(e.pay), e.minutes, BigDecimal.valueOf(e.km)), thresholds.copy(waitBufferMin = 0))
+        .takeIf { it.verdict == verdict }
+    val rates = when (rescored?.failed) {
+        Check.MIN_PAY -> "under ${Scorer.money(thresholds.minPay)} min"
+        Check.HOURLY -> "$hr · under ${Scorer.money(thresholds.minHourly)}"
         else -> "$hr · ${e.perKm?.let { "$" + "%.2f".format(Locale.US, it) } ?: "—"}/km"
     }
     val nums = "$" + "%.2f".format(Locale.US, e.pay) + " · ${e.minutes} min · ${e.km} km" + if (e.stacked) " · ×2" else ""
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 60.dp).padding(horizontal = 16.dp, vertical = 10.dp)
-            .semantics(mergeDescendants = true) { contentDescription = "$time, ${Wi.word(verdict)}, $nums, $rates" },
+        Modifier.fillMaxWidth().heightIn(min = 58.dp).padding(horizontal = 16.dp, vertical = 9.dp)
+            .semantics(mergeDescendants = true) { contentDescription = "$time, ${NahCopy.word(verdict)} $nums, $rates" },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(time, style = Wi.style(13.sp, 500, 18.sp, color = Wi.inkMuted), modifier = Modifier.width(56.dp))
+        Text(time, style = Nah.style(13.sp, 500, 18.sp, color = c.inkMuted), modifier = Modifier.width(56.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(nums, style = Wi.style(16.sp, 600, 22.sp))
-            Text(rates, style = Wi.style(14.sp, 400, 20.sp, color = Wi.inkMuted))
+            Text(nums, style = Nah.style(16.sp, 600, 22.sp, color = c.ink))
+            Text(rates, style = Nah.style(14.sp, 400, 20.sp, color = c.inkMuted))
         }
         VerdictChip(verdict)
     }

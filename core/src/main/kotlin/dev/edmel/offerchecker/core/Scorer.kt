@@ -28,14 +28,19 @@ object Scorer {
         val perKm = if (offer.km.signum() > 0) offer.pay.divide(offer.km, 2, RoundingMode.HALF_UP) else null
 
         // Exact checks: pay*60 ≥ minHourly*minutes  ⇔  pay/minutes*60 ≥ minHourly.
-        val (verdict, failed) = when {
-            offer.pay < t.minPay -> Verdict.RED to "Under ${money(t.minPay)} minimum"
-            offer.pay.multiply(SIXTY) < t.minHourly.multiply(m) -> Verdict.RED to "Under ${money(t.minHourly)}/hr target"
-            offer.km.signum() > 0 && offer.pay < t.minPerKm.multiply(offer.km) ->
-                Verdict.YELLOW to "Under ${money(t.minPerKm)}/km target"
+        val (verdict, check) = when {
+            offer.pay < t.minPay -> Verdict.RED to Check.MIN_PAY
+            offer.pay.multiply(SIXTY) < t.minHourly.multiply(m) -> Verdict.RED to Check.HOURLY
+            offer.km.signum() > 0 && offer.pay < t.minPerKm.multiply(offer.km) -> Verdict.YELLOW to Check.PER_KM
             else -> Verdict.GREEN to null
         }
-        return Evaluation(verdict, offer, minutes, hourly, perKm, failed)
+        val rule = when (check) {
+            Check.MIN_PAY -> "Under ${money(t.minPay)} minimum"
+            Check.HOURLY -> "Under ${money(t.minHourly)}/hr target"
+            Check.PER_KM -> "Under ${money(t.minPerKm)}/km target"
+            null -> null
+        }
+        return Evaluation(verdict, offer, minutes, hourly, perKm, rule, check)
     }
 
     /** "$20" for whole dollars, "$5.50" otherwise. */
