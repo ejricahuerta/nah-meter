@@ -28,6 +28,19 @@ object ServiceState {
     internal val windowsFlow = MutableStateFlow<List<String>>(emptyList())
     val windows: StateFlow<List<String>> = windowsFlow
 
+    /** Diagnostics log, newest first: what the reader saw around each offer. */
+    internal val logFlow = MutableStateFlow<List<String>>(emptyList())
+    val log: StateFlow<List<String>> = logFlow
+
+    private val timeFormat = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US)
+
+    internal fun log(message: String) {
+        val line = "${timeFormat.format(java.util.Date())} $message"
+        logFlow.value = (listOf(line) + logFlow.value).take(MAX_LOG)
+    }
+
+    private const val MAX_LOG = 60
+
     @Volatile internal var service: OfferAccessibilityService? = null
 
     /** Shows a sample badge. Returns false when the reader is off. */

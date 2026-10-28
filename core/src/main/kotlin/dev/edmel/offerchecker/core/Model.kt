@@ -52,3 +52,6 @@ data class Evaluation(
         val CANT_READ = Evaluation(Verdict.GREY, null, null, null, null, null)
     }
 }
+
+/** One line of text recognised (OCR) in a screenshot, with its vertical position in pixels. */
+data class OcrLine(val text: String, val top: Int, val bottom: Int)

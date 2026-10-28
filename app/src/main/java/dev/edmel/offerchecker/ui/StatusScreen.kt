@@ -54,6 +54,7 @@ fun StatusScreen(modifier: Modifier = Modifier) {
     val uberEvents by ServiceState.uberEvents.collectAsState()
     val lastScreen by ServiceState.lastScreen.collectAsState()
     val windows by ServiceState.windows.collectAsState()
+    val log by ServiceState.log.collectAsState()
     val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { refresh++ }
 
     val a11y = remember(refresh, running) { SystemSetup.isAccessibilityEnabled(ctx) }
@@ -180,10 +181,13 @@ fun StatusScreen(modifier: Modifier = Modifier) {
                         appendLine("Uber screen text at ${DateFormat.getTimeInstance().format(Date(ls.first))}:")
                         ls.second.forEach { appendLine("  $it") }
                     }
+                    appendLine("Log (newest first):")
+                    if (log.isEmpty()) appendLine("  (empty)")
+                    log.forEach { appendLine("  $it") }
                 }
                 Text(
                     if (uberEvents == 0) "No events from Uber Driver yet. With the reader on, open Uber Driver: this number should go up."
-                    else "If an offer showed no badge, tap Copy and send this to the developer.",
+                    else "The log keeps what the reader saw around recent offers. If an offer showed no badge, tap Copy and send this to the developer.",
                     style = MaterialTheme.typography.bodySmall,
                 )
                 Text(diag.trim(), fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)

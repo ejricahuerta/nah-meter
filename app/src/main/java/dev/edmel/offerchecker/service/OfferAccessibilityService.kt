@@ -2,11 +2,15 @@ package dev.edmel.offerchecker.service
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
+import android.graphics.Rect
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import android.view.accessibility.AccessibilityWindowInfo
+import androidx.annotation.RequiresApi
 import dev.edmel.offerchecker.core.Evaluation
 import dev.edmel.offerchecker.core.Offer
 import dev.edmel.offerchecker.core.OfferParser
@@ -25,8 +29,9 @@ import kotlinx.coroutines.launch
 import java.math.BigDecimal
 
 /**
- * Watches the Uber Driver app (and only it, see accessibility_service_config.xml),
- * reads each offer card, scores it and shows the badge. It never performs any action in Uber.
+ * Watches for Uber Driver offers, reads each offer card, scores it and shows the badge.
+ * Text is read from Uber's windows through accessibility; when Uber doesn't share it, from a
+ * screenshot with on-device text recognition. It never performs any action in Uber.
  */
 class OfferAccessibilityService : AccessibilityService() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -44,6 +49,10 @@ class OfferAccessibilityService : AccessibilityService() {
     private var lastKeyAt = 0L
     private var cardMissingSince = 0L
 
+    // Screenshot reader (Android 11+), used when Uber doesn't share the offer's text.
+    private var ocrBusy = false
+    private var lastOcrAt = 0L
+
     override fun onServiceConnected() {
         settingsRepo = SettingsRepository(this)
         alerts = Alerts(this)
@@ -52,6 +61,7 @@ class OfferAccessibilityService : AccessibilityService() {
         ServiceState.service = this
         ServiceState.runningFlow.value = true
         StatusNotification.show(this)
+        ServiceState.log("Reader started")
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
@@ -67,20 +77,79 @@ class OfferAccessibilityService : AccessibilityService() {
         }
     }
 
-    private fun uberRoots(): List<AccessibilityNodeInfo> {
-        val roots = runCatching { windows.mapNotNull { it.root } }.getOrDefault(emptyList())
-        ServiceState.windowsFlow.value = roots.mapNotNull { it.packageName?.toString() }.distinct()
-        val fromWindows = roots.filter { it.packageName?.toString() == UBER_PACKAGE }
-        if (fromWindows.isNotEmpty()) return fromWindows
-        return listOfNotNull(rootInActiveWindow?.takeIf { it.packageName?.toString() == UBER_PACKAGE })
+    /** Uber's windows on screen: their view trees, and the screen area they cover. */
+    private class UberWindows(val roots: List<AccessibilityNodeInfo>, val bounds: Rect?, val present: Boolean)
+
+    private fun uberWindows(): UberWindows {
+        val all = runCatching { windows }.getOrDefault(emptyList())
+        val roots = mutableListOf<AccessibilityNodeInfo>()
+        var bounds: Rect? = null
+        var hiddenAppWindow = false
+        val seen = mutableListOf<String>()
+        for (w in all) {
+            val root = w.root
+            val pkg = root?.packageName?.toString()
+            seen += pkg ?: "?(type ${w.type})"
+            if (root == null && w.type == AccessibilityWindowInfo.TYPE_APPLICATION) hiddenAppWindow = true
+            if (root == null || pkg != UBER_PACKAGE) continue
+            roots += root
+            val r = Rect().also(w::getBoundsInScreen)
+            bounds = bounds?.apply { union(r) } ?: r
+        }
+        if (roots.isEmpty()) rootInActiveWindow?.takeIf { it.packageName?.toString() == UBER_PACKAGE }?.let { roots += it }
+        ServiceState.windowsFlow.value = seen.distinct()
+        logIfChanged("windows", "Windows on screen: ${seen.joinToString()}${bounds?.let { " · Uber area $it" } ?: ""}")
+        // A window whose content Android won't share might be Uber's offer: let the screenshot reader check.
+        return UberWindows(roots, bounds, roots.isNotEmpty() || hiddenAppWindow)
     }
 
     private fun scanScreen() {
-        val scan = runCatching { CardReader.scan(uberRoots()) }.getOrNull()
+        val uber = uberWindows()
+        val scan = runCatching { CardReader.scan(uber.roots) }.getOrNull()
         if (scan != null && scan.screenTexts.isNotEmpty()) {
             ServiceState.lastScreenFlow.value = System.currentTimeMillis() to scan.screenTexts.take(MAX_SCREEN_TEXTS)
+            if (scan.screenTexts.any { '$' in it || "km" in it }) {
+                logIfChanged("a11y", "Uber text (accessibility): ${scan.screenTexts.take(20).joinToString(" | ")}")
+            }
         }
         val read = scan?.cardTexts?.let(OfferParser::parse) ?: ReadResult.NoOffer
+        if (read == ReadResult.NoOffer && uber.present && Build.VERSION.SDK_INT >= 30) {
+            // Uber is on screen but shares no offer text: read a screenshot instead.
+            requestScreenRead(uber.bounds)
+            return
+        }
+        handleRead(read, "accessibility")
+    }
+
+    @RequiresApi(30)
+    private fun requestScreenRead(bounds: Rect?) {
+        if (ocrBusy) return
+        val wait = lastOcrAt + OCR_INTERVAL_MS - SystemClock.elapsedRealtime()
+        if (wait > 0) {
+            // Too soon after the last screenshot: look again once allowed.
+            if (!scanPending) {
+                scanPending = true
+                handler.postDelayed(scan, wait)
+            }
+            return
+        }
+        ocrBusy = true
+        lastOcrAt = SystemClock.elapsedRealtime()
+        ScreenReader.capture(this, bounds) { lines, screenHeight ->
+            ocrBusy = false
+            if (lines == null) {
+                logIfChanged("ocr", "Screenshot or text recognition failed")
+                return@capture
+            }
+            if (lines.any { '$' in it.text || "km" in it.text }) {
+                logIfChanged("ocr", "Uber text (screenshot): ${lines.take(20).joinToString(" | ") { it.text }}")
+            }
+            val card = OfferParser.cardFromOcr(lines, screenHeight)
+            handleRead(card?.let(OfferParser::parse) ?: ReadResult.NoOffer, "screenshot")
+        }
+    }
+
+    private fun handleRead(read: ReadResult, source: String) {
         val evaluation = Scorer.evaluate(read, settings.thresholds)
         if (evaluation == null) {
             onCardGone()
@@ -98,7 +167,17 @@ class OfferAccessibilityService : AccessibilityService() {
         if (key == lastKey && now - lastKeyAt < DEDUPE_MS) return
         lastKey = key
         lastKeyAt = now
+        ServiceState.log("Offer read from $source: ${evaluation.verdict} ${evaluation.ratesText}")
         onNewCard(evaluation, raw)
+    }
+
+    private val lastLogged = mutableMapOf<String, String>()
+
+    /** Adds to the diagnostics log only when this kind of entry changed since last time. */
+    private fun logIfChanged(kind: String, message: String) {
+        if (lastLogged[kind] == message) return
+        lastLogged[kind] = message
+        ServiceState.log(message)
     }
 
     /**
@@ -165,6 +244,7 @@ class OfferAccessibilityService : AccessibilityService() {
         handler.removeCallbacksAndMessages(null)
         if (::badge.isInitialized) badge.hide()
         StatusNotification.cancel(this)
+        ScreenReader.close()
         scope.cancel()
     }
 
@@ -173,5 +253,6 @@ class OfferAccessibilityService : AccessibilityService() {
         private const val DEDUPE_MS = 30_000L
         private const val CARD_GONE_MS = 600L
         private const val MAX_SCREEN_TEXTS = 80
+        private const val OCR_INTERVAL_MS = 1000L
     }
 }

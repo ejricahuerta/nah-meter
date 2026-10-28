@@ -88,4 +88,28 @@ class OfferParserTest {
     @Test fun paySplitAcrossTextPieces() {
         assertEquals(BigDecimal("5.50"), read("$", "5.50", "24 min (10.0 km) total").pay)
     }
+
+    /** OCR lines from the 2026-10-28 $5.58 pop-up over another app (1000 px tall screen). */
+    @Test fun ocrPopupPicksOnlyTheCard() {
+        val lines = listOf(
+            OcrLine("$9.99 deals near you", 100, 120), // other app's text, far above the card
+            OcrLine("$3.00", 250, 270), // outside the band
+            OcrLine("Delivery", 580, 600),
+            OcrLine("Exclusive", 580, 600),
+            OcrLine("$5.58", 630, 665),
+            OcrLine("including estimated tip", 690, 705),
+            OcrLine("27 min (13.7 km) total", 750, 765),
+            OcrLine("Burger King (1607 Birchmount Road)", 800, 815),
+            OcrLine("Accept", 900, 915),
+        )
+        val card = OfferParser.cardFromOcr(lines, 1000)!!
+        assertEquals(listOf("Delivery", "Exclusive", "$5.58", "including estimated tip", "27 min (13.7 km) total"), card)
+        val e = Scorer.evaluate(OfferParser.parse(card), Thresholds())!!
+        assertEquals(Verdict.RED, e.verdict)
+        assertEquals("\$12.40/hr · \$0.41/km", e.ratesText)
+    }
+
+    @Test fun ocrWithoutTripLineIsNull() {
+        assertEquals(null, OfferParser.cardFromOcr(listOf(OcrLine("$5.58", 0, 10)), 1000))
+    }
 }

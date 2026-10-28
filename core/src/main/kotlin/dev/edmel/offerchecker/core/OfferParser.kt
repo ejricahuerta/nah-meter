@@ -71,4 +71,20 @@ object OfferParser {
         val stacked = lines.any { STACKED.containsMatchIn(it) }
         return ReadResult.Read(Offer(pay, minutes, km, stacked), lines)
     }
+
+    /**
+     * Picks the offer card's lines out of a whole-screen OCR result: the trip line plus the
+     * lines just above it (pay, "including estimated tip"), so map labels elsewhere are ignored.
+     * Returns null when no trip line was recognised.
+     */
+    fun cardFromOcr(lines: List<OcrLine>, screenHeight: Int): List<String>? {
+        val trip = lines.firstOrNull { isTripLine(it.text) } ?: return null
+        val bandTop = trip.top - (screenHeight * OCR_BAND).toInt()
+        return lines.filter { it.top >= bandTop && it.bottom <= trip.bottom + 4 }
+            .sortedBy { it.top }
+            .map { it.text }
+    }
+
+    /** How far above the trip line (as a share of screen height) the pay can be. */
+    private const val OCR_BAND = 0.3
 }
