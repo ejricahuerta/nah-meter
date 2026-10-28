@@ -23,12 +23,21 @@ object OfferParser {
      * "(" read as "C", "[" or "{", missing brackets or spaces ("43min (13.6km)total").
      */
     private val TRIP = Regex(
-        """(\d+)\s*min\.?\s*[(\[{C]?\s*(\d+(?:[.,]\d+)?)\s*km\s*[)\]}]?\s*total""",
+        """(?:(\d+)\s*h(?:r|rs|our|ours)?\.?\s*)?(?:(\d+)\s*min\.?)?\s*[(\[{C]?\s*\+?\s*(\d+(?:[.,]\d+)?)\s*km\s*[)\]}]?\s*total""",
         RegexOption.IGNORE_CASE,
     )
 
     /** A line that is shaped like the trip line even if its numbers can't be read. */
-    private val TRIP_LIKE = Regex("""min.*km.*total""", RegexOption.IGNORE_CASE)
+    private val TRIP_LIKE = Regex("""(min|hr|hour).*km.*total""", RegexOption.IGNORE_CASE)
+
+    /** How many orders: "Delivery (3)", "Package (2)", "×2", "2 orders". */
+    private val ORDER_COUNT = Regex(
+        """(?:[×x]\s?([2-9])\b)|(?:\b([2-9]|two|three)\s+(?:orders|deliveries|pickups|packages)\b)|(?:\b(?:package|packages|delivery|deliveries|orders?)\s*\(\s*([2-9])\s*\))""",
+        RegexOption.IGNORE_CASE,
+    )
+
+    /** An add-on to a trip already accepted: "Add a delivery", with "+ $5.10" and "+ 13 min (+ 3.5 km)". */
+    private val ADD_ON = Regex("""add a delivery|add-on|^\W*\+\s*\$""", RegexOption.IGNORE_CASE)
 
     /** Markers of a stacked (multi-order) offer, e.g. "Package (2)", "×2", "2 orders". */
     private val STACKED = Regex(
@@ -87,22 +96,39 @@ object OfferParser {
         // The largest $ value inside the card is the pay.
         val pay = payValues(lines).maxOrNull()
             ?: return ReadResult.Unreadable(lines)
-        val minutes = trip.groupValues[1].toIntOrNull()
-        val km = trip.groupValues[2].replace(',', '.').toBigDecimalOrNull()
+        // "1 hr 1 min" = 61; "1 hr" = 60; "23 min" = 23.
+        val hours = trip.groupValues[1].toIntOrNull()
+        val mins = trip.groupValues[2].toIntOrNull()
+        val minutes = if (hours == null && mins == null) null else (hours ?: 0) * 60 + (mins ?: 0)
+        val km = trip.groupValues[3].replace(',', '.').toBigDecimalOrNull()
         if (minutes == null || minutes <= 0 || km == null || km < BigDecimal.ZERO) {
             return ReadResult.Unreadable(lines)
         }
-        val stacked = lines.any { STACKED.containsMatchIn(it) }
+        val orders = lines.firstNotNullOfOrNull { ORDER_COUNT.find(it) }?.let { m ->
+            when (val n = m.groupValues.drop(1).first { it.isNotEmpty() }.lowercase()) {
+                "two" -> 2
+                "three" -> 3
+                else -> n.toInt()
+            }
+        } ?: if (lines.any { STACKED.containsMatchIn(it) }) 2 else 1
+        val addOn = lines.any { ADD_ON.containsMatchIn(it) }
         val (pickup, dropoff) = places(lines)
-        return ReadResult.Read(Offer(pay, minutes, km, stacked, pickup, dropoff), lines)
+        return ReadResult.Read(
+            Offer(pay, minutes, km, orders > 1, pickup, dropoff, orders = orders, addOn = addOn),
+            lines,
+        )
     }
 
     /** The card's buttons: the place lines end here. */
     private val STOP = Regex("""^\W*(accept|match|decline|reject)\b""", RegexOption.IGNORE_CASE)
 
-    /** Card furniture that isn't a place. */
+    /**
+     * Card furniture that isn't a place, and nahmeter's own verdict card if a screenshot caught it
+     * ("can't read.", "Check this offer yourself", "Under your $20 ·").
+     */
     private val NOT_A_PLACE = Regex(
-        """customer verification|including estimated tip|exclusive|^\W*(delivery|package)\b|\$\s?\d""",
+        """customer verification|including estimated tip|exclusive|add a delivery|^\W*(delivery|package)\b|\$\s?\d|""" +
+            """^\W*(bet|eh|nah|can'?t read)\W*$|check this offer|under your|clears your|pays the hour|add-on ·""",
         RegexOption.IGNORE_CASE,
     )
 
@@ -118,13 +144,8 @@ object OfferParser {
             .filter { it.count(Char::isLetter) >= 3 && !NOT_A_PLACE.containsMatchIn(it) && !TRIP_LIKE.containsMatchIn(it) }
             .distinct()
         if (places.isEmpty()) return null to null
-        val dropoff = places.drop(1).fold("") { acc, l ->
-            when {
-                acc.isEmpty() -> l
-                acc.endsWith(",") -> "$acc $l"
-                else -> "$acc, $l"
-            }
-        }.trim().trimEnd(',').ifEmpty { null }
+        // Uber wraps one address over lines ("…, North" / "York"), so the lines join with a space.
+        val dropoff = places.drop(1).joinToString(" ").trim().trimEnd(',').ifEmpty { null }
         return places.first().trimEnd(',') to dropoff
     }
 

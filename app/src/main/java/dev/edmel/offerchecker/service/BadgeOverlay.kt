@@ -160,7 +160,7 @@ class BadgeOverlay(private val context: Context) {
             LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
         )
         if (!unknown) {
-            val stacked = if (e.offer?.stacked == true) " ×2" else ""
+            val stacked = e.offer?.orders?.takeIf { it > 1 }?.let { " ×$it" } ?: ""
             row.addView(
                 text(rate("$${e.hourly!!.toPlainString()}", "/hr$stacked", 15), 36f, font800, Color.WHITE, -0.04f)
                     .apply { maxLines = 1; setPadding(dp(12), 0, 0, dp(6)) },

@@ -93,8 +93,9 @@ fun StatusScreen(settings: AppSettings, modifier: Modifier = Modifier) {
                     verdict = e.verdict,
                     hourly = e.hourly?.let { "$${it.toPlainString()}" },
                     reason = e.offer?.let { o ->
-                        "$${o.pay.toPlainString()} · ${e.effectiveMinutes} min · ${o.km.toPlainString()} km" +
-                            (if (o.stacked) " · ×2" else "") + " · " + NahCopy.shortReason(e, t)
+                        (if (o.addOn) "Add-on · +" else "") +
+                            "$${o.pay.toPlainString()} · ${e.effectiveMinutes} min · ${o.km.toPlainString()} km" +
+                            (if (o.orders > 1) " · ×${o.orders}" else "") + " · " + NahCopy.shortReason(e, t)
                     } ?: NahCopy.cardReason(e, t),
                     spoken = "Last offer: " + NahCopy.spoken(e, t),
                 )

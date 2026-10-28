@@ -233,4 +233,59 @@ class OfferParserTest {
         assertEquals(null, o.pickup)
         assertEquals(null, o.dropoff)
     }
+
+    /** 2026-10-28 6:21: an "Add a delivery" card; every number is what it adds. */
+    @Test fun addOnOffer() {
+        val o = read(
+            "Add a delivery", "Exclusive", "+ $5.10", "including estimated tip", "+ 13 min (+ 3.5 km) total",
+            "Booster Juice (5937 Leslie St)", "Empress Ave & Wilfred Ave, North", "York", "Accept",
+        )
+        assertEquals(BigDecimal("5.10"), o.pay)
+        assertEquals(13, o.minutes)
+        assertEquals(BigDecimal("3.5"), o.km)
+        assertTrue(o.addOn)
+        assertEquals("Booster Juice (5937 Leslie St)", o.pickup)
+        assertEquals("Empress Ave & Wilfred Ave, North York", o.dropoff)
+        val e = Scorer.score(o, Thresholds(minPay = BigDecimal.ZERO))
+        assertEquals("\$23.54/hr · \$1.46/km", e.ratesText)
+        // OCR spacing variants of the same line.
+        assertEquals(13, read("+$5.10", "+13 min (+3.5 km) total").minutes)
+    }
+
+    /** 2026-10-28 6:33: a three-order trip over an hour. */
+    @Test fun hoursAndThreeOrders() {
+        val o = read(
+            "Delivery (3)", "Exclusive", "$19.02", "including estimated tip", "1 hr 1 min (14.6 km) total",
+            "My Sushi (Yonge St)", "Raglan Ave & St Clair Ave W, Toronto", "Accept",
+        )
+        assertEquals(61, o.minutes)
+        assertEquals(3, o.orders)
+        assertTrue(o.stacked)
+        assertFalse(o.addOn)
+        val e = Scorer.score(o, Thresholds())
+        assertEquals(Verdict.RED, e.verdict)
+        assertEquals("\$18.71/hr · \$1.30/km", e.ratesText)
+        assertEquals(120, read("$30.00", "2 hr (40 km) total").minutes)
+        assertEquals(75, read("$30.00", "1 hour 15 min (40 km) total").minutes)
+    }
+
+    @Test fun tripWithoutATimeIsUnreadable() {
+        assertTrue(OfferParser.parse(listOf("$6.07", "hr (11.5 km) total")) is ReadResult.Unreadable)
+    }
+
+    /** 2026-10-28 6:35: one offer logged twice because its restaurant read two ways. */
+    @Test fun placeNamesMatchDespiteOcrSlips() {
+        assertTrue(samePlace("ARAİTaiker Taiwanese Fried", "AITaiker Taiwanese Fried"))
+        assertTrue(samePlace("Kakuya (Yonge St)", "Kakuya (Yonge St.)"))
+        assertTrue(samePlace(null, "Kakuya (Yonge St)"))
+        assertFalse(samePlace("Kakuya (Yonge St)", "Ono Poke Bar (Yonge & Finch)"))
+        assertFalse(samePlace("Burger King (1607 Birchmount Road)", "Booster Juice (5937 Leslie St)"))
+    }
+
+    /** 2026-10-28 6:21: "can't read." (nahmeter's own card) was logged as the restaurant. */
+    @Test fun ownVerdictCardIsNotAPlace() {
+        val o = read("+ $5.10", "+ 13 min (+ 3.5 km) total", "can't read.", "Check this offer yourself", "Booster Juice (5937 Leslie St)", "Accept")
+        assertEquals("Booster Juice (5937 Leslie St)", o.pickup)
+        assertEquals(null, o.dropoff)
+    }
 }

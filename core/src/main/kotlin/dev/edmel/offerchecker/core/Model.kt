@@ -17,6 +17,13 @@ data class Offer(
     val pickup: String? = null,
     /** Where it goes, e.g. "Annibale Dr & Bembridge Dr, Markham", when it could be read. */
     val dropoff: String? = null,
+    /** How many orders the card bundles ("Delivery (3)" = 3). */
+    val orders: Int = if (stacked) 2 else 1,
+    /**
+     * An "Add a delivery" card: pay, minutes and km are what this order adds to the trip already
+     * accepted, so the rates are for the extra work.
+     */
+    val addOn: Boolean = false,
 )
 
 /** What the parser made of the text inside an offer card. */
@@ -60,6 +67,30 @@ data class Evaluation(
     companion object {
         val CANT_READ = Evaluation(Verdict.GREY, null, null, null, null, null)
     }
+}
+
+/**
+ * Whether two reads of a place name are the same place. Text recognition varies between reads of
+ * one card ("ARAİTaiker Taiwanese Fried" / "AITaiker Taiwanese Fried"), so compare letters and
+ * digits only and allow a few differences. Unknown (null) on either side matches.
+ */
+fun samePlace(a: String?, b: String?): Boolean {
+    if (a == null || b == null) return true
+    fun norm(s: String) = s.lowercase().filter { it in 'a'..'z' || it in '0'..'9' }
+    val x = norm(a)
+    val y = norm(b)
+    if (x.isEmpty() || y.isEmpty() || x == y) return true
+    // Levenshtein distance, allowed up to a quarter of the longer name.
+    var prev = IntArray(y.length + 1) { it }
+    for (i in 1..x.length) {
+        val cur = IntArray(y.length + 1)
+        cur[0] = i
+        for (j in 1..y.length) {
+            cur[j] = minOf(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + if (x[i - 1] == y[j - 1]) 0 else 1)
+        }
+        prev = cur
+    }
+    return prev[y.length] <= maxOf(x.length, y.length) / 4
 }
 
 /** One line of text recognised (OCR) in a screenshot, with its vertical position in pixels. */

@@ -67,4 +67,16 @@ class ScorerTest {
         val t = Thresholds(BigDecimal("6"), BigDecimal("22.50"), BigDecimal("1.25"), 0)
         assertEquals("Under \$22.50/hr target", Scorer.score(offer("8.00", 24, "5.0"), t).failedRule)
     }
+
+    /** 2026-10-28 6:21: a $5.10 add-on is under the $5.50 minimum, but the minimum skips add-ons. */
+    @Test fun addOnSkipsMinimumPay() {
+        val addOn = Offer(BigDecimal("5.10"), 13, BigDecimal("3.5"), addOn = true)
+        val e = Scorer.score(addOn, defaults)
+        assertEquals(Verdict.GREEN, e.verdict)
+        assertEquals(null, e.failed)
+        // Still judged on the hour and km.
+        assertEquals(Check.HOURLY, Scorer.score(addOn.copy(minutes = 20), defaults).failed)
+        // The same numbers as a whole trip are under the minimum.
+        assertEquals(Check.MIN_PAY, Scorer.score(addOn.copy(addOn = false), defaults).failed)
+    }
 }

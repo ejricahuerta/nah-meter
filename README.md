@@ -40,7 +40,8 @@ The scoring rules and offer patterns in `core/` carry over to either route.
 | 3     | Per-km floor           | ≥ $1.00/km     | eh.         |
 | 4     | All passed             | —              | bet.        |
 
-The first check that fails sets the colour. Exactly meeting a target passes. If a number
+"Add a delivery" add-ons skip the minimum-pay check: their pay is only what they add to a trip
+you already have, so they're judged on $/hr and $/km. The first check that fails sets the colour. Exactly meeting a target passes. If a number
 can't be read, the card says **can't read.**, never a guess. Every threshold is editable
 in Settings.
 

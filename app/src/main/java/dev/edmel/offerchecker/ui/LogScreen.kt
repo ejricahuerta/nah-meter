@@ -210,7 +210,8 @@ private fun ratesText(e: OfferEntry, thresholds: Thresholds, verdict: Verdict): 
 private fun perKmText(e: OfferEntry) = (e.perKm?.let { "$" + "%.2f".format(Locale.US, it) } ?: "—") + "/km"
 
 private fun numsText(e: OfferEntry) =
-    "$" + "%.2f".format(Locale.US, e.pay) + " · ${e.minutes} min · ${e.km} km" + if (e.stacked) " · ×2" else ""
+    (if (e.addOn) "+" else "") + "$" + "%.2f".format(Locale.US, e.pay) + " · ${e.minutes} min · ${e.km} km" +
+        (if (e.orders > 1) " · ×${e.orders}" else "")
 
 /** OfferRow: time, the offer's numbers, rates and restaurant, and a verdict chip. Tap for details. */
 @Composable
@@ -254,7 +255,7 @@ private fun OfferDetails(e: OfferEntry, thresholds: Thresholds, onDismiss: () ->
     val c = Nah.c
     val verdict = runCatching { Verdict.valueOf(e.verdict) }.getOrDefault(Verdict.GREY)
     val rescored = Scorer.score(
-        Offer(BigDecimal.valueOf(e.pay), e.minutes, BigDecimal.valueOf(e.km), e.stacked),
+        Offer(BigDecimal.valueOf(e.pay), e.minutes, BigDecimal.valueOf(e.km), e.stacked, orders = e.orders, addOn = e.addOn),
         thresholds.copy(waitBufferMin = 0),
     )
     val reason = if (rescored.verdict == verdict) NahCopy.cardReason(rescored, thresholds) else perKmText(e)
@@ -277,9 +278,13 @@ private fun OfferDetails(e: OfferEntry, thresholds: Thresholds, onDismiss: () ->
                 Detail("Per hour", "$hourly/hr")
                 NahDivider()
                 Detail("Per km", perKmText(e))
-                if (e.stacked) {
+                if (e.orders > 1) {
                     NahDivider()
-                    Detail("Orders", "2 (stacked)")
+                    Detail("Orders", "${e.orders}")
+                }
+                if (e.addOn) {
+                    NahDivider()
+                    Detail("Type", "Add-on to the current trip")
                 }
             }
             NahGroup {
