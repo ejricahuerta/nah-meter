@@ -17,7 +17,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -37,6 +42,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
@@ -67,6 +74,7 @@ fun LogScreen(thresholds: Thresholds, modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
     val offers by dao.observeAll().collectAsState(initial = emptyList())
     var confirmClear by remember { mutableStateOf(false) }
+    var open by remember { mutableStateOf<OfferEntry?>(null) }
 
     val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
@@ -155,7 +163,7 @@ fun LogScreen(thresholds: Thresholds, modifier: Modifier = Modifier) {
                 NahGroup {
                     offers.forEachIndexed { i, e ->
                         if (i > 0) NahDivider()
-                        OfferRow(e, thresholds, today = e.time >= startOfDay)
+                        OfferRow(e, thresholds, today = e.time >= startOfDay) { open = e }
                     }
                 }
             }
@@ -167,6 +175,8 @@ fun LogScreen(thresholds: Thresholds, modifier: Modifier = Modifier) {
             }
         }
     }
+
+    open?.let { OfferDetails(it, thresholds) { open = null } }
 
     if (confirmClear) {
         AlertDialog(
@@ -184,27 +194,41 @@ fun LogScreen(thresholds: Thresholds, modifier: Modifier = Modifier) {
     }
 }
 
-/** OfferRow: time, the offer's numbers, its rates (or the floor it missed) and a verdict chip. */
+/** The rates line for a logged offer: "$15.83/hr · under $20", "under $5.50 min" or "$/hr · $/km". */
+private fun ratesText(e: OfferEntry, thresholds: Thresholds, verdict: Verdict): String {
+    val hr = "$" + "%.2f".format(Locale.US, e.hourly) + "/hr"
+    // A nah shows the floor it missed, when today's floors still give the same verdict.
+    val rescored = Scorer.score(Offer(BigDecimal.valueOf(e.pay), e.minutes, BigDecimal.valueOf(e.km)), thresholds.copy(waitBufferMin = 0))
+        .takeIf { it.verdict == verdict }
+    return when (rescored?.failed) {
+        Check.MIN_PAY -> "under ${Scorer.money(thresholds.minPay)} min"
+        Check.HOURLY -> "$hr · under ${Scorer.money(thresholds.minHourly)}"
+        else -> "$hr · ${perKmText(e)}"
+    }
+}
+
+private fun perKmText(e: OfferEntry) = (e.perKm?.let { "$" + "%.2f".format(Locale.US, it) } ?: "—") + "/km"
+
+private fun numsText(e: OfferEntry) =
+    "$" + "%.2f".format(Locale.US, e.pay) + " · ${e.minutes} min · ${e.km} km" + if (e.stacked) " · ×2" else ""
+
+/** OfferRow: time, the offer's numbers, rates and restaurant, and a verdict chip. Tap for details. */
 @Composable
-private fun OfferRow(e: OfferEntry, thresholds: Thresholds, today: Boolean) {
+private fun OfferRow(e: OfferEntry, thresholds: Thresholds, today: Boolean, onOpen: () -> Unit) {
     val c = Nah.c
     val verdict = runCatching { Verdict.valueOf(e.verdict) }.getOrDefault(Verdict.GREY)
     val time = remember(e.time, today) {
         SimpleDateFormat(if (today) "h:mm a" else "MMM d", Locale.getDefault()).format(Date(e.time))
     }
-    val hr = "$" + "%.2f".format(Locale.US, e.hourly) + "/hr"
-    // A nah shows the floor it missed, when today's floors still give the same verdict.
-    val rescored = Scorer.score(Offer(BigDecimal.valueOf(e.pay), e.minutes, BigDecimal.valueOf(e.km)), thresholds.copy(waitBufferMin = 0))
-        .takeIf { it.verdict == verdict }
-    val rates = when (rescored?.failed) {
-        Check.MIN_PAY -> "under ${Scorer.money(thresholds.minPay)} min"
-        Check.HOURLY -> "$hr · under ${Scorer.money(thresholds.minHourly)}"
-        else -> "$hr · ${e.perKm?.let { "$" + "%.2f".format(Locale.US, it) } ?: "—"}/km"
-    }
-    val nums = "$" + "%.2f".format(Locale.US, e.pay) + " · ${e.minutes} min · ${e.km} km" + if (e.stacked) " · ×2" else ""
+    val rates = ratesText(e, thresholds, verdict)
+    val nums = numsText(e)
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 58.dp).padding(horizontal = 16.dp, vertical = 9.dp)
-            .semantics(mergeDescendants = true) { contentDescription = "$time, ${NahCopy.word(verdict)} $nums, $rates" },
+        Modifier.fillMaxWidth().heightIn(min = 58.dp)
+            .clickable(onClickLabel = "Show offer details", onClick = onOpen)
+            .padding(horizontal = 16.dp, vertical = 9.dp)
+            .semantics(mergeDescendants = true) {
+                contentDescription = "$time, ${NahCopy.word(verdict)} $nums, $rates" + (e.pickup?.let { ", from $it" } ?: "")
+            },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -212,7 +236,78 @@ private fun OfferRow(e: OfferEntry, thresholds: Thresholds, today: Boolean) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(nums, style = Nah.style(16.sp, 600, 22.sp, color = c.ink))
             Text(rates, style = Nah.style(14.sp, 400, 20.sp, color = c.inkMuted))
+            if (e.pickup != null) {
+                Text(
+                    e.pickup, style = Nah.style(14.sp, 400, 20.sp, color = c.inkMuted),
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
         VerdictChip(verdict)
+    }
+}
+
+/** Everything logged about one offer, opened from its row. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun OfferDetails(e: OfferEntry, thresholds: Thresholds, onDismiss: () -> Unit) {
+    val c = Nah.c
+    val verdict = runCatching { Verdict.valueOf(e.verdict) }.getOrDefault(Verdict.GREY)
+    val rescored = Scorer.score(
+        Offer(BigDecimal.valueOf(e.pay), e.minutes, BigDecimal.valueOf(e.km), e.stacked),
+        thresholds.copy(waitBufferMin = 0),
+    )
+    val reason = if (rescored.verdict == verdict) NahCopy.cardReason(rescored, thresholds) else perKmText(e)
+    val hourly = "$" + "%.2f".format(Locale.US, e.hourly)
+    val whenText = SimpleDateFormat("EEE, MMM d · h:mm a", Locale.getDefault()).format(Date(e.time))
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = c.ground, contentColor = c.ink) {
+        Column(
+            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Text(whenText, style = Nah.style(14.sp, 600, 20.sp, color = c.inkMuted))
+            VerdictCard(verdict, hourly, reason, spoken = "${NahCopy.word(verdict)} $hourly per hour. $reason")
+            NahGroup {
+                Detail("Pay", "$" + "%.2f".format(Locale.US, e.pay))
+                NahDivider()
+                Detail("Time", "${e.minutes} min")
+                NahDivider()
+                Detail("Distance", "${e.km} km")
+                NahDivider()
+                Detail("Per hour", "$hourly/hr")
+                NahDivider()
+                Detail("Per km", perKmText(e))
+                if (e.stacked) {
+                    NahDivider()
+                    Detail("Orders", "2 (stacked)")
+                }
+            }
+            NahGroup {
+                Detail("Restaurant", e.pickup ?: "Not read")
+                NahDivider()
+                Detail("Drop-off", e.dropoff ?: "Not read")
+            }
+            if (e.pickup == null && e.dropoff == null) {
+                Text(
+                    "Places are read from offers logged since this update.",
+                    style = Nah.style(13.sp, 400, 18.sp, color = c.inkMuted),
+                )
+            }
+        }
+    }
+}
+
+/** A label on the left, its value on the right; long values wrap. */
+@Composable
+private fun Detail(label: String, value: String) {
+    val c = Nah.c
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 52.dp).padding(horizontal = 16.dp, vertical = 12.dp)
+            .semantics(mergeDescendants = true) { },
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Text(label, style = Nah.style(15.sp, 500, 22.sp, color = c.inkMuted), modifier = Modifier.width(96.dp))
+        Text(value, style = Nah.style(16.sp, 600, 22.sp, color = c.ink).copy(textAlign = TextAlign.End), modifier = Modifier.weight(1f))
     }
 }

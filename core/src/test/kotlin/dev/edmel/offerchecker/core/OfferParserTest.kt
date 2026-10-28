@@ -103,7 +103,13 @@ class OfferParserTest {
             OcrLine("Accept", 900, 915),
         )
         val card = OfferParser.cardFromOcr(lines, 1000)!!
-        assertEquals(listOf("Delivery", "Exclusive", "$5.58", "including estimated tip", "27 min (13.7 km) total"), card)
+        assertEquals(
+            listOf(
+                "Delivery", "Exclusive", "$5.58", "including estimated tip", "27 min (13.7 km) total",
+                "Burger King (1607 Birchmount Road)", "Accept",
+            ),
+            card,
+        )
         val e = Scorer.evaluate(OfferParser.parse(card), Thresholds())!!
         assertEquals(Verdict.RED, e.verdict)
         assertEquals("\$12.40/hr · \$0.41/km", e.ratesText)
@@ -190,5 +196,41 @@ class OfferParserTest {
         assertEquals(1205 - 119, OfferParser.ocrCardTop(lines, 2000))
         assertEquals(Verdict.RED, e.verdict)
         assertEquals("\$17.55/hr · \$0.47/km", e.ratesText)
+    }
+
+    /** 2026-10-28 4:37: the $10.07 two-package offer; map labels "ort", "UI" sit left of the card. */
+    @Test fun restaurantAndDropoffFromScreenshot() {
+        val lines = listOf(
+            OcrLine("$10.07", 1215, 1290, 72, 352),
+            OcrLine("including estimated tip", 1335, 1370, 88, 460),
+            OcrLine("ort", 1470, 1505, 0, 40),
+            OcrLine("O 48 min (14.8 km) total", 1450, 1490, 72, 530),
+            OcrLine("Lazeez Shawarma (2900 Steeles)", 1550, 1590, 140, 735),
+            OcrLine("UI", 1590, 1620, 0, 30),
+            OcrLine("Annibale Dr & Bembridge Dr,", 1615, 1655, 140, 650),
+            OcrLine("Markham", 1672, 1712, 140, 312),
+            OcrLine("Accept", 1800, 1840, 380, 510),
+            OcrLine("Sunnybrook Park", 1905, 1930, 300, 555),
+        )
+        val r = OfferParser.parse(OfferParser.cardFromOcr(lines, 2000)!!) as ReadResult.Read
+        assertEquals("Lazeez Shawarma (2900 Steeles)", r.offer.pickup)
+        assertEquals("Annibale Dr & Bembridge Dr, Markham", r.offer.dropoff)
+        assertEquals(BigDecimal("10.07"), r.offer.pay)
+        assertEquals(48, r.offer.minutes)
+    }
+
+    @Test fun placesFromAccessibilityTexts() {
+        val o = read(
+            "Delivery", "Exclusive", "$5.50", "including estimated tip", "24 min (10.0 km) total",
+            "McDonald's (Steeles & Hilda)", "Yonge St, Toronto", "Accept",
+        )
+        assertEquals("McDonald's (Steeles & Hilda)", o.pickup)
+        assertEquals("Yonge St, Toronto", o.dropoff)
+    }
+
+    @Test fun noPlacesWhenCardEndsAtTripLine() {
+        val o = read("$6.07", "23 min (11.5 km) total")
+        assertEquals(null, o.pickup)
+        assertEquals(null, o.dropoff)
     }
 }

@@ -93,7 +93,39 @@ object OfferParser {
             return ReadResult.Unreadable(lines)
         }
         val stacked = lines.any { STACKED.containsMatchIn(it) }
-        return ReadResult.Read(Offer(pay, minutes, km, stacked), lines)
+        val (pickup, dropoff) = places(lines)
+        return ReadResult.Read(Offer(pay, minutes, km, stacked, pickup, dropoff), lines)
+    }
+
+    /** The card's buttons: the place lines end here. */
+    private val STOP = Regex("""^\W*(accept|match|decline|reject)\b""", RegexOption.IGNORE_CASE)
+
+    /** Card furniture that isn't a place. */
+    private val NOT_A_PLACE = Regex(
+        """customer verification|including estimated tip|exclusive|^\W*(delivery|package)\b|\$\s?\d""",
+        RegexOption.IGNORE_CASE,
+    )
+
+    /**
+     * The restaurant and the drop-off area: the lines between the trip line and the card's button.
+     * The first is the restaurant; the rest (Uber wraps the area over two lines) the drop-off.
+     */
+    private fun places(lines: List<String>): Pair<String?, String?> {
+        val start = lines.indexOfFirst { TRIP_LIKE.containsMatchIn(it) }
+        if (start < 0) return null to null
+        val places = lines.drop(start + 1)
+            .takeWhile { !STOP.containsMatchIn(it) }
+            .filter { it.count(Char::isLetter) >= 3 && !NOT_A_PLACE.containsMatchIn(it) && !TRIP_LIKE.containsMatchIn(it) }
+            .distinct()
+        if (places.isEmpty()) return null to null
+        val dropoff = places.drop(1).fold("") { acc, l ->
+            when {
+                acc.isEmpty() -> l
+                acc.endsWith(",") -> "$acc $l"
+                else -> "$acc, $l"
+            }
+        }.trim().trimEnd(',').ifEmpty { null }
+        return places.first().trimEnd(',') to dropoff
     }
 
     /**
@@ -107,9 +139,23 @@ object OfferParser {
         val pays = band.filter { containsPay(listOf(it.text)) }
         // Uber's pay is the biggest text on the card. Other dollar amounts in the band come from
         // whatever is behind the pop-up (a web page, another app), so drop them.
-        return band.filter { it == pay || it !in pays }
+        val above = band.filter { it == pay || it !in pays }.sortedBy { it.top }
+        return (above + placeLines(lines, screenHeight)).map { it.text }
+    }
+
+    /**
+     * The lines under the trip line, down to the card's button: the restaurant and drop-off area.
+     * Only lines starting near the trip line's left edge, so map labels beside the card stay out.
+     */
+    private fun placeLines(lines: List<OcrLine>, screenHeight: Int): List<OcrLine> {
+        val trip = lines.firstOrNull { isTripLine(it.text) } ?: return emptyList()
+        val bottom = trip.bottom + (screenHeight * OCR_BELOW).toInt()
+        val slack = trip.bottom - trip.top
+        val below = lines.filter { it.top >= trip.bottom - 4 && it.top <= bottom }
+            .filter { trip.right == 0 || it.left >= trip.left - slack }
             .sortedBy { it.top }
-            .map { it.text }
+        val stop = below.indexOfFirst { STOP.containsMatchIn(it.text) }
+        return if (stop >= 0) below.take(stop + 1) else below
     }
 
     /**
@@ -133,4 +179,7 @@ object OfferParser {
 
     /** How far above the trip line (as a share of screen height) the pay can be. */
     private const val OCR_BAND = 0.3
+
+    /** How far below the trip line the restaurant and drop-off lines can be. */
+    private const val OCR_BELOW = 0.25
 }

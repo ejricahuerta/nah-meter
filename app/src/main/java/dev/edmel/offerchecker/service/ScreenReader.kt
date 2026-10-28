@@ -46,11 +46,14 @@ object ScreenReader {
                         ?.takeIf { it.width() > 0 && it.height() > 0 }
                     val image = crop?.let { Bitmap.createBitmap(screen, it.left, it.top, it.width(), it.height()) } ?: screen
                     val offsetY = crop?.top ?: 0
+                    val offsetX = crop?.left ?: 0
                     recognizer().process(InputImage.fromBitmap(image, 0))
                         .addOnSuccessListener { text ->
                             val lines = text.textBlocks.flatMap { block ->
                                 block.lines.mapNotNull { line ->
-                                    line.boundingBox?.let { OcrLine(line.text, it.top + offsetY, it.bottom + offsetY) }
+                                    line.boundingBox?.let {
+                                        OcrLine(line.text, it.top + offsetY, it.bottom + offsetY, it.left + offsetX, it.right + offsetX)
+                                    }
                                 }
                             }
                             done(lines, screen.height)

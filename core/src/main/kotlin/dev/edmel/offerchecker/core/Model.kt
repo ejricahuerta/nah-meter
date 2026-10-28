@@ -13,6 +13,10 @@ data class Offer(
     val minutes: Int,
     val km: BigDecimal,
     val stacked: Boolean = false,
+    /** The restaurant line, e.g. "Lazeez Shawarma (2900 Steeles)", when it could be read. */
+    val pickup: String? = null,
+    /** Where it goes, e.g. "Annibale Dr & Bembridge Dr, Markham", when it could be read. */
+    val dropoff: String? = null,
 )
 
 /** What the parser made of the text inside an offer card. */
@@ -59,4 +63,4 @@ data class Evaluation(
 }
 
 /** One line of text recognised (OCR) in a screenshot, with its vertical position in pixels. */
-data class OcrLine(val text: String, val top: Int, val bottom: Int)
+data class OcrLine(val text: String, val top: Int, val bottom: Int, val left: Int = 0, val right: Int = 0)

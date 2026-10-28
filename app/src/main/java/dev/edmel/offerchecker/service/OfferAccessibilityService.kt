@@ -254,6 +254,8 @@ class OfferAccessibilityService : AccessibilityService() {
             perKm = e.perKm?.toDouble(),
             verdict = e.verdict.name,
             stacked = offer.stacked,
+            pickup = offer.pickup,
+            dropoff = offer.dropoff,
         )
         // The verdict always shows; the log only gets offers it doesn't already have.
         scope.launch {

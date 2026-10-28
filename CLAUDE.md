@@ -86,6 +86,9 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
   cents.
 - **Pay is the dollar amount in the tallest text** in the band above the trip line, never the
   largest value: pages behind the pop-up have their own dollar amounts.
+- The restaurant and drop-off area are the lines between the trip line and the card's button
+  (Accept/Match); OCR place lines must start near the trip line's left edge, so map labels beside
+  the card stay out. They're stored with each logged offer (Room v2) and shown in the Log's detail sheet.
 - The verdict card is excluded from OCR (`badge.screenRect`) so the app never reads itself.
 - The log holds each offer once: a card equal (pay, minutes, km, ×2) to the last logged offer, or
   to one logged in the last 30 min, still gets its verdict but isn't logged again

@@ -10,6 +10,8 @@ import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.Transaction
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.flow.Flow
 
 @Entity(tableName = "offers")
@@ -24,9 +26,17 @@ data class OfferEntry(
     val perKm: Double?,
     val verdict: String,
     val stacked: Boolean,
+    /** The restaurant, e.g. "Lazeez Shawarma (2900 Steeles)", if it could be read. */
+    val pickup: String? = null,
+    /** Where it goes, e.g. "Annibale Dr & Bembridge Dr, Markham", if it could be read. */
+    val dropoff: String? = null,
 ) {
-    /** Same offer: same pay, minutes, km and order count (time and verdict aside). */
-    fun sameOfferAs(o: OfferEntry) = pay == o.pay && minutes == o.minutes && km == o.km && stacked == o.stacked
+    /**
+     * Same offer: same pay, minutes, km and order count (time and verdict aside), and the same
+     * restaurant when both were read.
+     */
+    fun sameOfferAs(o: OfferEntry) = pay == o.pay && minutes == o.minutes && km == o.km && stacked == o.stacked &&
+        (pickup == null || o.pickup == null || pickup == o.pickup)
 }
 
 @Dao
@@ -73,23 +83,35 @@ abstract class OfferDao {
     }
 }
 
-@Database(entities = [OfferEntry::class], version = 1, exportSchema = false)
+@Database(entities = [OfferEntry::class], version = 2, exportSchema = false)
 abstract class OfferDatabase : RoomDatabase() {
     abstract fun offers(): OfferDao
 
     companion object {
         @Volatile private var instance: OfferDatabase? = null
 
+        /** v2: the restaurant and drop-off area. Existing offers keep their rows, with no places. */
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE offers ADD COLUMN pickup TEXT")
+                db.execSQL("ALTER TABLE offers ADD COLUMN dropoff TEXT")
+            }
+        }
+
         fun get(context: Context): OfferDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(context.applicationContext, OfferDatabase::class.java, "offers.db")
+                .addMigrations(MIGRATION_1_2)
                 .build().also { instance = it }
         }
     }
 }
 
 object OfferCsv {
+    /** Quotes a text field; addresses have commas. */
+    private fun csv(s: String?): String = if (s == null) "" else "\"" + s.replace("\"", "\"\"") + "\""
+
     fun write(entries: List<OfferEntry>): String = buildString {
-        appendLine("time,pay,minutes,km,dollars_per_hr,dollars_per_km,verdict,stacked")
+        appendLine("time,pay,minutes,km,dollars_per_hr,dollars_per_km,verdict,stacked,restaurant,dropoff")
         val fmt = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US)
         for (e in entries) {
             appendLine(
@@ -102,6 +124,8 @@ object OfferCsv {
                     e.perKm?.let { "%.2f".format(java.util.Locale.US, it) } ?: "",
                     e.verdict,
                     e.stacked,
+                    csv(e.pickup),
+                    csv(e.dropoff),
                 ).joinToString(","),
             )
         }
