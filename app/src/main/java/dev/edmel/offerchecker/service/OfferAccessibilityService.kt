@@ -254,6 +254,8 @@ class OfferAccessibilityService : AccessibilityService() {
             perKm = e.perKm?.toDouble(),
             verdict = e.verdict.name,
             stacked = offer.stacked,
+            orders = offer.orders,
+            addOn = offer.addOn,
             pickup = offer.pickup,
             dropoff = offer.dropoff,
         )

@@ -105,6 +105,9 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
 - **Uber hides the offer's text from accessibility.** The main path in practice is the screenshot
   reader: `takeScreenshot` (no recording prompt) cropped to Uber's windows, ML Kit text
   recognition, then `OfferParser.cardFromOcr`. It runs at most about once a second.
+- Trip lines come as "23 min (11.5 km) total", "1 hr 1 min (14.6 km) total" and, on "Add a
+  delivery" add-on cards, "+ 13 min (+ 3.5 km) total" with "+ $5.10": the add-on's numbers are what
+  it adds, flagged `Offer.addOn`. "Delivery (3)" sets `Offer.orders`.
 - OCR mangles text. The parser tolerates: `$1l.59` and `$1159` (look-alike letters, dropped decimal
   point), stray symbols before `$`, `(` read as `C`, missing spaces or brackets. Uber always shows
   cents.

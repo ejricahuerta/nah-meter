@@ -17,6 +17,13 @@ data class Offer(
     val pickup: String? = null,
     /** Where it goes, e.g. "Annibale Dr & Bembridge Dr, Markham", when it could be read. */
     val dropoff: String? = null,
+    /** How many orders the card bundles ("Delivery (3)" = 3). */
+    val orders: Int = if (stacked) 2 else 1,
+    /**
+     * An "Add a delivery" card: pay, minutes and km are what this order adds to the trip already
+     * accepted, so the rates are for the extra work.
+     */
+    val addOn: Boolean = false,
 )
 
 /** What the parser made of the text inside an offer card. */
