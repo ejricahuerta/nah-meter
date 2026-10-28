@@ -77,9 +77,18 @@ long as the signing secrets below are set, because every build is then signed wi
 | `app/` | Android app: accessibility service, badge overlay, Compose screens, DataStore settings, Room offer log. |
 | `.github/workflows/build.yml` | Runs the tests, builds the signed APK and publishes it as the latest release. |
 
+## Contributing
+
+`main` only changes through merged pull requests; every merge publishes a release. After cloning,
+turn on the repo's git hook that blocks direct pushes to `main`:
+
+```sh
+git config core.hooksPath .githooks
+```
+
 ## Building
 
-- **GitHub Actions (default):** push to `main`; the workflow attaches `nahmeter.apk` to a new release.
+- **GitHub Actions (default):** merge a pull request into `main`; the workflow attaches `nahmeter.apk` to a new release. Pull requests get the same build without a release.
 - **Android Studio:** open the folder, then *Build → Generate APKs*, or run
   `./gradlew :core:test :app:assembleRelease` (output in `app/build/outputs/apk/release/`).
 
