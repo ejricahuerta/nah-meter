@@ -87,6 +87,9 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
 - **Pay is the dollar amount in the tallest text** in the band above the trip line, never the
   largest value: pages behind the pop-up have their own dollar amounts.
 - The verdict card is excluded from OCR (`badge.screenRect`) so the app never reads itself.
+- The log holds each offer once: a card equal (pay, minutes, km, ×2) to the last logged offer, or
+  to one logged in the last 30 min, still gets its verdict but isn't logged again
+  (`OfferDao.addIfNew`). Uber re-shows the same card after you leave and come back.
 - One verdict per card: re-reads of the same card (same minutes and km) are ignored until the
   card has been gone for 600 ms. This stops flip-flopping between noisy OCR reads.
 - Card docking: `cardTop` comes from the accessibility node, else from OCR (pay line top minus

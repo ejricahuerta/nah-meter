@@ -26,6 +26,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.math.BigDecimal
 
 /**
@@ -254,7 +255,11 @@ class OfferAccessibilityService : AccessibilityService() {
             verdict = e.verdict.name,
             stacked = offer.stacked,
         )
-        scope.launch(Dispatchers.IO) { OfferDatabase.get(this@OfferAccessibilityService).offers().add(entry) }
+        // The verdict always shows; the log only gets offers it doesn't already have.
+        scope.launch {
+            val logged = withContext(Dispatchers.IO) { OfferDatabase.get(this@OfferAccessibilityService).offers().addIfNew(entry) }
+            if (!logged) ServiceState.log("Same offer as one already logged: shown, not logged again")
+        }
     }
 
     /** The sample offer from the PRD: $6.07, 23 min, 11.5 km → red. Not logged. */
