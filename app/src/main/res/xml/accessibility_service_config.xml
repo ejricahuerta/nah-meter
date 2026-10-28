@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
-    android:accessibilityEventTypes="typeWindowContentChanged|typeWindowStateChanged"
+    android:accessibilityEventTypes="typeWindowContentChanged|typeWindowStateChanged|typeWindowsChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
     android:accessibilityFlags="flagRetrieveInteractiveWindows|flagIncludeNotImportantViews"
     android:canRetrieveWindowContent="true"
     android:description="@string/accessibility_description"
-    android:notificationTimeout="50"
-    android:packageNames="com.ubercab.driver" />
+    android:notificationTimeout="50" />
+<!-- No packageNames filter: Uber draws offers as a pop-up over other apps, and the
+     "windows changed" event for that pop-up carries no package name. The service itself
+     only ever reads text from com.ubercab.driver windows. -->

@@ -53,6 +53,7 @@ fun StatusScreen(modifier: Modifier = Modifier) {
     val last by ServiceState.lastRead.collectAsState()
     val uberEvents by ServiceState.uberEvents.collectAsState()
     val lastScreen by ServiceState.lastScreen.collectAsState()
+    val windows by ServiceState.windows.collectAsState()
     val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { refresh++ }
 
     val a11y = remember(refresh, running) { SystemSetup.isAccessibilityEnabled(ctx) }
@@ -172,6 +173,7 @@ fun StatusScreen(modifier: Modifier = Modifier) {
                     appendLine("Offer Checker ${appVersion(ctx)}, Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}), ${Build.MANUFACTURER} ${Build.MODEL}")
                     appendLine("Accessibility enabled: $a11y, reader running: $running")
                     appendLine("Uber screen events received: $uberEvents")
+                    appendLine("Windows at last scan: ${windows.joinToString().ifEmpty { "none" }}")
                     val ls = lastScreen
                     if (ls == null) appendLine("Uber screen text: none read yet")
                     else {

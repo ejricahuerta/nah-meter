@@ -55,9 +55,12 @@ class OfferAccessibilityService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
-        if (event.packageName?.toString() != UBER_PACKAGE) return
-        ServiceState.uberEventsFlow.value++
-        // Throttle bursts of content-changed events to one scan per ~100 ms.
+        // Uber's offer can be a pop-up over another app (e.g. Maps): a window appearing or
+        // disappearing anywhere triggers a scan, but only Uber's windows are ever read.
+        val fromUber = event.packageName?.toString() == UBER_PACKAGE
+        if (!fromUber && event.eventType != AccessibilityEvent.TYPE_WINDOWS_CHANGED) return
+        if (fromUber) ServiceState.uberEventsFlow.value++
+        // Throttle bursts of events to one scan per ~100 ms.
         if (!scanPending) {
             scanPending = true
             handler.postDelayed(scan, SCAN_DELAY_MS)
@@ -65,8 +68,9 @@ class OfferAccessibilityService : AccessibilityService() {
     }
 
     private fun uberRoots(): List<AccessibilityNodeInfo> {
-        val fromWindows = runCatching { windows.mapNotNull { it.root } }.getOrDefault(emptyList())
-            .filter { it.packageName?.toString() == UBER_PACKAGE }
+        val roots = runCatching { windows.mapNotNull { it.root } }.getOrDefault(emptyList())
+        ServiceState.windowsFlow.value = roots.mapNotNull { it.packageName?.toString() }.distinct()
+        val fromWindows = roots.filter { it.packageName?.toString() == UBER_PACKAGE }
         if (fromWindows.isNotEmpty()) return fromWindows
         return listOfNotNull(rootInActiveWindow?.takeIf { it.packageName?.toString() == UBER_PACKAGE })
     }

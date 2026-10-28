@@ -24,6 +24,10 @@ object ServiceState {
     internal val lastScreenFlow = MutableStateFlow<Pair<Long, List<String>>?>(null)
     val lastScreen: StateFlow<Pair<Long, List<String>>?> = lastScreenFlow
 
+    /** Apps with a window on screen at the last scan (Uber's offer pop-up should be among them). */
+    internal val windowsFlow = MutableStateFlow<List<String>>(emptyList())
+    val windows: StateFlow<List<String>> = windowsFlow
+
     @Volatile internal var service: OfferAccessibilityService? = null
 
     /** Shows a sample badge. Returns false when the reader is off. */
