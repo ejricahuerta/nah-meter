@@ -122,9 +122,13 @@ object OfferParser {
     /** The card's buttons: the place lines end here. */
     private val STOP = Regex("""^\W*(accept|match|decline|reject)\b""", RegexOption.IGNORE_CASE)
 
-    /** Card furniture that isn't a place. */
+    /**
+     * Card furniture that isn't a place, and nahmeter's own verdict card if a screenshot caught it
+     * ("can't read.", "Check this offer yourself", "Under your $20 ·").
+     */
     private val NOT_A_PLACE = Regex(
-        """customer verification|including estimated tip|exclusive|add a delivery|^\W*(delivery|package)\b|\$\s?\d""",
+        """customer verification|including estimated tip|exclusive|add a delivery|^\W*(delivery|package)\b|\$\s?\d|""" +
+            """^\W*(bet|eh|nah|can'?t read)\W*$|check this offer|under your|clears your|pays the hour|add-on ·""",
         RegexOption.IGNORE_CASE,
     )
 

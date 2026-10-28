@@ -29,7 +29,9 @@ object Scorer {
 
         // Exact checks: pay*60 ≥ minHourly*minutes  ⇔  pay/minutes*60 ≥ minHourly.
         val (verdict, check) = when {
-            offer.pay < t.minPay -> Verdict.RED to Check.MIN_PAY
+            // An add-on's pay is only what it adds to a trip already accepted, so the minimum
+            // (meant for a whole trip) doesn't apply; it's judged on $/hr and $/km alone.
+            !offer.addOn && offer.pay < t.minPay -> Verdict.RED to Check.MIN_PAY
             offer.pay.multiply(SIXTY) < t.minHourly.multiply(m) -> Verdict.RED to Check.HOURLY
             offer.km.signum() > 0 && offer.pay < t.minPerKm.multiply(offer.km) -> Verdict.YELLOW to Check.PER_KM
             else -> Verdict.GREEN to null

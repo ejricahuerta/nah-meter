@@ -2,6 +2,7 @@ package dev.edmel.offerchecker.data
 
 import android.content.Context
 import androidx.room.ColumnInfo
+import dev.edmel.offerchecker.core.samePlace
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Entity
@@ -41,8 +42,7 @@ data class OfferEntry(
      * restaurant when both were read.
      */
     fun sameOfferAs(o: OfferEntry) = pay == o.pay && minutes == o.minutes && km == o.km && orders == o.orders &&
-        addOn == o.addOn &&
-        (pickup == null || o.pickup == null || pickup == o.pickup)
+        addOn == o.addOn && samePlace(pickup, o.pickup)
 }
 
 @Dao

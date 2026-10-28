@@ -272,4 +272,20 @@ class OfferParserTest {
     @Test fun tripWithoutATimeIsUnreadable() {
         assertTrue(OfferParser.parse(listOf("$6.07", "hr (11.5 km) total")) is ReadResult.Unreadable)
     }
+
+    /** 2026-10-28 6:35: one offer logged twice because its restaurant read two ways. */
+    @Test fun placeNamesMatchDespiteOcrSlips() {
+        assertTrue(samePlace("ARAİTaiker Taiwanese Fried", "AITaiker Taiwanese Fried"))
+        assertTrue(samePlace("Kakuya (Yonge St)", "Kakuya (Yonge St.)"))
+        assertTrue(samePlace(null, "Kakuya (Yonge St)"))
+        assertFalse(samePlace("Kakuya (Yonge St)", "Ono Poke Bar (Yonge & Finch)"))
+        assertFalse(samePlace("Burger King (1607 Birchmount Road)", "Booster Juice (5937 Leslie St)"))
+    }
+
+    /** 2026-10-28 6:21: "can't read." (nahmeter's own card) was logged as the restaurant. */
+    @Test fun ownVerdictCardIsNotAPlace() {
+        val o = read("+ $5.10", "+ 13 min (+ 3.5 km) total", "can't read.", "Check this offer yourself", "Booster Juice (5937 Leslie St)", "Accept")
+        assertEquals("Booster Juice (5937 Leslie St)", o.pickup)
+        assertEquals(null, o.dropoff)
+    }
 }
