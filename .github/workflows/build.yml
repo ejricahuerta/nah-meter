@@ -39,6 +39,7 @@ jobs:
           KS="$RUNNER_TEMP/release.jks"
           if [ -n "$KEYSTORE_BASE64" ]; then
             echo "$KEYSTORE_BASE64" | base64 -d > "$KS"
+            echo "::notice::Signed with the release key from the KEYSTORE_BASE64 secret."
             echo "KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
             echo "KEY_ALIAS=${KEY_ALIAS:-offer-checker}" >> "$GITHUB_ENV"
           else
