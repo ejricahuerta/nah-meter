@@ -91,6 +91,9 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
   card has been gone for 600 ms. This stops flip-flopping between noisy OCR reads.
 - Card docking: `cardTop` comes from the accessibility node, else from OCR (pay line top minus
   1.4× its height), else from Uber's pop-up window top; unknown means the top of the screen.
+- The overlay window uses screen coordinates (`FLAG_LAYOUT_IN_SCREEN`) and re-measures itself after
+  layout. Without that, Android places it below the status bar and the card covers Uber's card by
+  exactly the status bar's height (seen on a Pixel 11).
 
 ## Changing the parser or scorer
 

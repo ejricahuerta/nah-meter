@@ -6,6 +6,7 @@ import android.graphics.PixelFormat
 import android.graphics.Rect
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.text.SpannableStringBuilder
@@ -47,16 +48,26 @@ class BadgeOverlay(private val context: Context) {
         WindowManager.LayoutParams.WRAP_CONTENT,
         WindowManager.LayoutParams.WRAP_CONTENT,
         WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+        // Screen coordinates, so y matches the offer card's bounds; without IN_SCREEN the window is
+        // placed below the status bar and the card lands that much too low, over Uber's card.
+        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
+            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
         PixelFormat.TRANSLUCENT,
-    ).apply { gravity = Gravity.TOP or Gravity.START }
+    ).apply {
+        gravity = Gravity.TOP or Gravity.START
+        if (Build.VERSION.SDK_INT >= 28) {
+            layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+        }
+    }
 
     val isShowing: Boolean get() = view != null
 
     /** Where the verdict is on screen, so the screenshot reader can ignore its own text. */
     val screenRect: Rect?
         get() = view?.let {
-            Rect(params.x, params.y, params.x + maxOf(it.width, it.measuredWidth), params.y + maxOf(it.height, it.measuredHeight))
+            val loc = IntArray(2).also(it::getLocationOnScreen)
+            val (x, y) = if (it.isAttachedToWindow && it.width > 0) loc[0] to loc[1] - it.translationY.toInt() else params.x to params.y
+            Rect(x, y, x + maxOf(it.width, it.measuredWidth), y + maxOf(it.height, it.measuredHeight))
         }
 
     private val font500 = font(R.font.geist_500)
@@ -96,6 +107,19 @@ class BadgeOverlay(private val context: Context) {
         }
         wm.addView(v, params)
         view = v
+        // Some devices still offset overlay windows (status bar, cutout). Once laid out, measure
+        // where the card actually is and move it so its bottom sits where it should.
+        val wantedY = params.y
+        v.post {
+            if (view !== v) return@post
+            val loc = IntArray(2).also(v::getLocationOnScreen)
+            // Ignore the card-in animation's rise, which getLocationOnScreen includes.
+            val off = loc[1] - v.translationY.toInt() - wantedY
+            if (off != 0) {
+                params.y = wantedY - off
+                runCatching { wm.updateViewLayout(v, params) }
+            }
+        }
         // card-in: fade in and rise 12dp. No bounce; haptics carry the attention.
         v.alpha = 0f
         v.translationY = dp(12f)
