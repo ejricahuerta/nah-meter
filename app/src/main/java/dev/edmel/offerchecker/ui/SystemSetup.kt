@@ -11,7 +11,7 @@ import android.os.PowerManager
 import android.provider.Settings
 import androidx.core.content.ContextCompat
 import dev.edmel.offerchecker.service.OfferAccessibilityService
-import dev.edmel.offerchecker.service.UBER_PACKAGE
+import dev.edmel.offerchecker.service.KNOWN_UBER_PACKAGES
 
 /** Checks for each setup step and the Android settings pages that fix them. */
 object SystemSetup {
@@ -30,8 +30,9 @@ object SystemSetup {
     fun batteryUnrestricted(ctx: Context): Boolean =
         ctx.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(ctx.packageName)
 
-    fun uberInstalled(ctx: Context): Boolean =
-        runCatching { ctx.packageManager.getPackageInfo(UBER_PACKAGE, 0) }.isSuccess
+    /** Uber apps installed on this phone, e.g. com.ubercab.eats. */
+    fun uberInstalled(ctx: Context): List<String> =
+        KNOWN_UBER_PACKAGES.filter { runCatching { ctx.packageManager.getPackageInfo(it, 0) }.isSuccess }
 
     val brand: String get() = Build.MANUFACTURER.lowercase()
     val isSamsung get() = brand.contains("samsung")
@@ -78,7 +79,7 @@ object SystemSetup {
     }
 
     fun openUber(ctx: Context) {
-        ctx.packageManager.getLaunchIntentForPackage(UBER_PACKAGE)?.let { start(ctx, it) }
+        uberInstalled(ctx).firstNotNullOfOrNull { ctx.packageManager.getLaunchIntentForPackage(it) }?.let { start(ctx, it) }
     }
 
     private fun start(ctx: Context, intent: Intent): Boolean = runCatching {

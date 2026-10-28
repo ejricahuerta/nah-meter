@@ -9,4 +9,4 @@
     android:notificationTimeout="50" />
 <!-- No packageNames filter: Uber draws offers as a pop-up over other apps, and the
      "windows changed" event for that pop-up carries no package name. The service itself
-     only ever reads text from com.ubercab.driver windows. -->
+     only ever reads text from Uber (com.ubercab.*) windows. -->

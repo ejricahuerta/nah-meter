@@ -29,7 +29,7 @@ import kotlinx.coroutines.launch
 import java.math.BigDecimal
 
 /**
- * Watches for Uber Driver offers, reads each offer card, scores it and shows the badge.
+ * Watches for Uber offers, reads each offer card, scores it and shows the badge.
  * Text is read from Uber's windows through accessibility; when Uber doesn't share it, from a
  * screenshot with on-device text recognition. It never performs any action in Uber.
  */
@@ -67,7 +67,7 @@ class OfferAccessibilityService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         // Uber's offer can be a pop-up over another app (e.g. Maps): a window appearing or
         // disappearing anywhere triggers a scan, but only Uber's windows are ever read.
-        val fromUber = event.packageName?.toString() == UBER_PACKAGE
+        val fromUber = isUberPackage(event.packageName)
         if (!fromUber && event.eventType != AccessibilityEvent.TYPE_WINDOWS_CHANGED) return
         if (fromUber) ServiceState.uberEventsFlow.value++
         // Throttle bursts of events to one scan per ~100 ms.
@@ -91,12 +91,12 @@ class OfferAccessibilityService : AccessibilityService() {
             val pkg = root?.packageName?.toString()
             seen += pkg ?: "?(type ${w.type})"
             if (root == null && w.type == AccessibilityWindowInfo.TYPE_APPLICATION) hiddenAppWindow = true
-            if (root == null || pkg != UBER_PACKAGE) continue
+            if (root == null || !isUberPackage(pkg)) continue
             roots += root
             val r = Rect().also(w::getBoundsInScreen)
             bounds = bounds?.apply { union(r) } ?: r
         }
-        if (roots.isEmpty()) rootInActiveWindow?.takeIf { it.packageName?.toString() == UBER_PACKAGE }?.let { roots += it }
+        if (roots.isEmpty()) rootInActiveWindow?.takeIf { isUberPackage(it.packageName) }?.let { roots += it }
         ServiceState.windowsFlow.value = seen.distinct()
         logIfChanged("windows", "Windows on screen: ${seen.joinToString()}${bounds?.let { " · Uber area $it" } ?: ""}")
         // A window whose content Android won't share might be Uber's offer: let the screenshot reader check.

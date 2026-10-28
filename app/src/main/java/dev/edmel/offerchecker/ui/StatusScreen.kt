@@ -68,7 +68,7 @@ fun StatusScreen(modifier: Modifier = Modifier) {
     ) {
         Text("Offer Checker", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
         Text(
-            if (running) "Reader is on. Open Uber Driver and wait for an offer."
+            if (running) "Reader is on. Go online in Uber and wait for an offer."
             else "Finish the steps below to turn the reader on.",
             style = MaterialTheme.typography.bodyLarge,
         )
@@ -87,7 +87,7 @@ fun StatusScreen(modifier: Modifier = Modifier) {
             ok = a11y && running,
             title = "Accessibility: Offer Checker",
             body = when {
-                a11y && running -> "On. Reading Uber Driver offers."
+                a11y && running -> "On. Reading Uber offers."
                 a11y -> "Enabled but not running yet. Toggle it off and on again."
                 else -> "Settings → Accessibility → Installed apps → Offer Checker → On."
             },
@@ -124,10 +124,10 @@ fun StatusScreen(modifier: Modifier = Modifier) {
             else SystemSetup.openNotificationSettings(ctx)
         }
         StepCard(
-            ok = uber,
-            title = "Uber Driver app",
-            body = if (uber) "Found (com.ubercab.driver)." else "com.ubercab.driver isn't installed on this phone.",
-            action = if (uber) "Open Uber" else null,
+            ok = uber.isNotEmpty(),
+            title = "Uber app",
+            body = if (uber.isNotEmpty()) "Found: ${uber.joinToString()}." else "No Uber app (Uber Eats or Uber Driver) found on this phone.",
+            action = if (uber.isNotEmpty()) "Open Uber" else null,
         ) { SystemSetup.openUber(ctx) }
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -186,7 +186,7 @@ fun StatusScreen(modifier: Modifier = Modifier) {
                     log.forEach { appendLine("  $it") }
                 }
                 Text(
-                    if (uberEvents == 0) "No events from Uber Driver yet. With the reader on, open Uber Driver: this number should go up."
+                    if (uberEvents == 0) "No events from Uber yet. With the reader on, open the Uber app: this number should go up."
                     else "The log keeps what the reader saw around recent offers. If an offer showed no badge, tap Copy and send this to the developer.",
                     style = MaterialTheme.typography.bodySmall,
                 )

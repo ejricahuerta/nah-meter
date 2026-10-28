@@ -4,7 +4,10 @@ import dev.edmel.offerchecker.core.Evaluation
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
-const val UBER_PACKAGE = "com.ubercab.driver"
+/** Uber apps whose offers are read: Uber Driver, Uber Eats and any other com.ubercab app. */
+val KNOWN_UBER_PACKAGES = listOf("com.ubercab.driver", "com.ubercab.eats", "com.ubercab")
+
+fun isUberPackage(pkg: CharSequence?): Boolean = pkg != null && pkg.startsWith("com.ubercab")
 
 /** The last card the reader saw, with the raw text it read (for diagnosing parse misses). */
 data class LastRead(val time: Long, val evaluation: Evaluation, val raw: List<String>)

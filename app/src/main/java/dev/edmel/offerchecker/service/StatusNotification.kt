@@ -29,7 +29,7 @@ object StatusNotification {
         return Notification.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_check)
             .setContentTitle("Offer checker on")
-            .setContentText("Watching Uber Driver for offers. Read-only.")
+            .setContentText("Watching Uber for offers. Read-only.")
             .setContentIntent(open)
             .setOngoing(true)
             .build()

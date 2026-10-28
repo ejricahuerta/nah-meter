@@ -54,8 +54,10 @@ long as the signing secrets below are set, because every build is then signed wi
 
 ## Features
 
-- Offer detection limited to the Uber Driver app (`com.ubercab.driver`) through an
-  Accessibility Service; only text inside the offer card is read.
+- Offer detection limited to Uber apps (Uber Eats `com.ubercab.eats`, Uber Driver
+  `com.ubercab.driver`, any `com.ubercab.*`) through an Accessibility Service; only text
+  inside the offer card is read. When Uber hides its text, the app reads a screenshot of
+  Uber's windows with on-device text recognition (Android 11+).
 - Floating badge (accessibility overlay: no "draw over apps" permission needed).
 - Settings: min pay, $/hr, $/km, wait buffer, vibration, badge size.
 - Status screen: reader on/off, each setup step with a one-tap link, and the last offer read
