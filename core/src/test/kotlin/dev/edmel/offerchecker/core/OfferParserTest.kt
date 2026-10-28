@@ -140,4 +140,29 @@ class OfferParserTest {
     @Test fun singleOrderNotStacked() {
         assertFalse(read("Delivery", "Exclusive", "$5.58", "27 min (13.7 km) total").stacked)
     }
+
+    /** Pay as text recognition actually read it on the 2026-10-28 $11.59 offer, and similar slips. */
+    @Test fun payTextRecognitionSlips() {
+        for ((seen, pay) in listOf(
+            "$1l.59" to "11.59", "$1159" to "11.59", "$11,59" to "11.59", "\$I1.59" to "11.59",
+            "\$S.50" to "5.50", "$6.O5" to "6.05", "$550" to "5.50",
+        )) {
+            assertEquals(seen, BigDecimal(pay), read("O Package (2)", seen, "including estimated tip", "O 43 min (13.6 km) total").pay)
+        }
+        // Whole-dollar amounts without cents are kept as they are.
+        assertEquals(BigDecimal("12"), read("$12", "30 min (8 km) total").pay)
+    }
+
+    /** The exact screenshot lines logged for the $11.59 offer. */
+    @Test fun loggedScreenshotOf11_59Offer() {
+        val lines = listOf(
+            "Park", "THLD", "A", "5:28 >", "AF", "O Package (2)", "$1l.59", "ON-407 E", "including estimated tip",
+            "STEELES- AVE-E", "O 43 min (13.6 km) total", "5831 THORNHILL", "BAT", "S Customer verification", "Match",
+        ).mapIndexed { i, t -> OcrLine(t, 1000 + i * 40, 1030 + i * 40) }
+        val card = OfferParser.cardFromOcr(lines, 2424)!!
+        val e = Scorer.evaluate(OfferParser.parse(card), Thresholds())!!
+        assertEquals(Verdict.RED, e.verdict)
+        assertEquals("\$16.17/hr · \$0.85/km", e.ratesText)
+        assertTrue(e.offer!!.stacked)
+    }
 }

@@ -53,7 +53,25 @@ object OfferParser {
      */
     private fun payValues(lines: List<String>): List<BigDecimal> {
         val candidates = lines + lines.zipWithNext { a, b -> a + b } + lines.zipWithNext { a, b -> "$a $b" }
-        return candidates.mapNotNull { PAY.matchEntire(it)?.groupValues?.get(1)?.toBigDecimalOrNull() }
+        return candidates.mapNotNull { PAY.matchEntire(fixPayDigits(it))?.groupValues?.get(1)?.toBigDecimalOrNull() }
+    }
+
+    /** "$" then what should be the amount, possibly with letters text recognition mistook for digits. */
+    private val PAY_AMOUNT = Regex("""^([^\w$]*(?:CA)?\$\s?)([0-9lIi|OoSsBZ]{1,5}(?:[.,][0-9lIi|OoSsBZ]{2})?)([^0-9.,].*)?$""")
+    private val LOOKALIKES = mapOf(
+        'l' to '1', 'I' to '1', 'i' to '1', '|' to '1', 'O' to '0', 'o' to '0',
+        'S' to '5', 's' to '5', 'B' to '8', 'Z' to '2', ',' to '.',
+    )
+
+    /**
+     * Undoes text-recognition slips in a pay amount: "$1l.59" → "$11.59", "$11,59" → "$11.59",
+     * and a dropped decimal point "$1159" → "$11.59" (Uber always shows cents).
+     */
+    private fun fixPayDigits(line: String): String {
+        val m = PAY_AMOUNT.matchEntire(line) ?: return line
+        var amount = m.groupValues[2].map { LOOKALIKES[it] ?: it }.joinToString("")
+        if ('.' !in amount && amount.length >= 3) amount = amount.dropLast(2) + "." + amount.takeLast(2)
+        return m.groupValues[1] + amount + m.groupValues[3]
     }
 
     /**
