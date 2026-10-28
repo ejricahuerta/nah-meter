@@ -40,7 +40,7 @@ data class Evaluation(
     val hourly: BigDecimal?,
     /** Rounded to 2 decimals, for display only; null when km is 0. */
     val perKm: BigDecimal?,
-    /** The first rule that failed, e.g. "under $20/hr". */
+    /** The first rule that failed, e.g. "Under $20/hr target". */
     val failedRule: String?,
 ) {
     /** "$15.83/hr · $0.53/km", or "Can't read" for grey. */

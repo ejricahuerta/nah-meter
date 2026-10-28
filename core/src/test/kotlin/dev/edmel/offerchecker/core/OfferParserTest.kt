@@ -82,7 +82,7 @@ class OfferParserTest {
         val e = Scorer.evaluate(r, Thresholds())!!
         assertEquals(Verdict.RED, e.verdict)
         assertEquals("\$13.75/hr · \$0.55/km", e.ratesText)
-        assertEquals("under \$20/hr", e.failedRule)
+        assertEquals("Under \$20/hr target", e.failedRule)
     }
 
     @Test fun paySplitAcrossTextPieces() {
@@ -186,6 +186,8 @@ class OfferParserTest {
         )
         val e = Scorer.evaluate(OfferParser.parse(OfferParser.cardFromOcr(lines, 2000)!!), Thresholds())!!
         assertEquals(BigDecimal("9.07"), e.offer!!.pay)
+        // The card's top edge is about one row above the 85 px pay line.
+        assertEquals(1205 - 119, OfferParser.ocrCardTop(lines, 2000))
         assertEquals(Verdict.RED, e.verdict)
         assertEquals("\$17.55/hr · \$0.47/km", e.ratesText)
     }

@@ -22,18 +22,18 @@ class ScorerTest {
     }
 
     @Test fun case1_realOffer_underHourly_red() {
-        check(offer("6.07", 23, "11.5"), Verdict.RED, "15.83", "0.53", "under \$20/hr")
+        check(offer("6.07", 23, "11.5"), Verdict.RED, "15.83", "0.53", "Under \$20/hr target")
         assertEquals("\$15.83/hr · \$0.53/km", Scorer.score(offer("6.07", 23, "11.5"), defaults).ratesText)
     }
 
     @Test fun case2_underMinimumPay_red() =
-        check(offer("5.00", 8, "2.0"), Verdict.RED, "37.50", "2.50", "under \$5.50 min")
+        check(offer("5.00", 8, "2.0"), Verdict.RED, "37.50", "2.50", "Under \$5.50 minimum")
 
     @Test fun case3_passesAll_green() =
         check(offer("9.40", 22, "6.8"), Verdict.GREEN, "25.64", "1.38", null)
 
     @Test fun case4_underPerKmOnly_yellow() =
-        check(offer("10.00", 25, "12.0"), Verdict.YELLOW, "24.00", "0.83", "under \$1/km")
+        check(offer("10.00", 25, "12.0"), Verdict.YELLOW, "24.00", "0.83", "Under \$1/km target")
 
     @Test fun case5_exactly20PerHour_passes() =
         check(offer("8.00", 24, "5.0"), Verdict.GREEN, "20.00", "1.60", null)
@@ -54,10 +54,10 @@ class ScorerTest {
     }
 
     @Test fun hourlyFailIsRedEvenWithHighPerKm() =
-        check(offer("6.00", 30, "1.0"), Verdict.RED, "12.00", "6.00", "under \$20/hr")
+        check(offer("6.00", 30, "1.0"), Verdict.RED, "12.00", "6.00", "Under \$20/hr target")
 
     @Test fun customThresholdsLabelled() {
         val t = Thresholds(BigDecimal("6"), BigDecimal("22.50"), BigDecimal("1.25"), 0)
-        assertEquals("under \$22.50/hr", Scorer.score(offer("8.00", 24, "5.0"), t).failedRule)
+        assertEquals("Under \$22.50/hr target", Scorer.score(offer("8.00", 24, "5.0"), t).failedRule)
     }
 }

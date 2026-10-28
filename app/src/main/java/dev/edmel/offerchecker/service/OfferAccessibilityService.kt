@@ -50,6 +50,10 @@ class OfferAccessibilityService : AccessibilityService() {
     private var cardMissingSince = 0L
     /** The offer read from the card on screen now, if any; cleared when the card goes away. */
     private var shownOffer: Offer? = null
+    /** The offer card's top edge (screen px) from the latest read, to dock the verdict card. */
+    private var cardTop: Int? = null
+    /** Top of Uber's pop-up window (not the bubble), the fallback for [cardTop]. */
+    private var popupTop: Int? = null
 
     // Screenshot reader (Android 11+), used when Uber doesn't share the offer's text.
     private var ocrBusy = false
@@ -58,8 +62,13 @@ class OfferAccessibilityService : AccessibilityService() {
     override fun onServiceConnected() {
         settingsRepo = SettingsRepository(this)
         alerts = Alerts(this)
-        badge = BadgeOverlay(this) { x, y -> scope.launch { settingsRepo.setBadgePosition(x, y) } }
-        scope.launch { settingsRepo.settings.collect { settings = it } }
+        badge = BadgeOverlay(this)
+        scope.launch {
+            settingsRepo.settings.collect {
+                settings = it
+                if (!it.readingEnabled) badge.hide()
+            }
+        }
         ServiceState.service = this
         ServiceState.runningFlow.value = true
         StatusNotification.show(this)
@@ -69,6 +78,7 @@ class OfferAccessibilityService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         // Uber's offer can be a pop-up over another app (e.g. Maps): a window appearing or
         // disappearing anywhere triggers a scan, but only Uber's windows are ever read.
+        if (!settings.readingEnabled) return
         val fromUber = isUberPackage(event.packageName)
         if (!fromUber && event.eventType != AccessibilityEvent.TYPE_WINDOWS_CHANGED) return
         if (fromUber) ServiceState.uberEventsFlow.value++
@@ -87,6 +97,7 @@ class OfferAccessibilityService : AccessibilityService() {
         val roots = mutableListOf<AccessibilityNodeInfo>()
         var bounds: Rect? = null
         var hiddenAppWindow = false
+        var popup: Int? = null
         val seen = mutableListOf<String>()
         for (w in all) {
             val root = w.root
@@ -97,7 +108,11 @@ class OfferAccessibilityService : AccessibilityService() {
             roots += root
             val r = Rect().also(w::getBoundsInScreen)
             bounds = bounds?.apply { union(r) } ?: r
+            // Uber's offer pop-up spans the screen's width but not its height (its bubble is small).
+            val screen = resources.displayMetrics
+            if (r.width() >= screen.widthPixels * 8 / 10 && r.height() <= screen.heightPixels * 85 / 100) popup = r.top
         }
+        popupTop = popup
         if (roots.isEmpty()) rootInActiveWindow?.takeIf { isUberPackage(it.packageName) }?.let { roots += it }
         ServiceState.windowsFlow.value = seen.distinct()
         logIfChanged("windows", "Windows on screen: ${seen.joinToString()}${bounds?.let { " · Uber area $it" } ?: ""}")
@@ -115,6 +130,7 @@ class OfferAccessibilityService : AccessibilityService() {
             }
         }
         val read = scan?.cardTexts?.let(OfferParser::parse) ?: ReadResult.NoOffer
+        if (read is ReadResult.Read) cardTop = scan?.cardTop
         if (read !is ReadResult.Read && uber.present && Build.VERSION.SDK_INT >= 30) {
             // Uber is on screen but shares no (or only part of the) offer text: read a screenshot
             // instead, keeping a partial accessibility read as the grey fallback.
@@ -138,16 +154,21 @@ class OfferAccessibilityService : AccessibilityService() {
         }
         ocrBusy = true
         lastOcrAt = SystemClock.elapsedRealtime()
-        ScreenReader.capture(this, bounds) { lines, screenHeight ->
+        ScreenReader.capture(this, bounds) { allLines, screenHeight ->
             ocrBusy = false
-            if (lines == null) {
+            if (allLines == null) {
                 logIfChanged("ocr", "Screenshot or text recognition failed")
                 return@capture
             }
+            // Never read our own verdict card or pill back in.
+            val badgeArea = badge.screenRect
+            val lines = if (badgeArea == null) allLines
+            else allLines.filter { it.bottom <= badgeArea.top || it.top >= badgeArea.bottom }
             if (lines.any { '$' in it.text || "km" in it.text }) {
                 logIfChanged("ocr", "Uber text (screenshot): ${lines.take(20).joinToString(" | ") { it.text }}")
             }
             val card = OfferParser.cardFromOcr(lines, screenHeight)
+            cardTop = OfferParser.ocrCardTop(lines, screenHeight)
             val screenRead = card?.let(OfferParser::parse) ?: ReadResult.NoOffer
             if (screenRead !is ReadResult.Read && accessibilityRead is ReadResult.Unreadable) {
                 handleRead(accessibilityRead, "accessibility")
@@ -218,7 +239,7 @@ class OfferAccessibilityService : AccessibilityService() {
 
     private fun onNewCard(e: Evaluation, raw: List<String>) {
         val s = settings
-        badge.show(e, s.badgeSize, s.badgeX, s.badgeY)
+        badge.show(e, s.compactBadge, cardTop ?: popupTop)
         if (s.vibration) alerts.vibrate(e.verdict)
         ServiceState.lastReadFlow.value = LastRead(System.currentTimeMillis(), e, raw)
         val offer = e.offer ?: return
@@ -240,7 +261,7 @@ class OfferAccessibilityService : AccessibilityService() {
     fun showTestBadge() {
         val e = Scorer.score(Offer(BigDecimal("6.07"), 23, BigDecimal("11.5")), settings.thresholds)
         val s = settings
-        badge.show(e, s.badgeSize, s.badgeX, s.badgeY)
+        badge.show(e, s.compactBadge, null)
         if (s.vibration) alerts.vibrate(e.verdict)
     }
 

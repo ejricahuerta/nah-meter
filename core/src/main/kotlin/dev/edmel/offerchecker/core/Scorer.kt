@@ -29,10 +29,10 @@ object Scorer {
 
         // Exact checks: pay*60 ≥ minHourly*minutes  ⇔  pay/minutes*60 ≥ minHourly.
         val (verdict, failed) = when {
-            offer.pay < t.minPay -> Verdict.RED to "under ${money(t.minPay)} min"
-            offer.pay.multiply(SIXTY) < t.minHourly.multiply(m) -> Verdict.RED to "under ${money(t.minHourly)}/hr"
+            offer.pay < t.minPay -> Verdict.RED to "Under ${money(t.minPay)} minimum"
+            offer.pay.multiply(SIXTY) < t.minHourly.multiply(m) -> Verdict.RED to "Under ${money(t.minHourly)}/hr target"
             offer.km.signum() > 0 && offer.pay < t.minPerKm.multiply(offer.km) ->
-                Verdict.YELLOW to "under ${money(t.minPerKm)}/km"
+                Verdict.YELLOW to "Under ${money(t.minPerKm)}/km target"
             else -> Verdict.GREEN to null
         }
         return Evaluation(verdict, offer, minutes, hourly, perKm, failed)

@@ -103,16 +103,32 @@ object OfferParser {
      * Returns null when no trip line was recognised.
      */
     fun cardFromOcr(lines: List<OcrLine>, screenHeight: Int): List<String>? {
-        val trip = lines.firstOrNull { isTripLine(it.text) } ?: return null
-        val bandTop = trip.top - (screenHeight * OCR_BAND).toInt()
-        val band = lines.filter { it.top >= bandTop && it.bottom <= trip.bottom + 4 }
+        val (band, pay) = ocrBand(lines, screenHeight) ?: return null
+        val pays = band.filter { containsPay(listOf(it.text)) }
         // Uber's pay is the biggest text on the card. Other dollar amounts in the band come from
         // whatever is behind the pop-up (a web page, another app), so drop them.
-        val pays = band.filter { containsPay(listOf(it.text)) }
-        val pay = pays.maxWithOrNull(compareBy<OcrLine>({ it.bottom - it.top }, { it.bottom }))
         return band.filter { it == pay || it !in pays }
             .sortedBy { it.top }
             .map { it.text }
+    }
+
+    /**
+     * Where the offer card's top edge is, estimated from the pay line (the card shows one row,
+     * the "Delivery" chip, above the pay): used to dock the verdict card just above the offer.
+     */
+    fun ocrCardTop(lines: List<OcrLine>, screenHeight: Int): Int? {
+        val pay = ocrBand(lines, screenHeight)?.second ?: return null
+        return pay.top - (pay.bottom - pay.top) * 14 / 10
+    }
+
+    /** The lines from 30% of the screen above the trip line down to it, and the pay line among them. */
+    private fun ocrBand(lines: List<OcrLine>, screenHeight: Int): Pair<List<OcrLine>, OcrLine?>? {
+        val trip = lines.firstOrNull { isTripLine(it.text) } ?: return null
+        val bandTop = trip.top - (screenHeight * OCR_BAND).toInt()
+        val band = lines.filter { it.top >= bandTop && it.bottom <= trip.bottom + 4 }
+        val pay = band.filter { containsPay(listOf(it.text)) }
+            .maxWithOrNull(compareBy<OcrLine>({ it.bottom - it.top }, { it.bottom }))
+        return band to pay
     }
 
     /** How far above the trip line (as a share of screen height) the pay can be. */

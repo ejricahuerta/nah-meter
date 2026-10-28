@@ -18,7 +18,7 @@ object StatusNotification {
         val nm = context.getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(
             NotificationChannel(CHANNEL, "Reader status", NotificationManager.IMPORTANCE_LOW).apply {
-                description = "Shows that Offer Checker is reading Uber offers"
+                description = "Shows that Worth It is reading Uber offers"
                 setShowBadge(false)
             },
         )
@@ -28,8 +28,8 @@ object StatusNotification {
         )
         return Notification.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_check)
-            .setContentTitle("Offer checker on")
-            .setContentText("Watching Uber for offers. Read-only.")
+            .setContentTitle("Worth It is reading offers")
+            .setContentText("A verdict shows above each Uber offer. Read-only.")
             .setContentIntent(open)
             .setOngoing(true)
             .build()

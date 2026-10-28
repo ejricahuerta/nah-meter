@@ -12,14 +12,15 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.math.BigDecimal
 
-enum class BadgeSize(val scale: Float) { SMALL(0.8f), MEDIUM(1f), LARGE(1.3f) }
-
 data class AppSettings(
     val thresholds: Thresholds = Thresholds(),
+    /** The Status screen's switch: when off, no offers are read and no badge shows. */
+    val readingEnabled: Boolean = true,
     val vibration: Boolean = true,
-    val badgeSize: BadgeSize = BadgeSize.MEDIUM,
-    val badgeX: Int = 24,
-    val badgeY: Int = 240,
+    /** Compact pill at the top of the screen instead of the card docked above the offer. */
+    val compactBadge: Boolean = false,
+    /** The welcome screen has been seen. */
+    val onboarded: Boolean = false,
 )
 
 private val Context.dataStore by preferencesDataStore(name = "settings")
@@ -32,10 +33,10 @@ class SettingsRepository(context: Context) {
         val minHourly = stringPreferencesKey("min_hourly")
         val minPerKm = stringPreferencesKey("min_per_km")
         val waitBuffer = intPreferencesKey("wait_buffer_min")
+        val readingEnabled = booleanPreferencesKey("reading_enabled")
         val vibration = booleanPreferencesKey("vibration")
-        val badgeSize = stringPreferencesKey("badge_size")
-        val badgeX = intPreferencesKey("badge_x")
-        val badgeY = intPreferencesKey("badge_y")
+        val compactBadge = booleanPreferencesKey("compact_badge")
+        val onboarded = booleanPreferencesKey("onboarded")
     }
 
     val settings: Flow<AppSettings> = store.data.map { it.toSettings() }
@@ -51,10 +52,10 @@ class SettingsRepository(context: Context) {
                 minPerKm = dec(Keys.minPerKm, d.thresholds.minPerKm),
                 waitBufferMin = this[Keys.waitBuffer] ?: d.thresholds.waitBufferMin,
             ),
+            readingEnabled = this[Keys.readingEnabled] ?: d.readingEnabled,
             vibration = this[Keys.vibration] ?: d.vibration,
-            badgeSize = this[Keys.badgeSize]?.let { runCatching { BadgeSize.valueOf(it) }.getOrNull() } ?: d.badgeSize,
-            badgeX = this[Keys.badgeX] ?: d.badgeX,
-            badgeY = this[Keys.badgeY] ?: d.badgeY,
+            compactBadge = this[Keys.compactBadge] ?: d.compactBadge,
+            onboarded = this[Keys.onboarded] ?: d.onboarded,
         )
     }
 
@@ -62,13 +63,8 @@ class SettingsRepository(context: Context) {
     suspend fun setMinHourly(v: BigDecimal) = store.edit { it[Keys.minHourly] = v.toPlainString() }
     suspend fun setMinPerKm(v: BigDecimal) = store.edit { it[Keys.minPerKm] = v.toPlainString() }
     suspend fun setWaitBuffer(v: Int) = store.edit { it[Keys.waitBuffer] = v }
+    suspend fun setReadingEnabled(v: Boolean) = store.edit { it[Keys.readingEnabled] = v }
     suspend fun setVibration(v: Boolean) = store.edit { it[Keys.vibration] = v }
-    suspend fun setBadgeSize(v: BadgeSize) = store.edit { it[Keys.badgeSize] = v.name }
-    suspend fun setBadgePosition(x: Int, y: Int) = store.edit {
-        it[Keys.badgeX] = x
-        it[Keys.badgeY] = y
-    }
-    suspend fun resetThresholds() = store.edit {
-        it.remove(Keys.minPay); it.remove(Keys.minHourly); it.remove(Keys.minPerKm); it.remove(Keys.waitBuffer)
-    }
+    suspend fun setCompactBadge(v: Boolean) = store.edit { it[Keys.compactBadge] = v }
+    suspend fun setOnboarded() = store.edit { it[Keys.onboarded] = true }
 }

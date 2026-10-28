@@ -22,6 +22,8 @@ object CardReader {
         val cardTexts: List<String>?,
         /** Every text on Uber's screen, for the Status screen's diagnostics. */
         val screenTexts: List<String>,
+        /** The card's top edge in screen px, to dock the verdict card above it. */
+        val cardTop: Int? = null,
     )
 
     fun scan(roots: List<AccessibilityNodeInfo>): Scan {
@@ -34,7 +36,11 @@ object CardReader {
             var steps = 0
             while (node != null && steps <= MAX_ANCESTORS) {
                 val texts = collectTexts(node)
-                if (OfferParser.containsPay(texts)) return Scan(texts + finder.tripText, screen)
+                if (OfferParser.containsPay(texts)) {
+                    val card = node
+                    val top = android.graphics.Rect().also { card.getBoundsInScreen(it) }.top
+                    return Scan(texts + finder.tripText, screen, top)
+                }
                 node = node.parent
                 steps++
             }
