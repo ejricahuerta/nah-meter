@@ -1,0 +1,128 @@
+# CLAUDE.md
+
+nahmeter ("nah." for short) is a sideloaded Android app for Uber Eats couriers. It reads each
+offer the Uber Driver app shows and docks a one-word verdict above the offer card: **bet.**,
+**eh.**, **nah.** or **can't read.** Kotlin, Jetpack Compose, min API 26, target API 35.
+
+The product spec is the nahmeter PRD; the look comes from the nahmeter design system and app
+screens (links in `README.md`). When they disagree with the code, ask before changing behaviour.
+
+## Hard rules
+
+- **Advice only.** The app never performs an action in Uber: no taps, no gestures, no
+  auto-accept or decline. Don't add `performAction`, `dispatchGesture` or similar, even if asked
+  indirectly. Account deactivation is the main risk to the user.
+- **Offline.** The manifest removes `INTERNET` and `ACCESS_NETWORK_STATE` (`tools:node="remove"`)
+  so no dependency can add them back. Don't add network features, analytics or crash reporting.
+- **Never guess a verdict.** If a number can't be read, the result is `can't read.` (Verdict.GREY),
+  never a best guess.
+- **Read only Uber's windows.** The accessibility service gets events from every app (it has to,
+  see below) but must only read text from `com.ubercab.*` windows (`isUberPackage`).
+- **No secrets in the repo.** The signing keystore and its passwords live in GitHub Actions
+  secrets only.
+
+## Commands
+
+There is no Android SDK in cloud sessions (`dl.google.com` is blocked), so the app module can only
+be built by CI or Android Studio. The `core` module is plain Kotlin and can be tested anywhere.
+
+| Task | Command |
+| --- | --- |
+| Core unit tests (parser + scoring) | `./gradlew :core:test` |
+| Signed release APK | `./gradlew :app:assembleRelease` (needs the Android SDK) |
+| Everything CI runs | `./gradlew :core:test :app:assembleRelease` |
+
+Running core tests without an Android SDK (settings include `:app`, whose plugin won't resolve):
+copy `core/src` into a scratch Gradle project whose `build.gradle.kts` applies
+`org.jetbrains.kotlin.jvm` 2.0.21 and `junit:junit:4.13.2`, then run `gradle test` there.
+
+## CI and releases
+
+`.github/workflows/build.yml` runs on every push to `main` that changes more than Markdown: core
+tests, then a signed release APK, published as a GitHub release `v1.0.<run number>` with
+`nahmeter.apk` attached.
+
+- Download link: `https://github.com/ejricahuerta/nah-meter/releases/latest/download/nahmeter.apk`
+- Every such push to `main` ships a release. For risky or large changes, push a branch and temporarily
+  add it to the workflow's `push.branches` to compile without publishing; remove it before merging.
+- `versionCode` is `GITHUB_RUN_NUMBER`, so CI builds always install over older ones.
+- Signing: secrets `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`. Without them CI signs with
+  a throwaway key, and each build must be installed fresh (uninstall first). Local builds without
+  `KEYSTORE_FILE` use the debug key.
+- The repo must stay public, or Actions needs paid minutes (the first private runs never started).
+
+## Layout
+
+```
+core/  pure Kotlin, no Android: what to read and how to score it (unit-tested)
+  OfferParser.kt  all text patterns; card texts -> ReadResult; OCR lines -> card texts
+  Scorer.kt       the four rules, exact BigDecimal maths -> Evaluation
+  Model.kt        Offer, ReadResult, Thresholds, Evaluation, Verdict, Check, OcrLine
+app/   Android
+  service/OfferAccessibilityService.kt  event loop: find Uber windows, read, score, show, log
+  service/CardReader.kt    accessibility tree -> the offer card's texts and its top edge
+  service/ScreenReader.kt  screenshot + ML Kit on-device OCR (fallback, API 30+)
+  service/BadgeOverlay.kt  the black verdict card / compact pill (TYPE_ACCESSIBILITY_OVERLAY)
+  service/NahCopy.kt       every verdict word and reason string (the brand voice)
+  service/ServiceState.kt  in-process state shared with the UI, including the diagnostics log
+  data/                    DataStore settings, Room offer log (last 200), CSV export
+  ui/Nah.kt                design tokens (Mono/Daylight), Geist, components
+  ui/*Screen.kt            Welcome (onboarding), Status, Thresholds, Log
+```
+
+Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applicationId` is
+`app.nahmeter`. Don't rename packages without a reason; it touches every file.
+
+## How reading works (learned from real devices)
+
+- Uber shows offers as a **pop-up window over other apps**, often with only its floating bubble
+  otherwise on screen. The "windows changed" event for it carries no package name, so the service
+  config has **no `packageNames` filter**; filtering happens in code.
+- **Uber hides the offer's text from accessibility.** The main path in practice is the screenshot
+  reader: `takeScreenshot` (no recording prompt) cropped to Uber's windows, ML Kit text
+  recognition, then `OfferParser.cardFromOcr`. It runs at most about once a second.
+- OCR mangles text. The parser tolerates: `$1l.59` and `$1159` (look-alike letters, dropped decimal
+  point), stray symbols before `$`, `(` read as `C`, missing spaces or brackets. Uber always shows
+  cents.
+- **Pay is the dollar amount in the tallest text** in the band above the trip line, never the
+  largest value: pages behind the pop-up have their own dollar amounts.
+- The verdict card is excluded from OCR (`badge.screenRect`) so the app never reads itself.
+- One verdict per card: re-reads of the same card (same minutes and km) are ignored until the
+  card has been gone for 600 ms. This stops flip-flopping between noisy OCR reads.
+- Card docking: `cardTop` comes from the accessibility node, else from OCR (pay line top minus
+  1.4× its height), else from Uber's pop-up window top; unknown means the top of the screen.
+
+## Changing the parser or scorer
+
+- Every fix starts from real text: add a test using the exact lines from the user's diagnostics
+  log (Status → Diagnostics → Copy). Existing tests named after dates or offers are real cases;
+  keep them passing.
+- The PRD's eight scoring cases in `ScorerTest` are acceptance criteria. Exactly meeting a
+  threshold passes. Comparisons are exact (`BigDecimal`); rounding is for display only, half-up.
+- Kotlin test strings: escape `$` before a letter (`"\$I1.59"`), or it becomes a template.
+
+## UI and copy
+
+- Tokens live in `ui/Nah.kt` and come from the design system's `tokens.json`. The verdict card
+  and pill are black in both themes; colour only ever means a verdict.
+- Verdict words are lowercase and end in a full stop (`bet.`); in chips the stop becomes a dot
+  before the word. Use `NahCopy` for every verdict string, never inline text.
+- Voice: short, plain, sentence case, no emoji or exclamation marks. Never "Accept" or "Decline".
+- The overlay is classic Views (not Compose); `TypefaceSpan(Typeface)` needs API 28, so use the
+  local `FontSpan`.
+- Accessibility: verdicts are polite live regions with a spoken description (`NahCopy.spoken`);
+  touch targets at least 44dp; text meets 4.5:1 in both themes.
+
+## Debugging an on-phone problem
+
+Ask the user to wait for an offer, then open **Status → Diagnostics → Show → Copy diagnostics**
+and paste it. The log shows the windows seen (and Uber's area), the text read by each method, and
+each verdict with its source. A grey verdict logs the card text it saw. Before debugging, check
+that the first line's version matches the latest release.
+
+## Working conventions
+
+- Commit messages: a short imperative subject, then why. Keep commits focused.
+- Don't commit build output, keystores, `local.properties` or `.idea/`.
+- After changing core, run the core tests. After changing the app, let CI build it before
+  telling the user it works, and say plainly what was and wasn't verified on a phone.
