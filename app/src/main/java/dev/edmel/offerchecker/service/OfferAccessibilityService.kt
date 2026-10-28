@@ -113,16 +113,17 @@ class OfferAccessibilityService : AccessibilityService() {
             }
         }
         val read = scan?.cardTexts?.let(OfferParser::parse) ?: ReadResult.NoOffer
-        if (read == ReadResult.NoOffer && uber.present && Build.VERSION.SDK_INT >= 30) {
-            // Uber is on screen but shares no offer text: read a screenshot instead.
-            requestScreenRead(uber.bounds)
+        if (read !is ReadResult.Read && uber.present && Build.VERSION.SDK_INT >= 30) {
+            // Uber is on screen but shares no (or only part of the) offer text: read a screenshot
+            // instead, keeping a partial accessibility read as the grey fallback.
+            requestScreenRead(uber.bounds, read)
             return
         }
         handleRead(read, "accessibility")
     }
 
     @RequiresApi(30)
-    private fun requestScreenRead(bounds: Rect?) {
+    private fun requestScreenRead(bounds: Rect?, accessibilityRead: ReadResult) {
         if (ocrBusy) return
         val wait = lastOcrAt + OCR_INTERVAL_MS - SystemClock.elapsedRealtime()
         if (wait > 0) {
@@ -145,7 +146,12 @@ class OfferAccessibilityService : AccessibilityService() {
                 logIfChanged("ocr", "Uber text (screenshot): ${lines.take(20).joinToString(" | ") { it.text }}")
             }
             val card = OfferParser.cardFromOcr(lines, screenHeight)
-            handleRead(card?.let(OfferParser::parse) ?: ReadResult.NoOffer, "screenshot")
+            val screenRead = card?.let(OfferParser::parse) ?: ReadResult.NoOffer
+            if (screenRead !is ReadResult.Read && accessibilityRead is ReadResult.Unreadable) {
+                handleRead(accessibilityRead, "accessibility")
+            } else {
+                handleRead(screenRead, "screenshot")
+            }
         }
     }
 
@@ -167,7 +173,10 @@ class OfferAccessibilityService : AccessibilityService() {
         if (key == lastKey && now - lastKeyAt < DEDUPE_MS) return
         lastKey = key
         lastKeyAt = now
-        ServiceState.log("Offer read from $source: ${evaluation.verdict} ${evaluation.ratesText}")
+        ServiceState.log(
+            "Offer read from $source: ${evaluation.verdict} ${evaluation.ratesText}" +
+                if (evaluation.verdict == Verdict.GREY) " · card text: ${raw.joinToString(" | ")}" else "",
+        )
         onNewCard(evaluation, raw)
     }
 

@@ -112,4 +112,32 @@ class OfferParserTest {
     @Test fun ocrWithoutTripLineIsNull() {
         assertEquals(null, OfferParser.cardFromOcr(listOf(OcrLine("$5.58", 0, 10)), 1000))
     }
+
+    /** The 2026-10-28 "Package (2)" offer that showed grey: $11.59, 43 min, 13.6 km. */
+    @Test fun stackedPackageOffer() {
+        val o = read("Package (2)", "$11.59", "including estimated tip", "43 min (13.6 km) total", "5831 THORNHILL", "Match")
+        assertEquals(BigDecimal("11.59"), o.pay)
+        assertEquals(43, o.minutes)
+        assertEquals(BigDecimal("13.6"), o.km)
+        assertTrue(o.stacked)
+        val e = Scorer.score(o, Thresholds())
+        assertEquals(Verdict.RED, e.verdict)
+        assertEquals("\$16.17/hr · \$0.85/km", e.ratesText)
+    }
+
+    @Test fun textRecognitionSlips() {
+        for (trip in listOf(
+            "43 min C13.6 km) total", "43min (13.6km)total", "43 min [13.6 km] total",
+            ") 43 min (13.6 km) total", "43 min 13.6 km total", "43 min (13,6 km) total",
+        )) {
+            val o = read("|$11.59", "including estimated tipl", trip)
+            assertEquals(trip, BigDecimal("11.59"), o.pay)
+            assertEquals(trip, 43, o.minutes)
+            assertEquals(trip, BigDecimal("13.6"), o.km)
+        }
+    }
+
+    @Test fun singleOrderNotStacked() {
+        assertFalse(read("Delivery", "Exclusive", "$5.58", "27 min (13.7 km) total").stacked)
+    }
 }

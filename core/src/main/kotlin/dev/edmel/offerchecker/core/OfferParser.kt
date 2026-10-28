@@ -9,24 +9,30 @@ import java.math.BigDecimal
  * Built from the 2026-10-28 offer screenshot.
  */
 object OfferParser {
-    /** "$6.07", "$ 6.07", "CA$6.07", optionally followed by "including estimated tip". */
+    /**
+     * "$6.07", "$ 6.07", "CA$6.07", optionally followed by "including estimated tip".
+     * Tolerates stray symbols before the "$" that screen text recognition adds (e.g. "|$6.05").
+     */
     private val PAY = Regex(
-        """^(?:CA)?\$\s?(\d{1,3}(?:\.\d{2})?)(?:\s*\(?\s*including estimated tip\s*\)?)?$""",
+        """^[^\w$]*(?:CA)?\$\s?(\d{1,3}(?:\.\d{2})?)(?:\s*\(?\s*including estimated tip\w?\s*\)?)?$""",
         RegexOption.IGNORE_CASE,
     )
 
-    /** "23 min (11.5 km) total". */
+    /**
+     * "23 min (11.5 km) total". Also accepts what text recognition makes of it:
+     * "(" read as "C", "[" or "{", missing brackets or spaces ("43min (13.6km)total").
+     */
     private val TRIP = Regex(
-        """(\d+)\s*min\s*\((\d+(?:[.,]\d+)?)\s*km\)\s*total""",
+        """(\d+)\s*min\.?\s*[(\[{C]?\s*(\d+(?:[.,]\d+)?)\s*km\s*[)\]}]?\s*total""",
         RegexOption.IGNORE_CASE,
     )
 
     /** A line that is shaped like the trip line even if its numbers can't be read. */
-    private val TRIP_LIKE = Regex("""\bmin\b.*\bkm\b.*\btotal\b""", RegexOption.IGNORE_CASE)
+    private val TRIP_LIKE = Regex("""min.*km.*total""", RegexOption.IGNORE_CASE)
 
-    /** Markers of a stacked (multi-order) offer. Unconfirmed: needs a real stacked screenshot. */
+    /** Markers of a stacked (multi-order) offer, e.g. "Package (2)", "×2", "2 orders". */
     private val STACKED = Regex(
-        """(?:[×x]\s?2\b)|(?:\b(?:2|two)\s+(?:orders|deliveries|pickups)\b)""",
+        """(?:[×x]\s?[2-9]\b)|(?:\b(?:[2-9]|two|three)\s+(?:orders|deliveries|pickups|packages)\b)|(?:\b(?:package|packages|delivery|deliveries|orders?)\s*\(\s*[2-9]\s*\))""",
         RegexOption.IGNORE_CASE,
     )
 
