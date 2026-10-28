@@ -43,13 +43,27 @@ tests, then a signed release APK, published as a GitHub release `v1.0.<run numbe
 `nahmeter.apk` attached.
 
 - Download link: `https://github.com/ejricahuerta/nah-meter/releases/latest/download/nahmeter.apk`
-- Every such push to `main` ships a release. For risky or large changes, push a branch and temporarily
-  add it to the workflow's `push.branches` to compile without publishing; remove it before merging.
+- Every merge to `main` ships a release. Pull requests run the same build (tests + APK) without
+  publishing, so a PR's checks show whether it compiles.
 - `versionCode` is `GITHUB_RUN_NUMBER`, so CI builds always install over older ones.
 - Signing: secrets `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`. Without them CI signs with
   a throwaway key, and each build must be installed fresh (uninstall first). Local builds without
   `KEYSTORE_FILE` use the debug key.
 - The repo must stay public, or Actions needs paid minutes (the first private runs never started).
+
+## Branches and pull requests
+
+`main` only changes by merging a pull request. Never push to `main` or `master`, not even a
+one-line fix.
+
+1. Branch from an up-to-date `main` (`git fetch origin main && git checkout -b <topic> origin/main`).
+2. Commit, push the branch, and open a PR into `main`.
+3. Wait for the PR's build to pass, then merge it (merging is what publishes the release).
+
+Guards: `.claude/hooks/block-push-to-main.sh` (a Claude Code PreToolUse hook, wired in
+`.claude/settings.json`) refuses `git push` to main/master; `.githooks/pre-push` does the same for
+plain git once a clone runs `git config core.hooksPath .githooks`. The GitHub ruleset on `main`
+(require a pull request, require the build check) is what actually enforces it.
 
 ## Layout
 
@@ -131,6 +145,7 @@ that the first line's version matches the latest release.
 
 ## Working conventions
 
+- Every change goes through a pull request (see Branches and pull requests).
 - Commit messages: a short imperative subject, then why. Keep commits focused.
 - Don't commit build output, keystores, `local.properties` or `.idea/`.
 - After changing core, run the core tests. After changing the app, let CI build it before

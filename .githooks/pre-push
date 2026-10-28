@@ -1,0 +1,12 @@
+#!/bin/sh
+# main and master only change by merging a pull request on GitHub.
+# Turn on once per clone:  git config core.hooksPath .githooks
+while read -r local_ref local_sha remote_ref remote_sha; do
+  case "$remote_ref" in
+    refs/heads/main|refs/heads/master)
+      echo "Blocked: don't push to ${remote_ref#refs/heads/}. Push a branch and open a pull request." >&2
+      exit 1
+      ;;
+  esac
+done
+exit 0
