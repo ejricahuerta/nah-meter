@@ -56,6 +56,7 @@ class OfferAccessibilityService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         if (event.packageName?.toString() != UBER_PACKAGE) return
+        ServiceState.uberEventsFlow.value++
         // Throttle bursts of content-changed events to one scan per ~100 ms.
         if (!scanPending) {
             scanPending = true
@@ -71,8 +72,11 @@ class OfferAccessibilityService : AccessibilityService() {
     }
 
     private fun scanScreen() {
-        val cardTexts = runCatching { CardReader.findCardTexts(uberRoots()) }.getOrNull()
-        val read = cardTexts?.let(OfferParser::parse) ?: ReadResult.NoOffer
+        val scan = runCatching { CardReader.scan(uberRoots()) }.getOrNull()
+        if (scan != null && scan.screenTexts.isNotEmpty()) {
+            ServiceState.lastScreenFlow.value = System.currentTimeMillis() to scan.screenTexts.take(MAX_SCREEN_TEXTS)
+        }
+        val read = scan?.cardTexts?.let(OfferParser::parse) ?: ReadResult.NoOffer
         val evaluation = Scorer.evaluate(read, settings.thresholds)
         if (evaluation == null) {
             onCardGone()
@@ -164,5 +168,6 @@ class OfferAccessibilityService : AccessibilityService() {
         private const val SCAN_DELAY_MS = 100L
         private const val DEDUPE_MS = 30_000L
         private const val CARD_GONE_MS = 600L
+        private const val MAX_SCREEN_TEXTS = 80
     }
 }

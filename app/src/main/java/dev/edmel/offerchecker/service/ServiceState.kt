@@ -17,6 +17,13 @@ object ServiceState {
     internal val lastReadFlow = MutableStateFlow<LastRead?>(null)
     val lastRead: StateFlow<LastRead?> = lastReadFlow
 
+    /** Diagnostics: how many Uber screen events arrived, and the text of Uber's screen at the last scan. */
+    internal val uberEventsFlow = MutableStateFlow(0)
+    val uberEvents: StateFlow<Int> = uberEventsFlow
+
+    internal val lastScreenFlow = MutableStateFlow<Pair<Long, List<String>>?>(null)
+    val lastScreen: StateFlow<Pair<Long, List<String>>?> = lastScreenFlow
+
     @Volatile internal var service: OfferAccessibilityService? = null
 
     /** Shows a sample badge. Returns false when the reader is off. */

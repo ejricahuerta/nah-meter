@@ -70,4 +70,22 @@ class OfferParserTest {
         assertFalse(OfferParser.isTripLine("King St W"))
         assertTrue(OfferParser.containsPay(listOf("x", "$6.07")))
     }
+
+    /** Text from the 2026-10-28 $5.50 offer screenshot. */
+    @Test fun exclusiveOfferScreenshot() {
+        val r = OfferParser.parse(
+            listOf(
+                "Delivery", "Exclusive", "$5.50", "including estimated tip", "24 min (10.0 km) total",
+                "McDonald's (Steeles & Hilda)", "Yonge St, Toronto", "Accept",
+            ),
+        )
+        val e = Scorer.evaluate(r, Thresholds())!!
+        assertEquals(Verdict.RED, e.verdict)
+        assertEquals("\$13.75/hr · \$0.55/km", e.ratesText)
+        assertEquals("under \$20/hr", e.failedRule)
+    }
+
+    @Test fun paySplitAcrossTextPieces() {
+        assertEquals(BigDecimal("5.50"), read("$", "5.50", "24 min (10.0 km) total").pay)
+    }
 }

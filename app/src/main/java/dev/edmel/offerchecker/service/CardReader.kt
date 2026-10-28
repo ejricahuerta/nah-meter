@@ -7,47 +7,71 @@ import dev.edmel.offerchecker.core.OfferParser
  * Finds the offer card in Uber's view tree and returns only the text inside it,
  * so map labels and street names elsewhere on screen are never read.
  *
- * The card is the smallest ancestor of the "min (… km) total" line that also holds a pay amount.
+ * The trip line is the smallest view whose text (its own plus its children's, joined) reads
+ * "… min (… km) total", which also covers Uber drawing that line as several text pieces.
+ * The card is the smallest ancestor of the trip line that also holds a pay amount.
  */
 object CardReader {
     private const val MAX_NODES = 3000
     private const val MAX_DEPTH = 60
     private const val MAX_ANCESTORS = 12
+    private const val MAX_JOINED = 400
 
-    /** Card texts, or null when no offer card is on screen. */
-    fun findCardTexts(roots: List<AccessibilityNodeInfo>): List<String>? {
+    class Scan(
+        /** Texts inside the offer card, or null when no card is on screen. */
+        val cardTexts: List<String>?,
+        /** Every text on Uber's screen, for the Status screen's diagnostics. */
+        val screenTexts: List<String>,
+    )
+
+    fun scan(roots: List<AccessibilityNodeInfo>): Scan {
+        val screen = roots.flatMap { collectTexts(it) }.distinct()
         for (root in roots) {
-            val trip = findTripNode(root) ?: continue
+            val finder = TripFinder()
+            finder.visit(root, 0)
+            val trip = finder.trip ?: continue
             var node: AccessibilityNodeInfo? = trip
             var steps = 0
             while (node != null && steps <= MAX_ANCESTORS) {
                 val texts = collectTexts(node)
-                if (OfferParser.containsPay(texts)) return texts
+                if (OfferParser.containsPay(texts)) return Scan(texts + finder.tripText, screen)
                 node = node.parent
                 steps++
             }
             // Trip line with no pay nearby: the parser reports it as unreadable.
-            return collectTexts(trip)
+            return Scan(collectTexts(trip) + finder.tripText, screen)
         }
-        return null
+        return Scan(null, screen)
     }
 
     private fun nodeTexts(n: AccessibilityNodeInfo): List<String> =
         listOfNotNull(n.text?.toString(), n.contentDescription?.toString()).filter { it.isNotBlank() }
 
-    private fun findTripNode(root: AccessibilityNodeInfo): AccessibilityNodeInfo? {
-        val stack = ArrayDeque<Pair<AccessibilityNodeInfo, Int>>()
-        stack.addLast(root to 0)
-        var visited = 0
-        while (stack.isNotEmpty() && visited < MAX_NODES) {
-            val (n, depth) = stack.removeLast()
-            visited++
-            if (nodeTexts(n).any(OfferParser::isTripLine)) return n
+    /** Depth-first search for the deepest node whose joined text is a trip line. */
+    private class TripFinder {
+        var trip: AccessibilityNodeInfo? = null
+        var tripText: String = ""
+        private var visited = 0
+
+        /** Returns the node's joined text (capped), and records the trip node on the way back up. */
+        fun visit(n: AccessibilityNodeInfo, depth: Int): String {
+            if (trip != null || visited++ >= MAX_NODES) return ""
+            val parts = nodeTexts(n).toMutableList()
             if (depth < MAX_DEPTH) {
-                for (i in n.childCount - 1 downTo 0) n.getChild(i)?.let { stack.addLast(it to depth + 1) }
+                for (i in 0 until n.childCount) {
+                    val child = n.getChild(i) ?: continue
+                    val t = visit(child, depth + 1)
+                    if (trip != null) return ""
+                    if (t.isNotEmpty()) parts += t
+                }
             }
+            val joined = parts.joinToString(" ").replace('\n', ' ').take(MAX_JOINED)
+            if (OfferParser.isTripLine(joined)) {
+                trip = n
+                tripText = joined
+            }
+            return joined
         }
-        return null
     }
 
     private fun collectTexts(root: AccessibilityNodeInfo): List<String> {

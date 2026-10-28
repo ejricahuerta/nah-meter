@@ -39,7 +39,16 @@ object OfferParser {
     fun isTripLine(text: String): Boolean = lines(listOf(text)).any { TRIP_LIKE.containsMatchIn(it) }
 
     /** True if any text is a standalone pay amount. */
-    fun containsPay(texts: List<String>): Boolean = lines(texts).any { PAY.matches(it) }
+    fun containsPay(texts: List<String>): Boolean = payValues(lines(texts)).isNotEmpty()
+
+    /**
+     * Standalone pay amounts. Also tries each line joined with the next, for apps that
+     * draw "$" and "5.50" as separate text pieces.
+     */
+    private fun payValues(lines: List<String>): List<BigDecimal> {
+        val candidates = lines + lines.zipWithNext { a, b -> a + b } + lines.zipWithNext { a, b -> "$a $b" }
+        return candidates.mapNotNull { PAY.matchEntire(it)?.groupValues?.get(1)?.toBigDecimalOrNull() }
+    }
 
     /**
      * Parses the texts of one card. Text outside the card (map labels, street names)
@@ -52,7 +61,7 @@ object OfferParser {
         val trip = lines.firstNotNullOfOrNull { TRIP.find(it) }
             ?: return ReadResult.Unreadable(lines)
         // The largest $ value inside the card is the pay.
-        val pay = lines.mapNotNull { PAY.matchEntire(it)?.groupValues?.get(1)?.toBigDecimalOrNull() }.maxOrNull()
+        val pay = payValues(lines).maxOrNull()
             ?: return ReadResult.Unreadable(lines)
         val minutes = trip.groupValues[1].toIntOrNull()
         val km = trip.groupValues[2].replace(',', '.').toBigDecimalOrNull()

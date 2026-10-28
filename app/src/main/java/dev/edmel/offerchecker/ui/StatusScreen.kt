@@ -51,6 +51,8 @@ fun StatusScreen(modifier: Modifier = Modifier) {
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { refresh++ }
     val running by ServiceState.running.collectAsState()
     val last by ServiceState.lastRead.collectAsState()
+    val uberEvents by ServiceState.uberEvents.collectAsState()
+    val lastScreen by ServiceState.lastScreen.collectAsState()
     val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { refresh++ }
 
     val a11y = remember(refresh, running) { SystemSetup.isAccessibilityEnabled(ctx) }
@@ -163,12 +165,42 @@ fun StatusScreen(modifier: Modifier = Modifier) {
                 }
             }
         }
+        Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("Diagnostics", style = MaterialTheme.typography.titleMedium)
+                val diag = buildString {
+                    appendLine("Offer Checker ${appVersion(ctx)}, Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}), ${Build.MANUFACTURER} ${Build.MODEL}")
+                    appendLine("Accessibility enabled: $a11y, reader running: $running")
+                    appendLine("Uber screen events received: $uberEvents")
+                    val ls = lastScreen
+                    if (ls == null) appendLine("Uber screen text: none read yet")
+                    else {
+                        appendLine("Uber screen text at ${DateFormat.getTimeInstance().format(Date(ls.first))}:")
+                        ls.second.forEach { appendLine("  $it") }
+                    }
+                }
+                Text(
+                    if (uberEvents == 0) "No events from Uber Driver yet. With the reader on, open Uber Driver: this number should go up."
+                    else "If an offer showed no badge, tap Copy and send this to the developer.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Text(diag.trim(), fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
+                OutlinedButton(onClick = {
+                    val cm = ctx.getSystemService(android.content.ClipboardManager::class.java)
+                    cm.setPrimaryClip(android.content.ClipData.newPlainText("Offer Checker diagnostics", diag))
+                    Toast.makeText(ctx, "Copied", Toast.LENGTH_SHORT).show()
+                }) { Text("Copy diagnostics") }
+            }
+        }
         Text(
             "Read-only: never taps in Uber, no internet permission, nothing leaves your phone.",
             style = MaterialTheme.typography.bodySmall,
         )
     }
 }
+
+private fun appVersion(ctx: android.content.Context): String =
+    runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull() ?: "?"
 
 fun verdictColor(v: Verdict): Color = when (v) {
     Verdict.GREEN -> Color(0xFF1E8E3E)
