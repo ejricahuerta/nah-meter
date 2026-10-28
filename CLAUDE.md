@@ -4,6 +4,9 @@ nahmeter ("nah." for short) is a sideloaded Android app for Uber Eats couriers. 
 offer the Uber Driver app shows and docks a one-word verdict above the offer card: **bet.**,
 **eh.**, **nah.** or **can't read.** Kotlin, Jetpack Compose, min API 26, target API 35.
 
+Android only: iPhone is out of scope until the project is funded (see README, "iPhone: not
+supported yet"); don't start iOS work unless asked.
+
 The product spec is the nahmeter PRD; the look comes from the nahmeter design system and app
 screens (links in `README.md`). When they disagree with the code, ask before changing behaviour.
 
