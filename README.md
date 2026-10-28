@@ -1,8 +1,9 @@
-# Uber Eats Offer Checker
+# Worth It (Uber Eats Offer Checker)
 
-An Android app that reads each Uber Eats delivery offer as it appears and shows a
-**green / yellow / red** badge within a second, so you can accept or decline without doing
-math under the 15-second timer.
+An Android app that reads each Uber Eats delivery offer as it appears and docks a verdict,
+**GO / MAYBE / SKIP**, just above the offer card within about a second, so you can accept or
+decline without doing math under the 15-second timer. The look follows the Worth It design
+system: black and white, Geist, and colour only on the verdict.
 
 - **Read-only.** It never taps anything in Uber: no auto-accept, no auto-decline.
 - **Offline.** No internet permission at all; nothing leaves the phone.
@@ -19,16 +20,16 @@ math under the 15-second timer.
 
 | Order | Check                  | Default        | If it fails |
 |-------|------------------------|----------------|-------------|
-| 1     | Minimum pay            | pay ≥ $5.50    | Red         |
-| 2     | Hourly rate (priority) | ≥ $20.00/hr    | Red         |
-| 3     | Per-km rate            | ≥ $1.00/km     | Yellow      |
-| 4     | All passed             | —              | Green       |
+| 1     | Minimum pay            | pay ≥ $5.50    | SKIP        |
+| 2     | Hourly rate (priority) | ≥ $20.00/hr    | SKIP        |
+| 3     | Per-km rate            | ≥ $1.00/km     | MAYBE       |
+| 4     | All passed             | —              | GO          |
 
 The first check that fails sets the colour. Exactly meeting a target passes. If a number
-can't be read, the badge is grey **Can't read**, never a guess. Every threshold is editable
+can't be read, the badge says **CAN'T READ**, never a guess. Every threshold is editable
 in Settings.
 
-Example: $6.07, 23 min, 11.5 km → **Red**, `$15.83/hr · $0.53/km`, "under $20/hr".
+Example: $6.07, 23 min, 11.5 km → **SKIP**, `$15.83/hr · $0.53/km`, "Under $20/hr target".
 
 ## First-time setup on the phone (about 5 minutes)
 
@@ -45,9 +46,10 @@ Example: $6.07, 23 min, 11.5 km → **Red**, `$15.83/hr · $0.53/km`, "under $20
 8. Allow notifications (for the "Offer checker on" notice).
 9. Open Uber Driver and wait for an offer, or tap **Test badge** on the Status screen.
 
-**Using the badge:** drag it anywhere (position is remembered); tap it to dismiss. It
-disappears when the offer closes or after 20 s. Vibration: green 1 short, yellow 2 short,
-red 1 long (can be turned off).
+**Using the badge:** the verdict card docks just above Uber's offer card; turn on
+**Compact badge** in Thresholds for a small pill at the top instead. Tap it to dismiss. It
+disappears when the offer closes or after 20 s. Vibration: GO one short, MAYBE two short,
+SKIP one long (can be turned off). The **Read offers** switch on Status pauses everything.
 
 **Updates:** install the new APK over the old one. Settings and the offer log are kept as
 long as the signing secrets below are set, because every build is then signed with the same key.
