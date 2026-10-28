@@ -12,7 +12,7 @@ decide without doing math under the 15-second timer. "nah." for short.
 
 ## Download
 
-**[Download the latest APK](../../releases/latest/download/offer-checker.apk)**
+**[Download the latest APK](../../releases/latest/download/nahmeter.apk)**
 (every push to `main` builds a new signed release; see [Releases](../../releases)).
 
 ## How offers are scored
@@ -79,7 +79,7 @@ long as the signing secrets below are set, because every build is then signed wi
 
 ## Building
 
-- **GitHub Actions (default):** push to `main`; the workflow attaches `offer-checker.apk` to a new release.
+- **GitHub Actions (default):** push to `main`; the workflow attaches `nahmeter.apk` to a new release.
 - **Android Studio:** open the folder, then *Build → Generate APKs*, or run
   `./gradlew :core:test :app:assembleRelease` (output in `app/build/outputs/apk/release/`).
 

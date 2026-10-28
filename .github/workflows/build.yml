@@ -2,7 +2,7 @@ name: Build APK
 
 on:
   push:
-    branches: [main, nahmeter]
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -54,24 +54,24 @@ jobs:
         run: ./gradlew --no-daemon :app:assembleRelease
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/release/app-release.apk offer-checker.apk
+        run: cp app/build/outputs/apk/release/app-release.apk nahmeter.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: offer-checker-apk
-          path: offer-checker.apk
+          name: nahmeter-apk
+          path: nahmeter.apk
 
       # Every build on main becomes the latest release, so the download link never changes:
-      # https://github.com/<owner>/<repo>/releases/latest/download/offer-checker.apk
+      # https://github.com/<owner>/<repo>/releases/latest/download/nahmeter.apk
       - name: Publish release
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.${{ github.run_number }}
-          name: Offer Checker 1.0.${{ github.run_number }}
+          name: nahmeter 1.0.${{ github.run_number }}
           target_commitish: ${{ github.sha }}
           make_latest: true
-          files: offer-checker.apk
+          files: nahmeter.apk
           body: |
             Signed APK. Install over an earlier version to keep settings and the offer log
             (requires the signing secrets to be set; see README).
