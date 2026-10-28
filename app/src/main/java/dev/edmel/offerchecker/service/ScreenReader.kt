@@ -2,7 +2,6 @@ package dev.edmel.offerchecker.service
 
 import android.accessibilityservice.AccessibilityService
 import android.graphics.Bitmap
-import android.graphics.Rect
 import android.view.Display
 import androidx.annotation.RequiresApi
 import com.google.mlkit.vision.common.InputImage
@@ -12,22 +11,31 @@ import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import dev.edmel.offerchecker.core.OcrLine
 
 /**
- * Reads the screen as text: an accessibility screenshot (Android 11+, no screen-recording
- * prompt) run through ML Kit's on-device text recognition. Used when Uber hides its text
- * from accessibility.
+ * Reads the whole screen as text: an accessibility screenshot (Android 11+, no screen-recording
+ * prompt) run through ML Kit's on-device text recognition. Used because Uber's offer pop-up
+ * isn't visible to accessibility. Uber's card can't be located as a window, so the full screen
+ * is read; [dev.edmel.offerchecker.core.OfferParser.cardFromOcr] then picks out the card.
  */
 object ScreenReader {
+    /** Screenshots are scaled down to this width: the card's text is large, and it's faster. */
+    private const val WIDTH = 720
+
     private var recognizer: TextRecognizer? = null
+
+    // Skip recognition when the screen hasn't changed since last time.
+    private var lastFingerprint: Int? = null
+    private var lastLines: List<OcrLine> = emptyList()
+    private var lastHeight = 0
 
     private fun recognizer(): TextRecognizer =
         recognizer ?: TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS).also { recognizer = it }
 
     /**
-     * Calls [done] on the main thread with the recognised lines (in screen coordinates) and the
-     * screen height, or null lines on failure. Only the [area] (Uber's windows) is read when given.
+     * Calls [done] on the main thread with the recognised lines and the (scaled) screen height,
+     * or null lines and an error description on failure.
      */
     @RequiresApi(30)
-    fun capture(service: AccessibilityService, area: Rect?, done: (List<OcrLine>?, Int) -> Unit) {
+    fun capture(service: AccessibilityService, done: (List<OcrLine>?, Int, String?) -> Unit) {
         service.takeScreenshot(
             Display.DEFAULT_DISPLAY,
             service.mainExecutor,
@@ -35,36 +43,67 @@ object ScreenReader {
                 override fun onSuccess(result: AccessibilityService.ScreenshotResult) {
                     val buffer = result.hardwareBuffer
                     val screen = runCatching {
-                        Bitmap.wrapHardwareBuffer(buffer, result.colorSpace)?.copy(Bitmap.Config.ARGB_8888, false)
+                        val hw = Bitmap.wrapHardwareBuffer(buffer, result.colorSpace)
+                        val soft = hw?.copy(Bitmap.Config.ARGB_8888, false)
+                        hw?.recycle()
+                        soft
                     }.getOrNull()
                     buffer.close()
                     if (screen == null) {
-                        done(null, 0)
+                        done(null, 0, "couldn't copy screenshot")
                         return
                     }
-                    val crop = area?.let { Rect(it).apply { intersect(0, 0, screen.width, screen.height) } }
-                        ?.takeIf { it.width() > 0 && it.height() > 0 }
-                    val image = crop?.let { Bitmap.createBitmap(screen, it.left, it.top, it.width(), it.height()) } ?: screen
-                    val offsetY = crop?.top ?: 0
+                    val image = if (screen.width > WIDTH) {
+                        Bitmap.createScaledBitmap(screen, WIDTH, screen.height * WIDTH / screen.width, true)
+                            .also { screen.recycle() }
+                    } else screen
+
+                    val fingerprint = fingerprint(image)
+                    if (fingerprint == lastFingerprint) {
+                        image.recycle()
+                        done(lastLines, lastHeight, null)
+                        return
+                    }
+                    val height = image.height
                     recognizer().process(InputImage.fromBitmap(image, 0))
                         .addOnSuccessListener { text ->
                             val lines = text.textBlocks.flatMap { block ->
                                 block.lines.mapNotNull { line ->
-                                    line.boundingBox?.let { OcrLine(line.text, it.top + offsetY, it.bottom + offsetY) }
+                                    line.boundingBox?.let { OcrLine(line.text, it.top, it.bottom) }
                                 }
                             }
-                            done(lines, screen.height)
+                            lastFingerprint = fingerprint
+                            lastLines = lines
+                            lastHeight = height
+                            image.recycle()
+                            done(lines, height, null)
                         }
-                        .addOnFailureListener { done(null, screen.height) }
+                        .addOnFailureListener { e ->
+                            image.recycle()
+                            done(null, height, "text recognition: ${e.message}")
+                        }
                 }
 
-                override fun onFailure(errorCode: Int) = done(null, 0)
+                override fun onFailure(errorCode: Int) = done(null, 0, "screenshot error $errorCode")
             },
         )
+    }
+
+    /** A tiny thumbnail's pixels, ignoring the status bar (its clock changes every minute). */
+    private fun fingerprint(b: Bitmap): Int {
+        val top = b.height / 20
+        val crop = Bitmap.createBitmap(b, 0, top, b.width, b.height - top)
+        val thumb = Bitmap.createScaledBitmap(crop, 24, 48, true)
+        val px = IntArray(24 * 48)
+        thumb.getPixels(px, 0, 24, 0, 0, 24, 48)
+        if (crop !== b) crop.recycle()
+        thumb.recycle()
+        return px.contentHashCode()
     }
 
     fun close() {
         recognizer?.close()
         recognizer = null
+        lastFingerprint = null
     }
 }

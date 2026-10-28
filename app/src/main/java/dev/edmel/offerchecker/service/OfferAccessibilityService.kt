@@ -43,6 +43,7 @@ class OfferAccessibilityService : AccessibilityService() {
 
     private var scanPending = false
     private val scan = Runnable { scanPending = false; scanScreen() }
+    private val poll = Runnable { if (!scanPending) scanScreen() }
 
     // De-dupe: each card is scored once (same pay + minutes + km within 30 s).
     private var lastKey: String? = null
@@ -77,7 +78,7 @@ class OfferAccessibilityService : AccessibilityService() {
         }
     }
 
-    /** Uber's windows on screen: their view trees, and the screen area they cover. */
+    /** Uber's windows on screen: their view trees, and the screen area they cover (for diagnostics). */
     private class UberWindows(val roots: List<AccessibilityNodeInfo>, val bounds: Rect?, val present: Boolean)
 
     private fun uberWindows(): UberWindows {
@@ -113,16 +114,23 @@ class OfferAccessibilityService : AccessibilityService() {
             }
         }
         val read = scan?.cardTexts?.let(OfferParser::parse) ?: ReadResult.NoOffer
+
+        // While Uber is online it keeps a window up (at least its floating bubble). Its offer card
+        // isn't reported as a window and may fire no event, so keep looking about once a second.
+        handler.removeCallbacks(poll)
+        if (uber.present) handler.postDelayed(poll, POLL_MS)
+
         if (read == ReadResult.NoOffer && uber.present && Build.VERSION.SDK_INT >= 30) {
-            // Uber is on screen but shares no offer text: read a screenshot instead.
-            requestScreenRead(uber.bounds)
+            // Uber shares no offer text: read the whole screen from a screenshot instead.
+            // Not while Offer Checker itself is open, so it never reads its own diagnostics.
+            if (rootInActiveWindow?.packageName?.toString() != packageName) requestScreenRead()
             return
         }
         handleRead(read, "accessibility")
     }
 
     @RequiresApi(30)
-    private fun requestScreenRead(bounds: Rect?) {
+    private fun requestScreenRead() {
         if (ocrBusy) return
         val wait = lastOcrAt + OCR_INTERVAL_MS - SystemClock.elapsedRealtime()
         if (wait > 0) {
@@ -135,12 +143,13 @@ class OfferAccessibilityService : AccessibilityService() {
         }
         ocrBusy = true
         lastOcrAt = SystemClock.elapsedRealtime()
-        ScreenReader.capture(this, bounds) { lines, screenHeight ->
+        ScreenReader.capture(this) { lines, screenHeight, error ->
             ocrBusy = false
             if (lines == null) {
-                logIfChanged("ocr", "Screenshot or text recognition failed")
+                logIfChanged("ocr", "Screen read failed: $error")
                 return@capture
             }
+            logIfChanged("ocr-on", "Screen reader active (full screen, about once a second while Uber is online)")
             if (lines.any { '$' in it.text || "km" in it.text }) {
                 logIfChanged("ocr", "Uber text (screenshot): ${lines.take(20).joinToString(" | ") { it.text }}")
             }
@@ -253,6 +262,7 @@ class OfferAccessibilityService : AccessibilityService() {
         private const val DEDUPE_MS = 30_000L
         private const val CARD_GONE_MS = 600L
         private const val MAX_SCREEN_TEXTS = 80
-        private const val OCR_INTERVAL_MS = 1000L
+        private const val OCR_INTERVAL_MS = 900L
+        private const val POLL_MS = 1000L
     }
 }
