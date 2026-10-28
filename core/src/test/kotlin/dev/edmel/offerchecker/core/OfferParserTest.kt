@@ -165,4 +165,28 @@ class OfferParserTest {
         assertEquals("\$16.17/hr · \$0.85/km", e.ratesText)
         assertTrue(e.offer!!.stacked)
     }
+
+    /**
+     * 2026-10-28 5:45: the $9.07 pop-up over a web page showing sample badges ("$25.64/hr").
+     * The small $25.64 behind the card was taken as the pay (green $49.63/hr). The card's own
+     * pay is far larger text, so it must win. Positions are from that screenshot (2000 px tall).
+     */
+    @Test fun ocrIgnoresSmallerDollarAmountsBehindThePopup() {
+        val lines = listOf(
+            OcrLine("On a live offer: the badge over the Uber Driver offer card", 755, 778),
+            OcrLine("$15.83", 1016, 1032), OcrLine("/hr", 1020, 1030),
+            OcrLine("$25.64", 1016, 1032), OcrLine("/hr", 1020, 1030),
+            OcrLine("$24.00", 1016, 1032), OcrLine("/hr", 1020, 1030),
+            OcrLine("Delivery", 1130, 1170),
+            OcrLine("$9.07", 1205, 1290),
+            OcrLine("including estimated tip", 1335, 1370),
+            OcrLine("31 min (19.2 km) total", 1450, 1490),
+            OcrLine("Burger King (1607 Birchmount Road)", 1550, 1590),
+            OcrLine("Match", 1800, 1840),
+        )
+        val e = Scorer.evaluate(OfferParser.parse(OfferParser.cardFromOcr(lines, 2000)!!), Thresholds())!!
+        assertEquals(BigDecimal("9.07"), e.offer!!.pay)
+        assertEquals(Verdict.RED, e.verdict)
+        assertEquals("\$17.55/hr · \$0.47/km", e.ratesText)
+    }
 }

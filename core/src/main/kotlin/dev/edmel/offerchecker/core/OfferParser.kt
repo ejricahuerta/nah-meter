@@ -99,12 +99,18 @@ object OfferParser {
     /**
      * Picks the offer card's lines out of a whole-screen OCR result: the trip line plus the
      * lines just above it (pay, "including estimated tip"), so map labels elsewhere are ignored.
+     * Of the dollar amounts there, only the one in the largest text is kept as the pay.
      * Returns null when no trip line was recognised.
      */
     fun cardFromOcr(lines: List<OcrLine>, screenHeight: Int): List<String>? {
         val trip = lines.firstOrNull { isTripLine(it.text) } ?: return null
         val bandTop = trip.top - (screenHeight * OCR_BAND).toInt()
-        return lines.filter { it.top >= bandTop && it.bottom <= trip.bottom + 4 }
+        val band = lines.filter { it.top >= bandTop && it.bottom <= trip.bottom + 4 }
+        // Uber's pay is the biggest text on the card. Other dollar amounts in the band come from
+        // whatever is behind the pop-up (a web page, another app), so drop them.
+        val pays = band.filter { containsPay(listOf(it.text)) }
+        val pay = pays.maxWithOrNull(compareBy<OcrLine>({ it.bottom - it.top }, { it.bottom }))
+        return band.filter { it == pay || it !in pays }
             .sortedBy { it.top }
             .map { it.text }
     }
