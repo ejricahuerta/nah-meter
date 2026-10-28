@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Offer Checker</string>
+    <string name="accessibility_description">Reads the pay, minutes and km on Uber Eats offer cards in the Uber Driver app and shows a green, yellow or red badge. Read-only: it never taps anything, and nothing leaves your phone.</string>
+</resources>
