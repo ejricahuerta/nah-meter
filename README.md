@@ -15,6 +15,20 @@ decide without doing math under the 15-second timer. "nah." for short.
 **[Download the latest APK](../../releases/latest/download/nahmeter.apk)**
 (every push to `main` builds a new signed release; see [Releases](../../releases)).
 
+## iPhone: not supported yet
+
+nahmeter is Android only for now. iPhone support is planned once the project is funded.
+
+iOS doesn't let one app read another app's screen or draw over it, so the Android approach (a
+verdict card docked over Uber's offer) can't be ported as is. The two routes looked at:
+
+| Route | How it would work | What it needs |
+| --- | --- | --- |
+| Shortcut + Back Tap | Double-tap the back of the phone on an offer; a Shortcut screenshots it, reads it on the phone and shows the verdict as a banner. | Nothing to install; one tap per offer. |
+| Native iPhone app | A screen broadcast started once per shift; on-device text recognition reads each offer and posts the verdict as a notification. | A Mac and an Apple Developer account, TestFlight distribution, roughly 1–2 weeks of work. |
+
+The scoring rules and offer patterns in `core/` carry over to either route.
+
 ## How offers are scored
 
 `$/hr = pay ÷ minutes × 60` · `$/km = pay ÷ km` · minutes = Uber's total + optional wait buffer.
