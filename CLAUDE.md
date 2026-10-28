@@ -65,6 +65,13 @@ Guards: `.claude/hooks/block-push-to-main.sh` (a Claude Code PreToolUse hook, wi
 plain git once a clone runs `git config core.hooksPath .githooks`. The GitHub ruleset on `main`
 (require a pull request, require the build check) is what actually enforces it.
 
+## Claude on GitHub
+
+Mentioning `@claude` in an issue, PR comment or review runs `.github/workflows/claude.yml`
+(Claude Code GitHub Action, secret `CLAUDE_CODE_OAUTH_TOKEN`). There the Android SDK is available,
+so build and test with Gradle before opening the PR. The same rules apply: a branch and a PR,
+never a push to `main`.
+
 ## Layout
 
 ```
