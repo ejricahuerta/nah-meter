@@ -48,6 +48,8 @@ class OfferAccessibilityService : AccessibilityService() {
     private var lastKey: String? = null
     private var lastKeyAt = 0L
     private var cardMissingSince = 0L
+    /** The offer read from the card on screen now, if any; cleared when the card goes away. */
+    private var shownOffer: Offer? = null
 
     // Screenshot reader (Android 11+), used when Uber doesn't share the offer's text.
     private var ocrBusy = false
@@ -167,10 +169,17 @@ class OfferAccessibilityService : AccessibilityService() {
             is ReadResult.Unreadable -> read.raw
             ReadResult.NoOffer -> emptyList()
         }
-        val key = (read as? ReadResult.Read)?.offer?.let { "${it.pay}|${it.minutes}|${it.km}" }
+        val offer = (read as? ReadResult.Read)?.offer
+        val key = offer?.let { "${it.pay}|${it.minutes}|${it.km}" }
             ?: "grey|${raw.filter(OfferParser::isTripLine)}"
         val now = SystemClock.elapsedRealtime()
         if (key == lastKey && now - lastKeyAt < DEDUPE_MS) return
+        // Screenshots of the same card are re-read about once a second and text recognition
+        // varies between them. Once a card has been read, keep that verdict while it stays up:
+        // a grey re-read, or a different pay with the same minutes and km, is noise.
+        val shown = shownOffer
+        if (shown != null && (offer == null || (offer.minutes == shown.minutes && offer.km == shown.km))) return
+        shownOffer = offer
         lastKey = key
         lastKeyAt = now
         ServiceState.log(
@@ -202,6 +211,7 @@ class OfferAccessibilityService : AccessibilityService() {
         } else if (now - cardMissingSince >= CARD_GONE_MS) {
             cardMissingSince = 0L
             lastKey = null
+            shownOffer = null
             badge.hide()
         }
     }
