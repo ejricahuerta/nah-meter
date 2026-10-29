@@ -161,7 +161,8 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
 ## Debugging an on-phone problem
 
 Ask the user to wait for an offer, then open **Status → Diagnostics → Show → Copy diagnostics**
-and paste it. The log shows the windows seen (and Uber's area), the text read by each method, and
+and paste it. The log shows Uber coming on screen (its area, and which app it popped up over) and
+leaving, but not other apps opening and closing; the card's lines read by each method; and
 each verdict with its source. A grey verdict logs the card text it saw. Entries are
 `[yyyy-MM-dd HH:mm:ss] - title` with one `- detail` line each (`LogEntry`); log through
 `ServiceState.log(title, details…)`, never a run-on line with `|` separators. Errors go in as
