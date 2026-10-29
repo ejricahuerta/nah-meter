@@ -42,16 +42,14 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+/** The setup steps with a one-tap link each: used by Settings → Permissions and by Setup. */
 @Composable
-fun PermissionsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
+fun PermissionSteps() {
     val ctx = LocalContext.current
-    val repo = remember { SettingsRepository(ctx) }
-    val scope = rememberCoroutineScope()
     // Re-read system state whenever the user comes back from a settings page.
     var refresh by remember { mutableIntStateOf(0) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { refresh++ }
     val running by ServiceState.running.collectAsState()
-    val last by ServiceState.lastRead.collectAsState()
     val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { refresh++ }
 
     val a11y = remember(refresh, running) { SystemSetup.isAccessibilityEnabled(ctx) }
@@ -60,71 +58,76 @@ fun PermissionsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val uber = remember(refresh) { SystemSetup.uberInstalled(ctx) }
     val reading = a11y && running
 
+    // Setup steps, in the order the PRD's install guide gives them.
+    val restricted = Build.VERSION.SDK_INT >= 33 && !a11y
+    val checkable = listOf(a11y, battery, notifs, uber.isNotEmpty())
+    val done = checkable.count { it }
+    Column {
+        SectionLabel(if (done == checkable.size) "Setup · all done" else "Setup · $done of ${checkable.size} done")
+        NahGroup {
+            if (restricted) {
+                SetupStep(
+                    StepState.Todo, "Allow restricted settings",
+                    "Android 13+: App info → ⋮ → Allow restricted settings, then turn on Accessibility",
+                    "Open",
+                ) { SystemSetup.openAppInfo(ctx) }
+                NahDivider()
+            }
+            SetupStep(
+                if (a11y) StepState.Done else StepState.Todo, "Accessibility",
+                when {
+                    reading -> "On · offers are read as they appear"
+                    a11y -> "On but not running · turn it off and on again"
+                    else -> "Off · offers aren't being read"
+                },
+                if (reading) null else "Open",
+            ) { SystemSetup.openAccessibility(ctx) }
+            NahDivider()
+            SetupStep(
+                if (battery) StepState.Done else StepState.Todo, "Battery unrestricted",
+                if (battery) "Android won't pause nah.meter" else "Restricted · Android may stop nah.meter",
+                if (battery) null else "Allow",
+            ) { SystemSetup.requestUnrestrictedBattery(ctx) }
+            if (SystemSetup.isSamsung || SystemSetup.isXiaomi) {
+                NahDivider()
+                SetupStep(
+                    StepState.Manual,
+                    if (SystemSetup.isSamsung) "Never sleeping (Samsung)" else "Autostart (Xiaomi)",
+                    if (SystemSetup.isSamsung) "Survives long shifts · add nah.meter to Never sleeping apps" else "Turn on Autostart, battery No restrictions",
+                    "Open",
+                ) { SystemSetup.openBrandBattery(ctx) }
+            }
+            NahDivider()
+            SetupStep(
+                if (notifs) StepState.Done else StepState.Todo, "Notifications",
+                if (notifs) "On · shows that nah.meter is on" else "Off · needed to keep running",
+                if (notifs) null else "Allow",
+            ) {
+                if (Build.VERSION.SDK_INT >= 33) notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                else SystemSetup.openNotificationSettings(ctx)
+            }
+            NahDivider()
+            SetupStep(
+                if (uber.isNotEmpty()) StepState.Done else StepState.Todo, "Uber app",
+                if (uber.isNotEmpty()) "Found: ${uber.joinToString()}" else "Uber Driver isn't installed",
+                if (uber.isNotEmpty()) "Open" else null,
+            ) { SystemSetup.openUber(ctx) }
+        }
+    }
+}
+
+@Composable
+fun PermissionsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
+    val ctx = LocalContext.current
+    val running by ServiceState.running.collectAsState()
     val c = Nah.c
     Column(
         modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(ScreenPadding),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         BackHeader("Permissions", onBack)
-
-        // Setup steps, in the order the PRD's install guide gives them.
-        val restricted = Build.VERSION.SDK_INT >= 33 && !a11y
-        val checkable = listOf(a11y, battery, notifs, uber.isNotEmpty())
-        val done = checkable.count { it }
-        Column {
-            SectionLabel(if (done == checkable.size) "Setup · all done" else "Setup · $done of ${checkable.size} done")
-            NahGroup {
-                if (restricted) {
-                    SetupStep(
-                        StepState.Todo, "Allow restricted settings",
-                        "Android 13+: App info → ⋮ → Allow restricted settings, then turn on Accessibility",
-                        "Open",
-                    ) { SystemSetup.openAppInfo(ctx) }
-                    NahDivider()
-                }
-                SetupStep(
-                    if (a11y) StepState.Done else StepState.Todo, "Accessibility",
-                    when {
-                        reading -> "On · offers are read as they appear"
-                        a11y -> "On but not running · turn it off and on again"
-                        else -> "Off · offers aren't being read"
-                    },
-                    if (reading) null else "Open",
-                ) { SystemSetup.openAccessibility(ctx) }
-                NahDivider()
-                SetupStep(
-                    if (battery) StepState.Done else StepState.Todo, "Battery unrestricted",
-                    if (battery) "Android won't pause nah.meter" else "Restricted · Android may stop nah.meter",
-                    if (battery) null else "Allow",
-                ) { SystemSetup.requestUnrestrictedBattery(ctx) }
-                if (SystemSetup.isSamsung || SystemSetup.isXiaomi) {
-                    NahDivider()
-                    SetupStep(
-                        StepState.Manual,
-                        if (SystemSetup.isSamsung) "Never sleeping (Samsung)" else "Autostart (Xiaomi)",
-                        if (SystemSetup.isSamsung) "Survives long shifts · add nah.meter to Never sleeping apps" else "Turn on Autostart, battery No restrictions",
-                        "Open",
-                    ) { SystemSetup.openBrandBattery(ctx) }
-                }
-                NahDivider()
-                SetupStep(
-                    if (notifs) StepState.Done else StepState.Todo, "Notifications",
-                    if (notifs) "On · shows that nah.meter is on" else "Off · needed to keep running",
-                    if (notifs) null else "Allow",
-                ) {
-                    if (Build.VERSION.SDK_INT >= 33) notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    else SystemSetup.openNotificationSettings(ctx)
-                }
-                NahDivider()
-                SetupStep(
-                    if (uber.isNotEmpty()) StepState.Done else StepState.Todo, "Uber app",
-                    if (uber.isNotEmpty()) "Found: ${uber.joinToString()}" else "Uber Driver isn't installed",
-                    if (uber.isNotEmpty()) "Open" else null,
-                ) { SystemSetup.openUber(ctx) }
-            }
-        }
-
-        Diagnostics(a11y, running)
+        PermissionSteps()
+        Diagnostics(SystemSetup.isAccessibilityEnabled(ctx), running)
 
         Text(
             "Advice only: nah.meter never taps anything in Uber. No internet permission; nothing leaves your phone.",

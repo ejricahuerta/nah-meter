@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.edmel.offerchecker.core.Offer
 import dev.edmel.offerchecker.core.Scorer
+import dev.edmel.offerchecker.core.Thresholds
 import dev.edmel.offerchecker.data.AppSettings
 import dev.edmel.offerchecker.data.OfferDatabase
 import dev.edmel.offerchecker.data.SettingsRepository
@@ -55,9 +56,6 @@ fun ThresholdsScreen(settings: AppSettings, modifier: Modifier = Modifier) {
     val isExample = lastRead == null && logged.isEmpty()
     val preview = Scorer.score(sample, t)
 
-    fun step(v: BigDecimal, delta: String, lo: String, hi: String) =
-        (v + BigDecimal(delta)).max(BigDecimal(lo)).min(BigDecimal(hi)).setScale(2, RoundingMode.HALF_UP)
-
     Column(
         modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(ScreenPadding),
         verticalArrangement = Arrangement.spacedBy(20.dp),
@@ -81,35 +79,7 @@ fun ThresholdsScreen(settings: AppSettings, modifier: Modifier = Modifier) {
             )
         }
 
-        NahGroup {
-            ThresholdField(
-                "Minimum pay", money(t.minPay), null, "Below this is always nah.",
-                "Decrease minimum pay by $0.25", "Increase minimum pay by $0.25",
-                { scope.launch { repo.setMinPay(step(t.minPay, "-0.25", "0", "50")) } },
-                { scope.launch { repo.setMinPay(step(t.minPay, "0.25", "0", "50")) } },
-            )
-            NahDivider()
-            ThresholdField(
-                "Per hour", money(t.minHourly), "/hr", "Under this is nah.",
-                "Decrease per hour by $1", "Increase per hour by $1",
-                { scope.launch { repo.setMinHourly(step(t.minHourly, "-1", "5", "80")) } },
-                { scope.launch { repo.setMinHourly(step(t.minHourly, "1", "5", "80")) } },
-            )
-            NahDivider()
-            ThresholdField(
-                "Per km", money(t.minPerKm), "/km", "Under this is eh.",
-                "Decrease per km by $0.05", "Increase per km by $0.05",
-                { scope.launch { repo.setMinPerKm(step(t.minPerKm, "-0.05", "0", "5")) } },
-                { scope.launch { repo.setMinPerKm(step(t.minPerKm, "0.05", "0", "5")) } },
-            )
-            NahDivider()
-            ThresholdField(
-                "Restaurant wait buffer", "${t.waitBufferMin}", " min", "Added to Uber's time",
-                "Decrease wait buffer by 1 minute", "Increase wait buffer by 1 minute",
-                { scope.launch { repo.setWaitBuffer((t.waitBufferMin - 1).coerceIn(0, 30)) } },
-                { scope.launch { repo.setWaitBuffer((t.waitBufferMin + 1).coerceIn(0, 30)) } },
-            )
-        }
+        NahGroup { RuleSteppers(t, showBuffer = true) }
 
         Column {
             SectionLabel("Per app (optional)")
@@ -121,6 +91,46 @@ fun ThresholdsScreen(settings: AppSettings, modifier: Modifier = Modifier) {
                 }
             }
         }
+    }
+}
+
+private fun step(v: BigDecimal, delta: String, lo: String, hi: String) =
+    (v + BigDecimal(delta)).max(BigDecimal(lo)).min(BigDecimal(hi)).setScale(2, RoundingMode.HALF_UP)
+
+/** The rule steppers, as rows to put in a [NahGroup]: minimum pay, per hour, per km and (optionally) the wait buffer. */
+@Composable
+fun RuleSteppers(t: Thresholds, showBuffer: Boolean) {
+    val ctx = LocalContext.current
+    val repo = remember { SettingsRepository(ctx) }
+    val scope = rememberCoroutineScope()
+    ThresholdField(
+        "Minimum pay", money(t.minPay), null, "Below this is always nah.",
+        "Decrease minimum pay by $0.25", "Increase minimum pay by $0.25",
+        { scope.launch { repo.setMinPay(step(t.minPay, "-0.25", "0", "50")) } },
+        { scope.launch { repo.setMinPay(step(t.minPay, "0.25", "0", "50")) } },
+    )
+    NahDivider()
+    ThresholdField(
+        "Per hour", money(t.minHourly), "/hr", "Under this is nah.",
+        "Decrease per hour by $1", "Increase per hour by $1",
+        { scope.launch { repo.setMinHourly(step(t.minHourly, "-1", "5", "80")) } },
+        { scope.launch { repo.setMinHourly(step(t.minHourly, "1", "5", "80")) } },
+    )
+    NahDivider()
+    ThresholdField(
+        "Per km", money(t.minPerKm), "/km", "Under this is eh.",
+        "Decrease per km by $0.05", "Increase per km by $0.05",
+        { scope.launch { repo.setMinPerKm(step(t.minPerKm, "-0.05", "0", "5")) } },
+        { scope.launch { repo.setMinPerKm(step(t.minPerKm, "0.05", "0", "5")) } },
+    )
+    if (showBuffer) {
+        NahDivider()
+        ThresholdField(
+            "Restaurant wait buffer", "${t.waitBufferMin}", " min", "Added to Uber's time",
+            "Decrease wait buffer by 1 minute", "Increase wait buffer by 1 minute",
+            { scope.launch { repo.setWaitBuffer((t.waitBufferMin - 1).coerceIn(0, 30)) } },
+            { scope.launch { repo.setWaitBuffer((t.waitBufferMin + 1).coerceIn(0, 30)) } },
+        )
     }
 }
 
