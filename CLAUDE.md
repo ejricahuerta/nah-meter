@@ -162,7 +162,9 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
 
 Ask the user to wait for an offer, then open **Status → Diagnostics → Show → Copy diagnostics**
 and paste it. The log shows the windows seen (and Uber's area), the text read by each method, and
-each verdict with its source. A grey verdict logs the card text it saw. Before debugging, check
+each verdict with its source. A grey verdict logs the card text it saw. Entries are
+`[yyyy-MM-dd HH:mm:ss] - title` with one `- detail` line each (`LogEntry`); log through
+`ServiceState.log(title, details…)`, never a run-on line with `|` separators. Before debugging, check
 that the first line's version matches the latest release.
 
 For "nahmeter keeps stopping", the same copy ends with **Last crash** (the stack trace, kept on the

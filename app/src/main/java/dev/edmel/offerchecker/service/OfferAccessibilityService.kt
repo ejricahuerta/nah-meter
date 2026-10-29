@@ -40,7 +40,7 @@ class OfferAccessibilityService : AccessibilityService() {
     // A failed write or settings read is logged, never allowed to take the reader (and Uber's overlay) down.
     private val scope = CoroutineScope(
         SupervisorJob() + Dispatchers.Main.immediate +
-            CoroutineExceptionHandler { _, e -> ServiceState.log("Error: ${e.javaClass.simpleName}: ${e.message}") },
+            CoroutineExceptionHandler { _, e -> ServiceState.log("Error", "${e.javaClass.simpleName}: ${e.message}") },
     )
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var settingsRepo: SettingsRepository
@@ -125,7 +125,10 @@ class OfferAccessibilityService : AccessibilityService() {
         if (roots.isNotEmpty()) ReaderWatch.uberSeen(this)
         if (roots.isEmpty()) rootInActiveWindow?.takeIf { isUberPackage(it.packageName) }?.let { roots += it }
         ServiceState.windowsFlow.value = seen.distinct()
-        logIfChanged("windows", "Windows on screen: ${seen.joinToString()}${bounds?.let { " · Uber area $it" } ?: ""}")
+        logIfChanged(
+            "windows", "Windows on screen",
+            listOfNotNull("apps: ${seen.joinToString()}", bounds?.let { "Uber area: ${it.toShortString()}" }),
+        )
         // A window whose content Android won't share might be Uber's offer: let the screenshot reader check.
         return UberWindows(roots, bounds, roots.isNotEmpty() || hiddenAppWindow)
     }
@@ -138,7 +141,7 @@ class OfferAccessibilityService : AccessibilityService() {
             // Only screens with an offer's trip line: during a trip Uber's map and earnings change
             // every few seconds and would push everything else out of the log.
             if (scan.screenTexts.any(OfferParser::isTripLine)) {
-                logIfChanged("a11y", "Uber text (accessibility): ${scan.screenTexts.take(20).joinToString(" | ")}")
+                logIfChanged("a11y", "Uber text (accessibility)", scan.screenTexts.take(MAX_LOG_LINES))
             }
         }
         val read = scan?.cardTexts?.let(OfferParser::parse) ?: ReadResult.NoOffer
@@ -180,7 +183,7 @@ class OfferAccessibilityService : AccessibilityService() {
 
     private fun onScreenRead(allLines: List<OcrLine>?, screenHeight: Int, accessibilityRead: ReadResult) {
         if (allLines == null) {
-            logIfChanged("ocr", "Screenshot or text recognition failed")
+            logIfChanged("ocr", "Screenshot failed", listOf("no screenshot, or text recognition found nothing"))
             return
         }
         // Never read our own verdict card or pill back in.
@@ -188,7 +191,7 @@ class OfferAccessibilityService : AccessibilityService() {
         val lines = if (badgeArea == null) allLines
         else allLines.filter { it.bottom <= badgeArea.top || it.top >= badgeArea.bottom }
         if (lines.any { OfferParser.isTripLine(it.text) }) {
-            logIfChanged("ocr", "Uber text (screenshot): ${lines.take(20).joinToString(" | ") { it.text }}")
+            logIfChanged("ocr", "Uber text (screenshot)", lines.take(MAX_LOG_LINES).map { it.text })
         }
         val card = OfferParser.cardFromOcr(lines, screenHeight)
         cardTop = OfferParser.ocrCardTop(lines, screenHeight)
@@ -225,10 +228,7 @@ class OfferAccessibilityService : AccessibilityService() {
         shownOffer = offer
         lastKey = key
         lastKeyAt = now
-        ServiceState.log(
-            "Offer read from $source: ${evaluation.verdict} ${evaluation.ratesText}" +
-                if (evaluation.verdict == Verdict.GREY) " · card text: ${raw.joinToString(" | ")}" else "",
-        )
+        ServiceState.log("Offer: ${NahCopy.word(evaluation.verdict)} ($source)", *offerDetails(evaluation, raw).toTypedArray())
         onNewCard(evaluation, raw)
     }
 
@@ -241,17 +241,36 @@ class OfferAccessibilityService : AccessibilityService() {
             block()
         } catch (e: Throwable) {
             if (e is OutOfMemoryError) System.gc()
-            logIfChanged("error", "Error in $step: ${e.javaClass.simpleName}: ${e.message} at ${e.stackTrace.firstOrNull()}")
+            logIfChanged(
+                "error", "Error in $step",
+                listOfNotNull("${e.javaClass.simpleName}: ${e.message}", e.stackTrace.firstOrNull()?.let { "at $it" }),
+            )
         }
     }
 
-    private val lastLogged = mutableMapOf<String, String>()
+    /** What the log says about a verdict: the numbers read, how they were scored, and why. */
+    private fun offerDetails(e: Evaluation, raw: List<String>): List<String> {
+        val o = e.offer ?: return listOf("card text:") + raw.map { "  $it" }
+        val wait = (e.effectiveMinutes ?: o.minutes) - o.minutes
+        return listOfNotNull(
+            "pay ${Scorer.money(o.pay)}" + (if (o.addOn) " (add-on)" else "") + " · ${o.minutes} min · ${o.km.toPlainString()} km" +
+                (if (o.orders > 1) " · ${o.orders} orders" else ""),
+            if (wait > 0) "scored as ${e.effectiveMinutes} min (+$wait min waiting)" else null,
+            "rates: ${e.ratesText}",
+            e.failedRule?.let { "rule: $it" } ?: "rule: meets all targets",
+            o.pickup?.let { "restaurant: $it" },
+            o.dropoff?.let { "drop-off: $it" },
+        )
+    }
+
+    private val lastLogged = mutableMapOf<String, LogEntry>()
 
     /** Adds to the diagnostics log only when this kind of entry changed since last time. */
-    private fun logIfChanged(kind: String, message: String) {
-        if (lastLogged[kind] == message) return
-        lastLogged[kind] = message
-        ServiceState.log(message)
+    private fun logIfChanged(kind: String, title: String, details: List<String>) {
+        val entry = LogEntry(System.currentTimeMillis(), title, details)
+        if (lastLogged[kind]?.sameAs(entry) == true) return
+        lastLogged[kind] = entry
+        ServiceState.log(entry)
     }
 
     /**
@@ -296,7 +315,7 @@ class OfferAccessibilityService : AccessibilityService() {
         // The verdict always shows; the log only gets offers it doesn't already have.
         scope.launch {
             val logged = withContext(Dispatchers.IO) { OfferDatabase.get(this@OfferAccessibilityService).offers().addIfNew(entry) }
-            if (!logged) ServiceState.log("Same offer as one already logged: shown, not logged again")
+            if (!logged) ServiceState.log("Offer not logged again", "same as one already in the log; verdict still shown")
         }
     }
 
@@ -338,6 +357,7 @@ class OfferAccessibilityService : AccessibilityService() {
         private const val CARD_GONE_MS = 600L
         private const val MAX_SCREEN_TEXTS = 80
         private const val OCR_INTERVAL_MS = 1000L
+        private const val MAX_LOG_LINES = 20
         private const val OCR_STUCK_MS = 10_000L
     }
 }

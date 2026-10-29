@@ -199,9 +199,10 @@ private fun Diagnostics(a11y: Boolean, running: Boolean) {
             appendLine("Uber screen text at ${DateFormat.getTimeInstance().format(Date(ls.first))}:")
             ls.second.forEach { appendLine("  $it") }
         }
+        appendLine()
         appendLine("Log (newest first):")
-        if (log.isEmpty()) appendLine("  (empty)")
-        log.forEach { appendLine("  $it") }
+        if (log.isEmpty()) appendLine("(empty)")
+        log.forEach { appendLine(it.format()); appendLine() }
         crash?.let {
             appendLine("Last crash:")
             it.lines().forEach { line -> appendLine("  $line") }
