@@ -17,6 +17,8 @@ data class AppSettings(
     /** The Status screen's switch: when off, no offers are read and no badge shows. */
     val readingEnabled: Boolean = true,
     val vibration: Boolean = true,
+    /** Say the verdict out loud ("nah. 14 an hour"), for couriers who are driving. */
+    val voice: Boolean = true,
     /** Compact pill at the top of the screen instead of the card docked above the offer. */
     val compactBadge: Boolean = false,
     /** The welcome screen has been seen. */
@@ -35,6 +37,7 @@ class SettingsRepository(context: Context) {
         val waitBuffer = intPreferencesKey("wait_buffer_min")
         val readingEnabled = booleanPreferencesKey("reading_enabled")
         val vibration = booleanPreferencesKey("vibration")
+        val voice = booleanPreferencesKey("voice")
         val compactBadge = booleanPreferencesKey("compact_badge")
         val onboarded = booleanPreferencesKey("onboarded")
     }
@@ -54,6 +57,7 @@ class SettingsRepository(context: Context) {
             ),
             readingEnabled = this[Keys.readingEnabled] ?: d.readingEnabled,
             vibration = this[Keys.vibration] ?: d.vibration,
+            voice = this[Keys.voice] ?: d.voice,
             compactBadge = this[Keys.compactBadge] ?: d.compactBadge,
             onboarded = this[Keys.onboarded] ?: d.onboarded,
         )
@@ -65,6 +69,7 @@ class SettingsRepository(context: Context) {
     suspend fun setWaitBuffer(v: Int) = store.edit { it[Keys.waitBuffer] = v }
     suspend fun setReadingEnabled(v: Boolean) = store.edit { it[Keys.readingEnabled] = v }
     suspend fun setVibration(v: Boolean) = store.edit { it[Keys.vibration] = v }
+    suspend fun setVoice(v: Boolean) = store.edit { it[Keys.voice] = v }
     suspend fun setCompactBadge(v: Boolean) = store.edit { it[Keys.compactBadge] = v }
     suspend fun setOnboarded() = store.edit { it[Keys.onboarded] = true }
 }

@@ -48,6 +48,15 @@ object NahCopy {
         else -> "clears your ${Scorer.money(t.minHourly)}"
     }
 
+    /**
+     * Said out loud while driving: the word and whole dollars an hour, "nah. 14 an hour"
+     * ("$14.19/hr" reads badly aloud). Add-ons start with "add-on.".
+     */
+    fun speech(e: Evaluation): String =
+        if (e.verdict == Verdict.GREY) "can't read. check it yourself."
+        else (if (e.offer?.addOn == true) "add-on. " else "") +
+            "${word(e.verdict)} ${e.hourly?.toBigInteger() ?: 0} an hour."
+
     /** What TalkBack announces: "nah. $15.83 per hour. Under your $20, $0.53 per km." */
     fun spoken(e: Evaluation, t: Thresholds): String =
         if (e.verdict == Verdict.GREY) "can't read. Check this offer yourself."

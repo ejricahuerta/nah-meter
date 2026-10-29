@@ -92,6 +92,8 @@ app/   Android
   service/ServiceState.kt  in-process state shared with the UI, including the diagnostics log
   service/CrashLog.kt      the last crash's stack trace, saved on the phone, shown in Diagnostics
   service/ReaderWatch.kt   "nahmeter stopped reading" notification if the reader stops mid-shift
+  service/Voice.kt         says the verdict out loud ("nah. 14 an hour"), on-device TTS
+  service/ReadingTileService.kt, PauseReceiver.kt  pause / resume from the shade (tile, notification)
   data/                    DataStore settings, Room offer log (last 200), CSV export
   ui/Nah.kt                design tokens (Mono/Daylight), Geist, components
   ui/*Screen.kt            Welcome (onboarding), Status, Thresholds, Log

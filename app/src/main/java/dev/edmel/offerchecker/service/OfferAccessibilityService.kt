@@ -46,6 +46,9 @@ class OfferAccessibilityService : AccessibilityService() {
     private lateinit var settingsRepo: SettingsRepository
     private lateinit var badge: BadgeOverlay
     private lateinit var alerts: Alerts
+    private var voice: Voice? = null
+    /** The status notification shows the current reading state (on / paused). */
+    private var notified = false
     @Volatile private var settings = AppSettings()
 
     private var scanPending = false
@@ -70,9 +73,14 @@ class OfferAccessibilityService : AccessibilityService() {
         CrashLog.install(this)
         settingsRepo = SettingsRepository(this)
         alerts = Alerts(this)
+        voice = runCatching { Voice(this) }.getOrNull()
         badge = BadgeOverlay(this)
         scope.launch {
             settingsRepo.settings.collect {
+                if (it.readingEnabled != settings.readingEnabled || !notified) {
+                    notified = true
+                    StatusNotification.show(this@OfferAccessibilityService, it.readingEnabled)
+                }
                 settings = it
                 if (!it.readingEnabled) badge.hide()
             }
@@ -337,6 +345,7 @@ class OfferAccessibilityService : AccessibilityService() {
         val s = settings
         guarded("verdict card") { badge.show(e, s.thresholds, s.compactBadge, cardTop ?: popupTop) }
         if (s.vibration) runCatching { alerts.vibrate(e.verdict) }
+        if (s.voice) voice?.say(NahCopy.speech(e))
         ServiceState.lastReadFlow.value = LastRead(System.currentTimeMillis(), e, raw)
         val offer = e.offer ?: return
         if (e.verdict == Verdict.GREY) return
@@ -367,6 +376,7 @@ class OfferAccessibilityService : AccessibilityService() {
         val s = settings
         badge.show(e, s.thresholds, s.compactBadge, null)
         if (s.vibration) alerts.vibrate(e.verdict)
+        if (s.voice) voice?.say(NahCopy.speech(e))
     }
 
     override fun onInterrupt() = Unit
@@ -391,6 +401,8 @@ class OfferAccessibilityService : AccessibilityService() {
         // Turned off mid-shift (Android does this after a crash): offer the way back.
         ReaderWatch.readerStopped(this)
         ScreenReader.close()
+        voice?.shutdown()
+        voice = null
         scope.cancel()
     }
 

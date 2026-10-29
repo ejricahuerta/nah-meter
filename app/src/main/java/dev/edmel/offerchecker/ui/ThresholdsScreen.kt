@@ -127,6 +127,10 @@ fun ThresholdsScreen(settings: AppSettings, modifier: Modifier = Modifier) {
                 NahSwitch(settings.vibration, { v -> scope.launch { repo.setVibration(v) } }, "Buzz on verdict")
             }
             NahDivider()
+            NahRow("Say the verdict out loud", "\"nah. 14 an hour\", for when you're driving") {
+                NahSwitch(settings.voice, { v -> scope.launch { repo.setVoice(v) } }, "Say the verdict out loud")
+            }
+            NahDivider()
             NahRow("Compact verdict", "Small pill at the top instead") {
                 NahSwitch(settings.compactBadge, { v -> scope.launch { repo.setCompactBadge(v) } }, "Compact verdict")
             }
