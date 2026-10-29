@@ -32,6 +32,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import dev.edmel.offerchecker.core.Priority
 import dev.edmel.offerchecker.core.Scorer
 import dev.edmel.offerchecker.core.Verdict
 import dev.edmel.offerchecker.data.AppSettings
@@ -43,7 +44,12 @@ import kotlinx.coroutines.launch
 import java.util.Locale
 import kotlin.math.roundToInt
 
-private val MODES = listOf(
+/** The voice modes and their titles; the strict rate ([Priority]) is the one said first. */
+private fun modes(priority: Priority) = if (priority == Priority.PER_KM) listOf(
+    VoiceMode.WORD_HOURLY to "Word + $/km",
+    VoiceMode.WORD to "Word only",
+    VoiceMode.WORD_HOURLY_KM to "Word + $/km + $/hr",
+) else listOf(
     VoiceMode.WORD_HOURLY to "Word + $/hr",
     VoiceMode.WORD to "Word only",
     VoiceMode.WORD_HOURLY_KM to "Word + $/hr + $/km",
@@ -70,9 +76,9 @@ fun VoiceScreen(settings: AppSettings, onBack: () -> Unit, modifier: Modifier = 
 
     // The PRD's example offer, scored on the courier's own rules.
     val preview = Scorer.score(EXAMPLE_OFFER, settings.thresholds)
-    val line = NahCopy.speech(preview, settings.voiceMode)
+    val line = NahCopy.speech(preview, settings)
     // Settings are saved a moment after a tap, so a test passes the new value along itself.
-    fun test(s: AppSettings) = voice.say(NahCopy.speech(preview, s.voiceMode), s)
+    fun test(s: AppSettings) = voice.say(NahCopy.speech(preview, s), s)
 
     Column(
         modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(ScreenPadding),
@@ -105,9 +111,10 @@ fun VoiceScreen(settings: AppSettings, onBack: () -> Unit, modifier: Modifier = 
         Column {
             SectionLabel("What it says")
             NahGroup {
-                MODES.forEachIndexed { i, (mode, title) ->
+                val priority = settings.thresholds.priority
+                modes(priority).forEachIndexed { i, (mode, title) ->
                     if (i > 0) NahDivider()
-                    RadioRow(title, "\"${NahCopy.speech(preview, mode)}\"", settings.voiceMode == mode) {
+                    RadioRow(title, "\"${NahCopy.speech(preview, mode, priority)}\"", settings.voiceMode == mode) {
                         scope.launch { repo.setVoiceMode(mode) }
                     }
                 }

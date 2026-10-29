@@ -136,6 +136,37 @@ class ScorerTest {
         assertEquals(null, Scorer.score(offer("40.00", 40, "11.5"), Thresholds(maxKm = BigDecimal("12"), extraKmPercent = 50)).failed)
     }
 
+    /** Strict on $/km (busy times): missing $/km is red and missing $/hr only yellow; the default is the reverse. */
+    @Test fun priorityPicksTheStrictRate() {
+        val perKm = defaults.copy(priority = Priority.PER_KM)
+
+        // Short on $/hr, plenty per km.
+        val slow = offer("6.00", 30, "1.0")
+        check(slow, Verdict.RED, "12.00", "6.00", "Under \$20/hr target")
+        check(slow, Verdict.YELLOW, "12.00", "6.00", "Under \$20/hr target", perKm)
+        assertEquals(Check.HOURLY, Scorer.score(slow, perKm).failed)
+
+        // Short on $/km, fine per hour.
+        val far = offer("10.00", 25, "12.0")
+        check(far, Verdict.YELLOW, "24.00", "0.83", "Under \$1/km target")
+        check(far, Verdict.RED, "24.00", "0.83", "Under \$1/km target", perKm)
+        assertEquals(Check.PER_KM, Scorer.score(far, perKm).failed)
+
+        // Short on both: red on either priority, named after the strict rate.
+        val both = offer("6.00", 30, "12.0")
+        assertEquals(Check.HOURLY, Scorer.score(both, defaults).failed)
+        assertEquals(Check.PER_KM, Scorer.score(both, perKm).failed)
+        assertEquals(Verdict.RED, Scorer.score(both, perKm).verdict)
+
+        // Exactly $20/hr and $1/km passes on both.
+        check(offer("8.00", 24, "8.0"), Verdict.GREEN, "20.00", "1.00", null)
+        check(offer("8.00", 24, "8.0"), Verdict.GREEN, "20.00", "1.00", null, perKm)
+
+        // The minimum and the max km still come first.
+        assertEquals(Check.MIN_PAY, Scorer.score(offer("5.00", 8, "20.0"), perKm).failed)
+        assertEquals(Check.MAX_KM, Scorer.score(offer("10.00", 25, "16"), perKm.copy(maxKm = BigDecimal("15"))).failed)
+    }
+
     /** The drive back only counts on trips over 10 km by default; exactly 10 km doesn't. */
     @Test fun extraKmOnlyOverSetKm() {
         val t = Thresholds(extraKmPercent = 50)

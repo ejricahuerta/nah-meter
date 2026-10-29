@@ -2,9 +2,11 @@ package dev.edmel.offerchecker.service
 
 import dev.edmel.offerchecker.core.Check
 import dev.edmel.offerchecker.core.Evaluation
+import dev.edmel.offerchecker.core.Priority
 import dev.edmel.offerchecker.core.Scorer
 import dev.edmel.offerchecker.core.Thresholds
 import dev.edmel.offerchecker.core.Verdict
+import dev.edmel.offerchecker.data.AppSettings
 import dev.edmel.offerchecker.data.VoiceMode
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -36,13 +38,17 @@ object NahCopy {
     fun cardReason(e: Evaluation, t: Thresholds): String =
         (if (e.offer?.addOn == true) "Add-on · " else "") + baseReason(e, t)
 
+    // A rate missed in red is the strict one ([Thresholds.priority]): "Under your $20" or "Under
+    // your $1/km". Missed in yellow it's the other one: "Short on $/hr" or "Short on $/km".
     private fun baseReason(e: Evaluation, t: Thresholds): String = when {
         e.verdict == Verdict.GREY -> "Check this offer yourself"
         e.failed == Check.MIN_PAY -> "Under ${Scorer.money(t.minPay)} minimum"
         e.failed == Check.MAX_KM -> "Over your ${t.maxKm?.let { Scorer.km(it) } ?: "max"} km"
-        e.failed == Check.HOURLY -> "Under your ${Scorer.money(t.minHourly)}"
+        e.failed == Check.HOURLY && e.verdict == Verdict.RED -> "Under your ${hourlyTarget(t)}"
+        e.failed == Check.HOURLY -> "Short on $/hr"
+        e.failed == Check.PER_KM && e.verdict == Verdict.RED -> "Under your ${perKmTarget(t)}"
         e.failed == Check.PER_KM -> "Short on $/km"
-        else -> "Clears your ${Scorer.money(t.minHourly)}"
+        else -> "Clears your ${strictTarget(t)}"
     }
 
     /** The short reason after the offer's numbers: "$6.07 · 23 min · 11.5 km · under your $20". */
@@ -50,26 +56,43 @@ object NahCopy {
         e.verdict == Verdict.GREY -> "check it yourself"
         e.failed == Check.MIN_PAY -> "under your ${Scorer.money(t.minPay)} min"
         e.failed == Check.MAX_KM -> "over your ${t.maxKm?.let { Scorer.km(it) } ?: "max"} km"
-        e.failed == Check.HOURLY -> "under your ${Scorer.money(t.minHourly)}"
+        e.failed == Check.HOURLY && e.verdict == Verdict.RED -> "under your ${hourlyTarget(t)}"
+        e.failed == Check.HOURLY -> "short on $/hr"
+        e.failed == Check.PER_KM && e.verdict == Verdict.RED -> "under your ${perKmTarget(t)}"
         e.failed == Check.PER_KM -> "short on $/km"
-        else -> "clears your ${Scorer.money(t.minHourly)}"
+        else -> "clears your ${strictTarget(t)}"
     }
+
+    /** "$20": the hourly target reads as plain dollars, as it always has. */
+    private fun hourlyTarget(t: Thresholds) = Scorer.money(t.minHourly)
+
+    private fun perKmTarget(t: Thresholds) = "${Scorer.money(t.minPerKm)}/km"
+
+    private fun strictTarget(t: Thresholds) = if (t.priority == Priority.PER_KM) perKmTarget(t) else hourlyTarget(t)
 
     /**
      * Said out loud while driving. By default the word and whole dollars an hour, "nah. 14 an hour"
      * ("$14.19/hr" reads badly aloud); [VoiceMode.WORD] is just "nah." and [VoiceMode.WORD_HOURLY_KM]
      * adds the $/km as "nah. 14 an hour, 53 cents a k." Add-ons start with "add-on.".
+     * With [Priority.PER_KM] the $/km leads instead: "nah. 53 cents a k." and
+     * "nah. 53 cents a k, 14 an hour."
      */
-    fun speech(e: Evaluation, mode: VoiceMode = VoiceMode.WORD_HOURLY): String {
+    fun speech(e: Evaluation, mode: VoiceMode = VoiceMode.WORD_HOURLY, priority: Priority = Priority.HOURLY): String {
         if (e.verdict == Verdict.GREY) return if (mode == VoiceMode.WORD) "can't read." else "can't read. check it yourself."
         val line = StringBuilder()
         if (e.offer?.addOn == true) line.append("add-on. ")
         line.append(word(e.verdict))
         if (mode == VoiceMode.WORD) return line.toString()
-        line.append(" ${e.hourly?.toBigInteger() ?: 0} an hour")
-        if (mode == VoiceMode.WORD_HOURLY_KM) e.perKm?.let { line.append(", ").append(spokenPerKm(it)) }
+        val hourly = "${e.hourly?.toBigInteger() ?: 0} an hour"
+        val perKm = e.perKm?.let { spokenPerKm(it) }
+        // With no distance there's no $/km to lead with, so the hour does.
+        val rates = if (priority == Priority.PER_KM && perKm != null) listOf(perKm, hourly) else listOfNotNull(hourly, perKm)
+        line.append(' ').append(if (mode == VoiceMode.WORD_HOURLY_KM) rates.joinToString(", ") else rates.first())
         return line.append('.').toString()
     }
+
+    /** [speech] in the courier's voice mode, with their strict rate leading. */
+    fun speech(e: Evaluation, s: AppSettings): String = speech(e, s.voiceMode, s.thresholds.priority)
 
     /** "53 cents a k", "1 dollar 5 cents a k". */
     private fun spokenPerKm(v: BigDecimal): String {

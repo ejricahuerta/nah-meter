@@ -7,6 +7,12 @@ enum class Verdict { GREEN, YELLOW, RED, GREY }
 /** The decision rules, in the order they're checked. */
 enum class Check { MIN_PAY, MAX_KM, HOURLY, PER_KM }
 
+/**
+ * Which rate is strict: missing it is nah., missing the other is only eh. $/km suits busy times,
+ * when traffic stretches the minutes but not the distance.
+ */
+enum class Priority { HOURLY, PER_KM }
+
 /** One delivery offer as read from the card. Pay is in CAD; minutes are Uber's total. */
 data class Offer(
     val pay: BigDecimal,
@@ -54,6 +60,8 @@ data class Thresholds(
     val extraKmPercent: Int = 0,
     /** The drive back only counts on trips over this many km; shorter ones stay in your area. 0 is every trip. */
     val extraKmOverKm: Int = 10,
+    /** The strict rate (red when missed); the other one only gives yellow. */
+    val priority: Priority = Priority.HOURLY,
 )
 
 data class Evaluation(

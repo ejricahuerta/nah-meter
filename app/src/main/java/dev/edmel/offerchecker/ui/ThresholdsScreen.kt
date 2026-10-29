@@ -28,6 +28,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.edmel.offerchecker.core.Offer
+import dev.edmel.offerchecker.core.Priority
 import dev.edmel.offerchecker.core.Scorer
 import dev.edmel.offerchecker.core.Thresholds
 import dev.edmel.offerchecker.data.AppSettings
@@ -96,14 +97,19 @@ private fun step(v: BigDecimal, delta: String, lo: String, hi: String) =
     (v + BigDecimal(delta)).max(BigDecimal(lo)).min(BigDecimal(hi)).setScale(2, RoundingMode.HALF_UP)
 
 /**
- * The rule steppers, as rows to put in a [NahGroup]: minimum pay, per hour, per km and, with
- * [showExtras], max km, the unpaid extra km and the wait buffer.
+ * The rule steppers, as rows to put in a [NahGroup]: which rate is strict, minimum pay, per hour,
+ * per km and, with [showExtras], max km, the unpaid extra km and the wait buffer.
  */
 @Composable
 fun RuleSteppers(t: Thresholds, showExtras: Boolean) {
     val ctx = LocalContext.current
     val repo = remember { SettingsRepository(ctx) }
     val scope = rememberCoroutineScope()
+    val perKmFirst = t.priority == Priority.PER_KM
+    SegmentedRow(
+        "Strict on", "The other one only gives eh.", listOf("$/hr", "$/km"), if (perKmFirst) 1 else 0,
+    ) { i -> scope.launch { repo.setPriority(if (i == 1) Priority.PER_KM else Priority.HOURLY) } }
+    NahDivider()
     ThresholdField(
         "Minimum pay", money(t.minPay), null, "Below this is always nah.",
         "Decrease minimum pay by $0.25", "Increase minimum pay by $0.25",
@@ -112,14 +118,14 @@ fun RuleSteppers(t: Thresholds, showExtras: Boolean) {
     )
     NahDivider()
     ThresholdField(
-        "Per hour", money(t.minHourly), "/hr", "Under this is nah.",
+        "Per hour", money(t.minHourly), "/hr", if (perKmFirst) "Under this is eh." else "Under this is nah.",
         "Decrease per hour by $0.50", "Increase per hour by $0.50",
         { scope.launch { repo.setMinHourly(step(t.minHourly, "-0.50", "5", "80")) } },
         { scope.launch { repo.setMinHourly(step(t.minHourly, "0.50", "5", "80")) } },
     )
     NahDivider()
     ThresholdField(
-        "Per km", money(t.minPerKm), "/km", "Under this is eh.",
+        "Per km", money(t.minPerKm), "/km", if (perKmFirst) "Under this is nah." else "Under this is eh.",
         "Decrease per km by $0.05", "Increase per km by $0.05",
         { scope.launch { repo.setMinPerKm(step(t.minPerKm, "-0.05", "0", "5")) } },
         { scope.launch { repo.setMinPerKm(step(t.minPerKm, "0.05", "0", "5")) } },

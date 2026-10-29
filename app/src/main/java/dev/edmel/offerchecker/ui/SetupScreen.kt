@@ -306,13 +306,13 @@ private fun TestStep(settings: AppSettings) {
             StandInOffer()
         }
         NahGroup {
-            NahRow("Read verdicts out loud", "\"${NahCopy.speech(preview, settings.voiceMode)}\"") {
+            NahRow("Read verdicts out loud", "\"${NahCopy.speech(preview, settings)}\"") {
                 NahSwitch(settings.voice, { v -> scope.launch { repo.setVoice(v) } }, "Read verdicts out loud")
             }
         }
         NahButton(
             "Play the test verdict",
-            { voice.say(NahCopy.speech(preview, settings.voiceMode), settings) },
+            { voice.say(NahCopy.speech(preview, settings), settings) },
             modifier = Modifier.fillMaxWidth(), kind = NahButtonKind.Secondary,
         )
     }

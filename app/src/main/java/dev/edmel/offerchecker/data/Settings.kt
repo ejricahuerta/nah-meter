@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import dev.edmel.offerchecker.core.Priority
 import dev.edmel.offerchecker.core.Thresholds
 import dev.edmel.offerchecker.core.Verdict
 import kotlinx.coroutines.flow.Flow
@@ -18,7 +19,10 @@ import java.math.BigDecimal
 /** Which theme to draw: Mono (dark, the default), Daylight (light), or whichever the phone is in. */
 enum class Appearance { MONO, DAYLIGHT, PHONE }
 
-/** What the spoken verdict says: the word, the word and $/hr, or the word, $/hr and $/km. */
+/**
+ * What the spoken verdict says: the word, the word and $/hr, or the word, $/hr and $/km. When $/km
+ * is the strict rate ([Thresholds.priority]) it's said in place of, or before, the $/hr.
+ */
 enum class VoiceMode { WORD, WORD_HOURLY, WORD_HOURLY_KM }
 
 data class AppSettings(
@@ -61,6 +65,7 @@ class SettingsRepository(context: Context) {
         val extraKmPercent = intPreferencesKey("extra_km_pct")
         val extraKmOverKm = intPreferencesKey("extra_km_over")
         val waitBuffer = intPreferencesKey("wait_buffer_min")
+        val priority = stringPreferencesKey("priority")
         val readingEnabled = booleanPreferencesKey("reading_enabled")
         val vibration = booleanPreferencesKey("vibration")
         val voice = booleanPreferencesKey("voice")
@@ -91,6 +96,7 @@ class SettingsRepository(context: Context) {
                 maxKm = this[Keys.maxKm]?.toBigDecimalOrNull(),
                 extraKmPercent = (this[Keys.extraKmPercent] ?: d.thresholds.extraKmPercent).coerceIn(0, 100),
                 extraKmOverKm = (this[Keys.extraKmOverKm] ?: d.thresholds.extraKmOverKm).coerceIn(0, 50),
+                priority = this[Keys.priority]?.let { v -> Priority.entries.firstOrNull { it.name == v } } ?: d.thresholds.priority,
             ),
             readingEnabled = this[Keys.readingEnabled] ?: d.readingEnabled,
             vibration = this[Keys.vibration] ?: d.vibration,
@@ -116,6 +122,7 @@ class SettingsRepository(context: Context) {
     suspend fun setExtraKmPercent(v: Int) = store.edit { it[Keys.extraKmPercent] = v.coerceIn(0, 100) }
     suspend fun setExtraKmOverKm(v: Int) = store.edit { it[Keys.extraKmOverKm] = v.coerceIn(0, 50) }
     suspend fun setWaitBuffer(v: Int) = store.edit { it[Keys.waitBuffer] = v }
+    suspend fun setPriority(v: Priority) = store.edit { it[Keys.priority] = v.name }
     suspend fun setReadingEnabled(v: Boolean) = store.edit { it[Keys.readingEnabled] = v }
     suspend fun setVibration(v: Boolean) = store.edit { it[Keys.vibration] = v }
     suspend fun setVoice(v: Boolean) = store.edit { it[Keys.voice] = v }

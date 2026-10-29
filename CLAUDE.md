@@ -81,8 +81,9 @@ never a push to `main`.
 ```
 core/  pure Kotlin, no Android: what to read and how to score it (unit-tested)
   OfferParser.kt  all text patterns; card texts -> ReadResult; OCR lines -> card texts
-  Scorer.kt       the five rules (max km off by default) and the unpaid extra km, exact BigDecimal maths -> Evaluation
-  Model.kt        Offer, ReadResult, Thresholds, Evaluation, Verdict, Check, OcrLine
+  Scorer.kt       the five rules (max km off by default; Thresholds.priority picks the strict rate, $/hr
+                  or $/km, the other gives eh.) and the unpaid extra km, exact BigDecimal maths -> Evaluation
+  Model.kt        Offer, ReadResult, Thresholds, Priority, Evaluation, Verdict, Check, OcrLine
 app/   Android
   service/OfferAccessibilityService.kt  event loop: find Uber windows, read, score, show, log
   service/CardReader.kt    accessibility tree -> the offer card's texts and its top edge
@@ -96,6 +97,7 @@ app/   Android
                            volume at the user's level (Uber moves navigation volume), then restores it;
                            speed, voice and ducking from the settings; silent at 0% and on calls
   service/ReadingTileService.kt, PauseReceiver.kt  pause / resume from the shade (tile, notification)
+  service/PriorityTileService.kt  "Strict on $/hr / $/km" tile: flips the strict rate from the shade
   data/                    DataStore settings, Room offer log (last 200), CSV export
   ui/Nah.kt                design tokens (Mono/Daylight), Geist, components
   ui/MainActivity.kt       the four tabs: Home, History (LogScreen), Rules (ThresholdsScreen), Settings
@@ -166,7 +168,8 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
 - Tokens live in `ui/Nah.kt` and come from the design system's `tokens.json`. The verdict card
   and pill are black in both themes; colour only ever means a verdict.
 - The verdict card: the word and $/hr on top; under them the reason (17sp semibold, `cardSoft`:
-  "Under your $20", "Under $5.50 minimum", "Short on $/km", "Clears your $20") and the $/km in its
+  "Under your $20", "Under $5.50 minimum", "Short on $/km", "Clears your $20"; strict on $/km:
+  "Under your $1/km", "Short on $/hr", "Clears your $1/km") and the $/km in its
   own chip (`cardChip`, `NahCopy.kmChip`). Nothing under 15sp.
 - Verdict words are lowercase and end in a full stop (`bet.`); in chips the stop becomes a dot
   before the word. Use `NahCopy` for every verdict string, never inline text.
