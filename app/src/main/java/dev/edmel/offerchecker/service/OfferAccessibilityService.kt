@@ -79,6 +79,7 @@ class OfferAccessibilityService : AccessibilityService() {
         }
         ServiceState.service = this
         ServiceState.runningFlow.value = true
+        ReaderWatch.readerStarted(this)
         StatusNotification.show(this)
         ServiceState.log("Reader started")
     }
@@ -121,6 +122,7 @@ class OfferAccessibilityService : AccessibilityService() {
             if (r.width() >= screen.widthPixels * 8 / 10 && r.height() <= screen.heightPixels * 85 / 100) popup = r.top
         }
         popupTop = popup
+        if (roots.isNotEmpty()) ReaderWatch.uberSeen(this)
         if (roots.isEmpty()) rootInActiveWindow?.takeIf { isUberPackage(it.packageName) }?.let { roots += it }
         ServiceState.windowsFlow.value = seen.distinct()
         logIfChanged("windows", "Windows on screen: ${seen.joinToString()}${bounds?.let { " · Uber area $it" } ?: ""}")
@@ -324,7 +326,8 @@ class OfferAccessibilityService : AccessibilityService() {
         ServiceState.runningFlow.value = false
         handler.removeCallbacksAndMessages(null)
         if (::badge.isInitialized) badge.hide()
-        StatusNotification.cancel(this)
+        // Turned off mid-shift (Android does this after a crash): offer the way back.
+        ReaderWatch.readerStopped(this)
         ScreenReader.close()
         scope.cancel()
     }
