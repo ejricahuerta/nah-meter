@@ -1,4 +1,4 @@
-# nahmeter
+# nah.meter
 
 An Android app that reads each Uber Eats delivery offer as it appears and answers in one word,
 docked just above the offer card within about a second: **bet.**, **eh.** or **nah.** So you can
@@ -7,7 +7,7 @@ decide without doing math under the 15-second timer. "nah." for short.
 - **Advice only.** It never taps anything in Uber: no auto-accept, no auto-decline.
 - **Offline.** No internet permission at all; nothing leaves the phone.
 - **Android 8.0+**, sideloaded APK (not on Google Play).
-- The look follows the nahmeter design system: black and white, Geist, heavy lowercase type, and
+- The look follows the nah.meter design system: black and white, Geist, heavy lowercase type, and
   colour only on the verdict word. Mono (dark) by default, Daylight when the phone is in light mode.
 
 ## Download
@@ -17,7 +17,7 @@ decide without doing math under the 15-second timer. "nah." for short.
 
 ## iPhone: not supported yet
 
-nahmeter is Android only for now. iPhone support is planned once the project is funded.
+nah.meter is Android only for now. iPhone support is planned once the project is funded.
 
 iOS doesn't let one app read another app's screen or draw over it, so the Android approach (a
 verdict card docked over Uber's offer) can't be ported as is. The two routes looked at:
@@ -52,10 +52,10 @@ Example: $6.07, 23 min, 11.5 km → **nah.** `$15.83/hr`, with "Under your $20 �
 1. Download the APK on the phone and tap it.
 2. Allow **Install unknown apps** for your browser or file app when asked.
 3. If Play Protect warns, tap **More details → Install anyway**.
-4. Open **nahmeter**; the Status screen lists what's missing, with a button for each.
-5. **Android 13+:** Settings → Apps → nahmeter → **⋮ → Allow restricted settings**
+4. Open **nah.meter**; the Status screen lists what's missing, with a button for each.
+5. **Android 13+:** Settings → Apps → nah.meter → **⋮ → Allow restricted settings**
    (sideloaded apps need this before step 6).
-6. Settings → Accessibility → **nahmeter → On**.
+6. Settings → Accessibility → **nah.meter → On**.
 7. Battery → **Unrestricted** for the app.
    Samsung: also add it to **Never sleeping apps**. Xiaomi/Redmi: turn on **Autostart** and set
    battery to **No restrictions**. The Status screen links to the right page.

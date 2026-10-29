@@ -36,7 +36,7 @@ class ReadingTileService : TileService() {
 
     private fun show(reading: Boolean) {
         val tile = qsTile ?: return
-        tile.label = "nahmeter"
+        tile.label = "nah.meter"
         tile.icon = Icon.createWithResource(this, R.drawable.ic_stat_check)
         tile.state = if (reading) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
         if (Build.VERSION.SDK_INT >= 29) tile.subtitle = if (reading) "Reading" else "Paused"

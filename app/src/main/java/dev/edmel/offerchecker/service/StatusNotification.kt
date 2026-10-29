@@ -19,7 +19,7 @@ object StatusNotification {
         val nm = context.getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(
             NotificationChannel(CHANNEL, "Reader status", NotificationManager.IMPORTANCE_LOW).apply {
-                description = "Shows that nahmeter is reading Uber offers"
+                description = "Shows that nah.meter is reading Uber offers"
                 setShowBadge(false)
             },
         )
@@ -34,7 +34,7 @@ object StatusNotification {
         )
         return Notification.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_check)
-            .setContentTitle(if (reading) "nahmeter is on" else "nahmeter is paused")
+            .setContentTitle(if (reading) "nah.meter is on" else "nah.meter is paused")
             .setContentText(if (reading) "bet., eh. or nah. above every Uber offer. Read-only." else "No verdicts until you resume.")
             .setContentIntent(open)
             .addAction(

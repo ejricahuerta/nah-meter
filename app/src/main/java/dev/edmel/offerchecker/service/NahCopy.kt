@@ -7,7 +7,7 @@ import dev.edmel.offerchecker.core.Thresholds
 import dev.edmel.offerchecker.core.Verdict
 
 /**
- * nahmeter's words for a verdict, from the design system's voice: lowercase verdicts that end in a
+ * nah.meter's words for a verdict, from the design system's voice: lowercase verdicts that end in a
  * full stop, then the number, then the reason ("nah. $15.83/hr · Under your $20").
  */
 object NahCopy {
@@ -22,21 +22,23 @@ object NahCopy {
     /** In lists and chips the full stop becomes the coloured dot before the word. */
     fun chipWord(v: Verdict) = word(v).removeSuffix(".")
 
-    private fun km(e: Evaluation) = e.perKm?.let { "$${it.toPlainString()}/km" } ?: "no distance"
+    /** The $/km in its own chip on the verdict card ("$0.53/km"); null for can't read. or no distance. */
+    fun kmChip(e: Evaluation): String? =
+        if (e.verdict == Verdict.GREY) null else e.perKm?.let { "$${it.toPlainString()}/km" }
 
     /**
-     * Under the word on the verdict card: "Under your $20 · $0.53/km". An "Add a delivery" card
-     * starts with "Add-on ·": its rates are for the extra work only.
+     * Under the word on the verdict card: "Under your $20". The $/km is its own chip ([kmChip]).
+     * An "Add a delivery" card starts with "Add-on ·": its rates are for the extra work only.
      */
     fun cardReason(e: Evaluation, t: Thresholds): String =
         (if (e.offer?.addOn == true) "Add-on · " else "") + baseReason(e, t)
 
     private fun baseReason(e: Evaluation, t: Thresholds): String = when {
         e.verdict == Verdict.GREY -> "Check this offer yourself"
-        e.failed == Check.MIN_PAY -> "Under your ${Scorer.money(t.minPay)} min · ${km(e)}"
-        e.failed == Check.HOURLY -> "Under your ${Scorer.money(t.minHourly)} · ${km(e)}"
-        e.failed == Check.PER_KM -> "Pays the hour, short on $/km · ${km(e)}"
-        else -> "Clears your ${Scorer.money(t.minHourly)} · ${km(e)}"
+        e.failed == Check.MIN_PAY -> "Under ${Scorer.money(t.minPay)} minimum"
+        e.failed == Check.HOURLY -> "Under your ${Scorer.money(t.minHourly)}"
+        e.failed == Check.PER_KM -> "Short on $/km"
+        else -> "Clears your ${Scorer.money(t.minHourly)}"
     }
 
     /** The short reason after the offer's numbers: "$6.07 · 23 min · 11.5 km · under your $20". */
@@ -61,5 +63,5 @@ object NahCopy {
     fun spoken(e: Evaluation, t: Thresholds): String =
         if (e.verdict == Verdict.GREY) "can't read. Check this offer yourself."
         else "${word(e.verdict)} $${e.hourly} per hour. " +
-            cardReason(e, t).replace(" · ", ", ").replace("/km", " per km") + "."
+            (cardReason(e, t) + (kmChip(e)?.let { " · $it" } ?: "")).replace(" · ", ", ").replace("/km", " per km") + "."
 }

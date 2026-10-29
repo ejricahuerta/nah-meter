@@ -119,7 +119,7 @@ fun LogScreen(thresholds: Thresholds, modifier: Modifier = Modifier) {
             ) {
                 if (today.isEmpty()) {
                     Text("No offers yet today", style = Nah.bodyStrong.copy(color = c.ink))
-                    Text("Every offer nahmeter reads lands here.", style = Nah.style(14.sp, 400, 20.sp, color = c.inkMuted))
+                    Text("Every offer nah.meter reads lands here.", style = Nah.style(14.sp, 400, 20.sp, color = c.inkMuted))
                 } else {
                     val avg = "%.2f".format(Locale.US, today.map { it.hourly }.average())
                     Row(verticalAlignment = Alignment.Bottom) {
@@ -258,7 +258,9 @@ private fun OfferDetails(e: OfferEntry, thresholds: Thresholds, onDismiss: () ->
         Offer(BigDecimal.valueOf(e.pay), e.minutes, BigDecimal.valueOf(e.km), e.stacked, orders = e.orders, addOn = e.addOn),
         thresholds.copy(waitBufferMin = 0),
     )
-    val reason = if (rescored.verdict == verdict) NahCopy.cardReason(rescored, thresholds) else perKmText(e)
+    val sameVerdict = rescored.verdict == verdict
+    val reason = if (sameVerdict) NahCopy.cardReason(rescored, thresholds) else perKmText(e)
+    val kmChip = if (sameVerdict) NahCopy.kmChip(rescored) else null
     val hourly = "$" + "%.2f".format(Locale.US, e.hourly)
     val whenText = SimpleDateFormat("EEE, MMM d · h:mm a", Locale.getDefault()).format(Date(e.time))
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = c.ground, contentColor = c.ink) {
@@ -267,7 +269,7 @@ private fun OfferDetails(e: OfferEntry, thresholds: Thresholds, onDismiss: () ->
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text(whenText, style = Nah.style(14.sp, 600, 20.sp, color = c.inkMuted))
-            VerdictCard(verdict, hourly, reason, spoken = "${NahCopy.word(verdict)} $hourly per hour. $reason")
+            VerdictCard(verdict, hourly, reason, spoken = "${NahCopy.word(verdict)} $hourly per hour. $reason", kmChip = kmChip)
             NahGroup {
                 Detail("Pay", "$" + "%.2f".format(Locale.US, e.pay))
                 NahDivider()

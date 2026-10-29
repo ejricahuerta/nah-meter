@@ -140,7 +140,7 @@ object OfferParser {
      */
     private val NOT_A_PLACE = Regex(
         """customer verification|including estimated tip|exclusive|add a delivery|^\W*(delivery|package)\b|\$\s?\d|""" +
-            """^\W*(bet|eh|nah|can'?t read)\W*$|check this offer|under your|clears your|pays the hour|add-on ·""",
+            """^\W*(bet|eh|nah|can'?t read)\W*$|check this offer|under your|clears your|pays the hour|short on \$/km|add-on ·""",
         RegexOption.IGNORE_CASE,
     )
 
