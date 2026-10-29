@@ -46,11 +46,13 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.edmel.offerchecker.data.SettingsRepository
+import dev.edmel.offerchecker.service.CrashLog
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        CrashLog.install(this)
         // Mono (dark) by default, Daylight when the phone is in light mode; bars follow.
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.auto(AndroidColor.WHITE, AndroidColor.BLACK),

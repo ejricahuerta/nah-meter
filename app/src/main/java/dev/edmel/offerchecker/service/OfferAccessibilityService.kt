@@ -12,6 +12,7 @@ import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
 import androidx.annotation.RequiresApi
 import dev.edmel.offerchecker.core.Evaluation
+import dev.edmel.offerchecker.core.OcrLine
 import dev.edmel.offerchecker.core.Offer
 import dev.edmel.offerchecker.core.OfferParser
 import dev.edmel.offerchecker.core.ReadResult
@@ -21,6 +22,7 @@ import dev.edmel.offerchecker.data.AppSettings
 import dev.edmel.offerchecker.data.OfferDatabase
 import dev.edmel.offerchecker.data.OfferEntry
 import dev.edmel.offerchecker.data.SettingsRepository
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -35,7 +37,11 @@ import java.math.BigDecimal
  * screenshot with on-device text recognition. It never performs any action in Uber.
  */
 class OfferAccessibilityService : AccessibilityService() {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    // A failed write or settings read is logged, never allowed to take the reader (and Uber's overlay) down.
+    private val scope = CoroutineScope(
+        SupervisorJob() + Dispatchers.Main.immediate +
+            CoroutineExceptionHandler { _, e -> ServiceState.log("Error: ${e.javaClass.simpleName}: ${e.message}") },
+    )
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var settingsRepo: SettingsRepository
     private lateinit var badge: BadgeOverlay
@@ -43,7 +49,7 @@ class OfferAccessibilityService : AccessibilityService() {
     @Volatile private var settings = AppSettings()
 
     private var scanPending = false
-    private val scan = Runnable { scanPending = false; scanScreen() }
+    private val scan = Runnable { scanPending = false; guarded("scan") { scanScreen() } }
 
     // De-dupe: each card is scored once (same pay + minutes + km within 30 s).
     private var lastKey: String? = null
@@ -61,6 +67,7 @@ class OfferAccessibilityService : AccessibilityService() {
     private var lastOcrAt = 0L
 
     override fun onServiceConnected() {
+        CrashLog.install(this)
         settingsRepo = SettingsRepository(this)
         alerts = Alerts(this)
         badge = BadgeOverlay(this)
@@ -143,7 +150,8 @@ class OfferAccessibilityService : AccessibilityService() {
 
     @RequiresApi(30)
     private fun requestScreenRead(bounds: Rect?, accessibilityRead: ReadResult) {
-        if (ocrBusy) return
+        // A screenshot whose answer never came back doesn't stop the reader for good.
+        if (ocrBusy && SystemClock.elapsedRealtime() - lastOcrAt < OCR_STUCK_MS) return
         val wait = lastOcrAt + OCR_INTERVAL_MS - SystemClock.elapsedRealtime()
         if (wait > 0) {
             // Too soon after the last screenshot: look again once allowed.
@@ -155,27 +163,36 @@ class OfferAccessibilityService : AccessibilityService() {
         }
         ocrBusy = true
         lastOcrAt = SystemClock.elapsedRealtime()
-        ScreenReader.capture(this, bounds) { allLines, screenHeight ->
+        try {
+            ScreenReader.capture(this, bounds) { allLines, screenHeight ->
+                ocrBusy = false
+                guarded("screenshot") { onScreenRead(allLines, screenHeight, accessibilityRead) }
+            }
+        } catch (e: Throwable) {
             ocrBusy = false
-            if (allLines == null) {
-                logIfChanged("ocr", "Screenshot or text recognition failed")
-                return@capture
-            }
-            // Never read our own verdict card or pill back in.
-            val badgeArea = badge.screenRect
-            val lines = if (badgeArea == null) allLines
-            else allLines.filter { it.bottom <= badgeArea.top || it.top >= badgeArea.bottom }
-            if (lines.any { '$' in it.text || "km" in it.text }) {
-                logIfChanged("ocr", "Uber text (screenshot): ${lines.take(20).joinToString(" | ") { it.text }}")
-            }
-            val card = OfferParser.cardFromOcr(lines, screenHeight)
-            cardTop = OfferParser.ocrCardTop(lines, screenHeight)
-            val screenRead = card?.let(OfferParser::parse) ?: ReadResult.NoOffer
-            if (screenRead !is ReadResult.Read && accessibilityRead is ReadResult.Unreadable) {
-                handleRead(accessibilityRead, "accessibility")
-            } else {
-                handleRead(screenRead, "screenshot")
-            }
+            throw e
+        }
+    }
+
+    private fun onScreenRead(allLines: List<OcrLine>?, screenHeight: Int, accessibilityRead: ReadResult) {
+        if (allLines == null) {
+            logIfChanged("ocr", "Screenshot or text recognition failed")
+            return
+        }
+        // Never read our own verdict card or pill back in.
+        val badgeArea = badge.screenRect
+        val lines = if (badgeArea == null) allLines
+        else allLines.filter { it.bottom <= badgeArea.top || it.top >= badgeArea.bottom }
+        if (lines.any { '$' in it.text || "km" in it.text }) {
+            logIfChanged("ocr", "Uber text (screenshot): ${lines.take(20).joinToString(" | ") { it.text }}")
+        }
+        val card = OfferParser.cardFromOcr(lines, screenHeight)
+        cardTop = OfferParser.ocrCardTop(lines, screenHeight)
+        val screenRead = card?.let(OfferParser::parse) ?: ReadResult.NoOffer
+        if (screenRead !is ReadResult.Read && accessibilityRead is ReadResult.Unreadable) {
+            handleRead(accessibilityRead, "accessibility")
+        } else {
+            handleRead(screenRead, "screenshot")
         }
     }
 
@@ -211,6 +228,19 @@ class OfferAccessibilityService : AccessibilityService() {
         onNewCard(evaluation, raw)
     }
 
+    /**
+     * Runs one step of the reader. If it throws, the error goes to the diagnostics log and the
+     * reader carries on with the next event, instead of Android closing the app ("keeps stopping").
+     */
+    private inline fun guarded(step: String, block: () -> Unit) {
+        try {
+            block()
+        } catch (e: Throwable) {
+            if (e is OutOfMemoryError) System.gc()
+            logIfChanged("error", "Error in $step: ${e.javaClass.simpleName}: ${e.message} at ${e.stackTrace.firstOrNull()}")
+        }
+    }
+
     private val lastLogged = mutableMapOf<String, String>()
 
     /** Adds to the diagnostics log only when this kind of entry changed since last time. */
@@ -229,7 +259,7 @@ class OfferAccessibilityService : AccessibilityService() {
         val now = SystemClock.elapsedRealtime()
         if (cardMissingSince == 0L) {
             cardMissingSince = now
-            handler.postDelayed({ if (!scanPending) scanScreen() }, CARD_GONE_MS + 50)
+            handler.postDelayed({ if (!scanPending) guarded("scan") { scanScreen() } }, CARD_GONE_MS + 50)
         } else if (now - cardMissingSince >= CARD_GONE_MS) {
             cardMissingSince = 0L
             lastKey = null
@@ -240,8 +270,8 @@ class OfferAccessibilityService : AccessibilityService() {
 
     private fun onNewCard(e: Evaluation, raw: List<String>) {
         val s = settings
-        badge.show(e, s.thresholds, s.compactBadge, cardTop ?: popupTop)
-        if (s.vibration) alerts.vibrate(e.verdict)
+        guarded("verdict card") { badge.show(e, s.thresholds, s.compactBadge, cardTop ?: popupTop) }
+        if (s.vibration) runCatching { alerts.vibrate(e.verdict) }
         ServiceState.lastReadFlow.value = LastRead(System.currentTimeMillis(), e, raw)
         val offer = e.offer ?: return
         if (e.verdict == Verdict.GREY) return
@@ -303,5 +333,6 @@ class OfferAccessibilityService : AccessibilityService() {
         private const val CARD_GONE_MS = 600L
         private const val MAX_SCREEN_TEXTS = 80
         private const val OCR_INTERVAL_MS = 1000L
+        private const val OCR_STUCK_MS = 10_000L
     }
 }
