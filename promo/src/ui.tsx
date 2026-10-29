@@ -12,17 +12,21 @@ export const Stop: React.FC<{ size: number; color?: string; style?: React.CSSPro
 }) => <div style={{ width: size, height: size, background: color, flexShrink: 0, ...style }} />;
 
 /** The wordmark: "nah" + the square red full stop + "meter", Geist Black, tracked −5.5%. */
-export const Wordmark: React.FC<{ size: number; stopScale?: number; stopDrop?: number }> = ({
+export const Wordmark: React.FC<{ size: number; stopScale?: number; stopDrop?: number; children?: React.ReactNode }> = ({
   size,
   stopScale = 1,
   stopDrop = 0,
+  children,
 }) => {
   const style = nahText(size, 900, size, -0.055, Mono.ink);
   return (
     <div style={{ display: "flex", alignItems: "flex-end" }}>
       <span style={style}>nah</span>
       <div style={{ padding: `0 ${size * 0.05}px ${size * 0.12}px` }}>
-        <Stop size={size * 0.2} style={{ scale: String(stopScale), translate: `0 ${stopDrop}px` }} />
+        <div style={{ position: "relative" }}>
+          <Stop size={size * 0.2} style={{ scale: String(stopScale), translate: `0 ${stopDrop}px` }} />
+          {children}
+        </div>
       </div>
       <span style={style}>meter</span>
     </div>

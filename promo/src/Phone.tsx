@@ -9,7 +9,7 @@ import { Divider, StandInOffer, StatusBar, ThresholdField, VerdictCard } from ".
 
 export const SCREEN_W = 412;
 export const SCREEN_H = 892;
-const BEZEL = 14;
+export const BEZEL = 14;
 export const PHONE_W = SCREEN_W + BEZEL * 2;
 export const PHONE_H = SCREEN_H + BEZEL * 2;
 
@@ -85,7 +85,7 @@ const Offers: React.FC<{ t: number }> = ({ t }) => {
         if (t < start || t > end + 0.5) return null;
         const offerIn = spring({ frame: Math.max(0, (t - start - cue.offerInSec) * fps), fps, config: { damping: 18, stiffness: 140 } });
         const verdictIn = spring({ frame: Math.max(0, (t - start - cue.verdictInSec) * fps), fps, config: { damping: 11, stiffness: 170, mass: 0.8 } });
-        const out = interpolate(t, [end - 0.1, end + 0.25], [0, 1], { ...clamp, easing: Easing.in(Easing.cubic) });
+        const out = interpolate(t, [end - 0.3, end + 0.02], [0, 1], { ...clamp, easing: Easing.in(Easing.cubic) });
         const wordPop = interpolate(t - start - cue.verdictInSec, [0.05, 0.18, 0.4], [1, 1.12, 1], clamp);
         const offerY = (1 - offerIn) * (OFFER_H + 60) + out * (OFFER_H + 80);
         const verdictY = interpolate(verdictIn, [0, 1], [-140, 0]) + out * (OFFER_H + 260);

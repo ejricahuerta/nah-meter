@@ -23,6 +23,20 @@ a grey "Match" button. No Uber name, logo, colours or screens.
 | 8 | 27.5–32.5 | Phone slides away. Three promise lines land one by one, each with the red square bullet. Then "You decide." | "It never taps anything for you." / "No internet permission. Nothing leaves your phone." / "No account." / "You decide." | Tick per line, music filter opens |
 | 9 | 32.5–37.0 | The wordmark: "nah" + red square + "meter", the square drops in last. Tagline under it. Small line at the bottom. | "Bad offer? Just say nah." (full stop as the red square) · "For Android" | "nah" sting on the square, final chord, music fades out |
 
+## Motion (second pass: flashier)
+
+- Camera: for each offer it pushes in on the offer card, punch-zooms (spring overshoot) onto the
+  verdict card as it lands, eases back so both cards show, then whip-zooms out with motion blur.
+  On the Rules screen it zooms in on the steppers and nudges on every step.
+- Verdict impact: the word fills the screen in its colour for about half a second with a white
+  flash and burst lines, then shrinks away to reveal the docked card. Hard shake on nah., a nudge
+  on the others. A glow in the verdict's colour pulses on the beat behind the phone.
+- Hook: a giant outlined countdown (15, 14, 13…) ticks behind the lines, which slam in.
+- Captions, promises and the tagline slam in (big and blurred, then sharp). The wordmark zooms
+  in, and the red square lands with a shockwave.
+- Film grain and a vignette over everything.
+- Sound: a short riser and a sub boom under each verdict hit, and a whip whoosh on each exit.
+
 Voice: the only spoken lines are nah.meter's own verdict lines from `NahCopy.speech`, generated
 locally with ffmpeg's flite voice (no online TTS). No narrator.
 

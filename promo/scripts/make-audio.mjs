@@ -313,6 +313,8 @@ add("music", S.end[0], pad([45, 57, 60, 64, 69], T.durationSec - S.end[0], 1800)
 add("music", S.end[0], sub(33, 3.2), 0.5);
 add("sfx", T.endCue.wordSec, whoosh(0.5, 200, 1800), 0.25);
 add("sfx", T.endCue.stopSec, nahSting(true), 0.55, 0, 0.35);
+add("sfx", T.endCue.stopSec, kick(true), 0.7);
+add("sfx", T.endCue.wordSec - 0.35, riser(0.35), 0.3, 0, 0.2);
 add("sfx", T.endCue.taglineSec, tick(2000, 0.03), 0.25);
 
 // Transitions.
@@ -328,13 +330,18 @@ const offerScenes = [
   [S.grey, CANT_READ, greyBlip],
 ];
 const speechTimes = [];
-for (const [[s], e, sound] of offerScenes) {
+for (const [[s, e], ev, sound] of offerScenes) {
   add("sfx", s + T.offerCue.offerInSec - 0.12, whoosh(0.45), 0.4, -0.2, 0.15);
   add("sfx", s + T.offerCue.verdictInSec, sound(), sound === greyBlip ? 0.5 : 0.6, 0, 0.25);
-  const v = voice(speech(e));
+  // The camera punch: a short riser into the hit, a sub boom on it, and a whip when the scene ends.
+  add("sfx", s + T.offerCue.verdictInSec - 0.3, riser(0.3), 0.3, 0, 0.2);
+  add("sfx", s + T.offerCue.verdictInSec, kick(true), sound === nahSting ? 0.75 : 0.45);
+  add("sfx", s + T.offerCue.verdictInSec, biquad(noise(0.25), "lp", 2500).map((v, i) => v * Math.exp(-(i / SR) * 18)), 0.25, 0, 0.3);
+  add("sfx", e - 0.4, whoosh(0.4, 500, 4500), 0.35, 0.3, 0.15);
+  const v = voice(speech(ev));
   add("vo", s + T.offerCue.speechInSec, v, 0.85, 0, 0.12);
   speechTimes.push([s + T.offerCue.speechInSec, s + T.offerCue.speechInSec + v.length / SR]);
-  console.log(`voice: "${speech(e)}" at ${(s + T.offerCue.speechInSec).toFixed(2)} s`);
+  console.log(`voice: "${speech(ev)}" at ${(s + T.offerCue.speechInSec).toFixed(2)} s`);
 }
 
 // Rules: a UI tick per step, a touch higher each time.
