@@ -2,15 +2,16 @@
 
 Version 1 · Effective October 29, 2026
 
-nah.meter is made by edmel.dev. It is a tool to help you see each delivery offer and decide for yourself, and it only advises. This policy says what the app reads, what it keeps, and where that goes.
+nah.meter is made by edmel.dev. It is a tool to help you see each delivery offer and decide for yourself, and it only advises. This policy says what the app reads, what it keeps, where that goes, and what we hold when you pay.
 
 ## The short version
 
-- No account and no sign-in.
+- No account and no sign-in in the app.
 - No internet permission: the app can't send anything anywhere.
 - No ads, analytics or tracking.
 - It does nothing with what it sees except advise you on each offer and keep your own log on your phone.
 - What it reads and keeps stays on your phone, unless you choose to share it.
+- Paying is separate: it happens on edmel.dev, not in the app.
 
 ## What nah.meter reads
 
@@ -35,6 +36,7 @@ edmel.dev never receives what nah.meter sees: there is no server and the app can
 - **The offer log**, up to the last 200 offers: time, pay, minutes, km, $/hr, $/km, verdict, number of orders, and the restaurant and drop-off area as read.
 - **The diagnostics log**, up to the last 150 entries: when Uber came on screen, the text read from each offer card, each verdict, and errors.
 - **The last crash report**, if the app crashed.
+- **Your licence**: the key you entered and the date your free trial began.
 
 ## What can leave your phone
 
@@ -44,6 +46,18 @@ Only what you choose to share:
 - **Copy diagnostics** copies the diagnostics log to your clipboard.
 
 The drop-off area is roughly where a customer lives. Treat exports and diagnostics with care, and only share them with people you trust.
+
+## Paying for nah.meter
+
+nah.meter costs $5 CAD a month after a 14-day free trial. You pay on edmel.dev, not in the app, so the app never sees your payment details and never goes online.
+
+- **What we hold when you buy.** Your email, what you bought, your licence dates and key, and the payment details your payment provider collects. The provider handles your card; edmel.dev doesn't see or store it.
+- **Why.** To take payment, send your key and receipts, answer you, and keep the records tax and accounting law require.
+- **Where.** Your payment provider may store and process this outside Canada, under its own privacy terms.
+- **How long.** We keep billing records for as long as tax and accounting law requires, and delete the rest when you cancel and ask us to.
+- **Your key.** It holds a licence ID and an end date. The app checks it on your phone, without the internet.
+- **Offers stay separate.** What nah.meter sees on Uber never goes to edmel.dev or to the payment provider.
+- **Your rights.** To see, correct or delete what we hold about your purchase, email contact@edmel.dev. We may have to keep billing records.
 
 ## Other software on your phone
 
