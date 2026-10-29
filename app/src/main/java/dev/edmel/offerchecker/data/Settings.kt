@@ -6,15 +6,19 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dev.edmel.offerchecker.core.Thresholds
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.math.BigDecimal
 
+/** Which theme to draw: Mono (dark, the default), Daylight (light), or whichever the phone is in. */
+enum class Appearance { MONO, DAYLIGHT, PHONE }
+
 data class AppSettings(
     val thresholds: Thresholds = Thresholds(),
-    /** The Status screen's switch: when off, no offers are read and no badge shows. */
+    /** Home's power button (and the tile and notification): when off, no offers are read and no badge shows. */
     val readingEnabled: Boolean = true,
     val vibration: Boolean = true,
     /** Say the verdict out loud ("nah. 14 an hour"), for couriers who are driving. */
@@ -25,6 +29,9 @@ data class AppSettings(
     val compactBadge: Boolean = false,
     /** The welcome screen has been seen. */
     val onboarded: Boolean = false,
+    val appearance: Appearance = Appearance.MONO,
+    /** The delivery apps the courier drives for ("uber", "doordash", "skip"): the tiles Home shows. */
+    val apps: Set<String> = setOf("uber", "doordash", "skip"),
 )
 
 private val Context.dataStore by preferencesDataStore(name = "settings")
@@ -43,6 +50,8 @@ class SettingsRepository(context: Context) {
         val voiceVolume = intPreferencesKey("voice_volume")
         val compactBadge = booleanPreferencesKey("compact_badge")
         val onboarded = booleanPreferencesKey("onboarded")
+        val appearance = stringPreferencesKey("appearance")
+        val apps = stringSetPreferencesKey("apps")
     }
 
     val settings: Flow<AppSettings> = store.data.map { it.toSettings() }
@@ -64,6 +73,8 @@ class SettingsRepository(context: Context) {
             voiceVolume = this[Keys.voiceVolume] ?: d.voiceVolume,
             compactBadge = this[Keys.compactBadge] ?: d.compactBadge,
             onboarded = this[Keys.onboarded] ?: d.onboarded,
+            appearance = this[Keys.appearance]?.let { v -> Appearance.entries.firstOrNull { it.name == v } } ?: d.appearance,
+            apps = this[Keys.apps] ?: d.apps,
         )
     }
 
@@ -77,4 +88,6 @@ class SettingsRepository(context: Context) {
     suspend fun setVoiceVolume(v: Int) = store.edit { it[Keys.voiceVolume] = v.coerceIn(10, 100) }
     suspend fun setCompactBadge(v: Boolean) = store.edit { it[Keys.compactBadge] = v }
     suspend fun setOnboarded() = store.edit { it[Keys.onboarded] = true }
+    suspend fun setAppearance(v: Appearance) = store.edit { it[Keys.appearance] = v.name }
+    suspend fun setApps(v: Set<String>) = store.edit { it[Keys.apps] = v }
 }

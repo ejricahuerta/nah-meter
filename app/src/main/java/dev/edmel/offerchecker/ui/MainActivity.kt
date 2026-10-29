@@ -27,7 +27,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -45,6 +47,8 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.edmel.offerchecker.data.AppSettings
+import dev.edmel.offerchecker.data.Appearance
 import dev.edmel.offerchecker.data.SettingsRepository
 import dev.edmel.offerchecker.service.CrashLog
 import kotlinx.coroutines.launch
@@ -53,13 +57,24 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         CrashLog.install(this)
-        // Mono (dark) by default, Daylight when the phone is in light mode; bars follow.
+        // Mono (dark) until the Appearance setting is read; the bars follow the theme.
         enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.auto(AndroidColor.WHITE, AndroidColor.BLACK),
-            navigationBarStyle = SystemBarStyle.auto(AndroidColor.WHITE, AndroidColor.BLACK),
+            statusBarStyle = SystemBarStyle.dark(AndroidColor.BLACK),
+            navigationBarStyle = SystemBarStyle.dark(AndroidColor.BLACK),
         )
         setContent {
-            NahTheme {
+            val repo = remember { SettingsRepository(applicationContext) }
+            val s by repo.settings.collectAsState(initial = AppSettings())
+            val dark = when (s.appearance) {
+                Appearance.MONO -> true
+                Appearance.DAYLIGHT -> false
+                Appearance.PHONE -> isSystemInDarkTheme()
+            }
+            LaunchedEffect(dark) {
+                val bars = if (dark) SystemBarStyle.dark(AndroidColor.BLACK) else SystemBarStyle.light(AndroidColor.WHITE, AndroidColor.WHITE)
+                enableEdgeToEdge(statusBarStyle = bars, navigationBarStyle = bars)
+            }
+            NahTheme(dark) {
                 val c = Nah.c
                 val scheme = if (c.dark) darkColorScheme() else lightColorScheme()
                 MaterialTheme(
@@ -76,9 +91,10 @@ class MainActivity : ComponentActivity() {
 }
 
 private enum class Tab(val label: String, val icon: ImageVector) {
-    STATUS("Status", NahIcons.status),
-    THRESHOLDS("Thresholds", NahIcons.sliders),
-    LOG("Log", NahIcons.list),
+    HOME("Home", NahIcons.status),
+    HISTORY("History", NahIcons.list),
+    RULES("Rules", NahIcons.sliders),
+    SETTINGS("Settings", NahIcons.cog),
 }
 
 @Composable
@@ -88,6 +104,7 @@ private fun App() {
     val scope = rememberCoroutineScope()
     val settings by repo.settings.collectAsState(initial = null)
     var tab by rememberSaveable { mutableIntStateOf(0) }
+    var settingsPage by rememberSaveable { mutableIntStateOf(0) }
 
     Box(Modifier.fillMaxSize().background(Nah.c.ground).windowInsetsPadding(WindowInsets.safeDrawing)) {
         val s = settings ?: return@Box
@@ -98,9 +115,14 @@ private fun App() {
         Column(Modifier.fillMaxSize()) {
             Box(Modifier.weight(1f)) {
                 when (Tab.entries[tab]) {
-                    Tab.STATUS -> StatusScreen(s)
-                    Tab.THRESHOLDS -> ThresholdsScreen(s)
-                    Tab.LOG -> LogScreen(s.thresholds)
+                    Tab.HOME -> HomeScreen(
+                        s,
+                        onEditRules = { tab = Tab.RULES.ordinal },
+                        onOpenPermissions = { settingsPage = SettingsPage.PERMISSIONS.ordinal; tab = Tab.SETTINGS.ordinal },
+                    )
+                    Tab.HISTORY -> LogScreen(s.thresholds)
+                    Tab.RULES -> ThresholdsScreen(s)
+                    Tab.SETTINGS -> SettingsScreen(s, SettingsPage.entries[settingsPage], { settingsPage = it.ordinal })
                 }
             }
             TabBar(tab) { tab = it }
@@ -108,7 +130,7 @@ private fun App() {
     }
 }
 
-/** TabBar: three tabs on `ground` under a hairline; the current one in `ink`. */
+/** TabBar: four tabs on `ground` under a hairline; the current one in `ink`. */
 @Composable
 private fun TabBar(selected: Int, onSelect: (Int) -> Unit) {
     Column {

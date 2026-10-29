@@ -43,7 +43,7 @@ import java.util.Date
 import java.util.Locale
 
 @Composable
-fun StatusScreen(settings: AppSettings, modifier: Modifier = Modifier) {
+fun PermissionsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val ctx = LocalContext.current
     val repo = remember { SettingsRepository(ctx) }
     val scope = rememberCoroutineScope()
@@ -65,44 +65,7 @@ fun StatusScreen(settings: AppSettings, modifier: Modifier = Modifier) {
         modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(ScreenPadding),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        Row(Modifier.fillMaxWidth().heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.weight(1f)) { Wordmark(24.sp) }
-            NahSwitch(settings.readingEnabled, { v -> scope.launch { repo.setReadingEnabled(v) } }, "Read offers")
-        }
-
-        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            when {
-                !reading -> StatusPill(false, "Accessibility is off · not reading")
-                !settings.readingEnabled -> StatusPill(false, "Paused · no verdicts")
-                else -> StatusPill(true, "Reading offers")
-            }
-        }
-
-        Column {
-            val l = last
-            if (l == null) {
-                SectionLabel("Last offer")
-                NahGroup {
-                    NahRow("None read yet", "Go online in Uber and the next offer shows here. Or test the card below.")
-                }
-            } else {
-                val e = l.evaluation
-                val time = SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(l.time))
-                SectionLabel("Last offer · $time")
-                val t = settings.thresholds
-                VerdictCard(
-                    verdict = e.verdict,
-                    hourly = e.hourly?.let { "$${it.toPlainString()}" },
-                    reason = e.offer?.let { o ->
-                        (if (o.addOn) "Add-on · +" else "") +
-                            "$${o.pay.toPlainString()} · ${e.effectiveMinutes} min · ${o.km.toPlainString()} km" +
-                            (if (o.orders > 1) " · ×${o.orders}" else "") + " · " + NahCopy.shortReason(e, t)
-                    } ?: NahCopy.cardReason(e, t),
-                    spoken = "Last offer: " + NahCopy.spoken(e, t),
-                    kmChip = NahCopy.kmChip(e),
-                )
-            }
-        }
+        BackHeader("Permissions", onBack)
 
         // Setup steps, in the order the PRD's install guide gives them.
         val restricted = Build.VERSION.SDK_INT >= 33 && !a11y
@@ -160,15 +123,6 @@ fun StatusScreen(settings: AppSettings, modifier: Modifier = Modifier) {
                 ) { SystemSetup.openUber(ctx) }
             }
         }
-
-        NahButton(
-            "Test the card",
-            onClick = {
-                if (!ServiceState.showTestBadge()) Toast.makeText(ctx, "Turn on Accessibility first", Toast.LENGTH_SHORT).show()
-            },
-            kind = NahButtonKind.Secondary,
-            modifier = Modifier.fillMaxWidth(),
-        )
 
         Diagnostics(a11y, running)
 
@@ -250,5 +204,5 @@ private fun Diagnostics(a11y: Boolean, running: Boolean) {
     }
 }
 
-private fun appVersion(ctx: android.content.Context): String =
+internal fun appVersion(ctx: android.content.Context): String =
     runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull() ?: "?"

@@ -14,6 +14,10 @@
         <package android:name="com.ubercab.driver" />
         <package android:name="com.ubercab.eats" />
         <package android:name="com.ubercab" />
+        <!-- Other delivery apps: only so Home can open them. Nothing is read from them. -->
+        <package android:name="com.doordash.driverapp" />
+        <package android:name="com.skipthedishes.courier" />
+        <package android:name="com.skipthedishes.couriers" />
         <!-- The phone's text-to-speech engine, for the spoken verdict (Android 11+ needs this). -->
         <intent>
             <action android:name="android.intent.action.TTS_SERVICE" />

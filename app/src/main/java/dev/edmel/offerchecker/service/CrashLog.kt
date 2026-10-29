@@ -6,7 +6,7 @@ import java.io.File
 
 /**
  * Keeps the last crash on the phone (never sent anywhere): the stack trace is written to a file
- * and shown in Status → Diagnostics, so "nah.meter keeps stopping" can be pasted and fixed.
+ * and shown in Settings → Permissions → Diagnostics, so "nah.meter keeps stopping" can be pasted and fixed.
  * A crash while the reader runs also posts [ReaderWatch]'s "turn it back on" notification.
  */
 object CrashLog {

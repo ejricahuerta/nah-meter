@@ -15,7 +15,7 @@ import kotlinx.coroutines.launch
 
 /**
  * A quick-settings tile to pause and resume reading from the notification shade, without opening
- * the app (handy while driving). It flips the same setting as the Status screen's switch.
+ * the app (handy while driving). It flips the same setting as Home's power button.
  */
 class ReadingTileService : TileService() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)

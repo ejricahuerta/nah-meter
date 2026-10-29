@@ -20,7 +20,7 @@ object CardReader {
     class Scan(
         /** Texts inside the offer card, or null when no card is on screen. */
         val cardTexts: List<String>?,
-        /** Every text on Uber's screen, for the Status screen's diagnostics. */
+        /** Every text on Uber's screen, for the diagnostics. */
         val screenTexts: List<String>,
         /** The card's top edge in screen px, to dock the verdict card above it. */
         val cardTop: Int? = null,
