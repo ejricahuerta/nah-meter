@@ -128,10 +128,7 @@ class OfferAccessibilityService : AccessibilityService() {
         if (roots.isNotEmpty()) ReaderWatch.uberSeen(this)
         if (roots.isEmpty()) rootInActiveWindow?.takeIf { isUberPackage(it.packageName) }?.let { roots += it }
         ServiceState.windowsFlow.value = seen.distinct()
-        logIfChanged(
-            "windows", "Windows on screen",
-            listOfNotNull("apps: ${seen.joinToString()}", bounds?.let { "Uber area: ${it.toShortString()}" }),
-        )
+        logUberWindow(bounds, seen.distinct())
         // A window whose content Android won't share might be Uber's offer: let the screenshot reader check.
         return UberWindows(roots, bounds, roots.isNotEmpty() || hiddenAppWindow)
     }
@@ -193,10 +190,9 @@ class OfferAccessibilityService : AccessibilityService() {
         val badgeArea = badge.screenRect
         val lines = if (badgeArea == null) allLines
         else allLines.filter { it.bottom <= badgeArea.top || it.top >= badgeArea.bottom }
-        if (lines.any { OfferParser.isTripLine(it.text) }) {
-            logIfChanged("ocr", "Uber text (screenshot)", lines.take(MAX_LOG_LINES).map { it.text })
-        }
         val card = OfferParser.cardFromOcr(lines, screenHeight)
+        // Only the card's own lines: map labels and whatever app is behind the pop-up stay out.
+        if (card != null) logIfChanged("ocr", "Uber card text (screenshot)", card.take(MAX_LOG_LINES))
         cardTop = OfferParser.ocrCardTop(lines, screenHeight)
         val screenRead = card?.let(OfferParser::parse) ?: ReadResult.NoOffer
         if (screenRead !is ReadResult.Read && accessibilityRead is ReadResult.Unreadable) {
@@ -262,6 +258,29 @@ class OfferAccessibilityService : AccessibilityService() {
             o.pickup?.let { "restaurant: $it" },
             o.dropoff?.let { "drop-off: $it" },
         )
+    }
+
+    /** Uber's area at the last "Uber on screen" entry; null while Uber isn't on screen. */
+    private var loggedUberArea: Rect? = null
+
+    /**
+     * Logs Uber coming on screen, moving or resizing (its offer pop-up can appear over any app),
+     * and leaving. Other apps opening and closing aren't logged: only Uber's windows matter.
+     */
+    private fun logUberWindow(area: Rect?, apps: List<String>) {
+        if (area == loggedUberArea) return
+        val wasOn = loggedUberArea != null
+        loggedUberArea = area?.let(::Rect)
+        val others = apps.filter { !isUberPackage(it) && it != packageName && it != "com.android.systemui" }
+        when {
+            area != null -> ServiceState.log(
+                "Uber on screen", *listOfNotNull(
+                    "area: ${area.toShortString()}",
+                    others.takeIf { it.isNotEmpty() }?.let { "over: ${it.joinToString()}" },
+                ).toTypedArray(),
+            )
+            wasOn -> ServiceState.log("Uber left the screen")
+        }
     }
 
     private val lastLogged = mutableMapOf<String, LogEntry>()
