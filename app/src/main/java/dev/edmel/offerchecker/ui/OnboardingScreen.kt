@@ -34,7 +34,7 @@ import dev.edmel.offerchecker.core.Thresholds
 import dev.edmel.offerchecker.core.Verdict
 import dev.edmel.offerchecker.service.NahCopy
 
-/** Welcome: what nahmeter does, shown once before setup. */
+/** Welcome: what nah.meter does, shown once before setup. */
 @Composable
 fun OnboardingScreen(thresholds: Thresholds, onSetUp: () -> Unit, modifier: Modifier = Modifier) {
     val c = Nah.c
@@ -54,7 +54,7 @@ fun OnboardingScreen(thresholds: Thresholds, onSetUp: () -> Unit, modifier: Modi
                 modifier = Modifier.semantics { heading() },
             )
             Text(
-                "nahmeter reads every Uber Eats offer and gives you a one-word answer before the timer runs out.",
+                "nah.meter reads every Uber Eats offer and gives you a one-word answer before the timer runs out.",
                 style = Nah.style(17.sp, 400, 25.sp, color = c.inkMuted),
             )
         }

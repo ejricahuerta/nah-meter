@@ -29,7 +29,7 @@ import dev.edmel.offerchecker.core.Thresholds
 import dev.edmel.offerchecker.core.Verdict
 
 /**
- * The nahmeter verdict, drawn over Uber as a TYPE_ACCESSIBILITY_OVERLAY window (no "draw over
+ * The nah.meter verdict, drawn over Uber as a TYPE_ACCESSIBILITY_OVERLAY window (no "draw over
  * other apps" permission needed). Always black, in both themes, so it lifts off any map:
  *  - the verdict card (`nah-card`): docked 20dp above Uber's offer card, 16dp from each side,
  *    the word on the left in its colour, $/hr on the right, the reason underneath;
@@ -69,6 +69,7 @@ class BadgeOverlay(private val context: Context) {
 
     private val font500 = font(R.font.geist_500)
     private val font600 = font(R.font.geist_600)
+    private val font700 = font(R.font.geist_700)
     private val font800 = font(R.font.geist_800)
     private val font900 = font(R.font.geist_900)
 
@@ -162,11 +163,27 @@ class BadgeOverlay(private val context: Context) {
             )
         }
         root.addView(row)
-        root.addView(
-            text(NahCopy.cardReason(e, t), 15f, font500, CARD_MUTED),
-            LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-                .apply { topMargin = dp(6) },
+        // Foot: the reason left (17sp semibold, card-soft), the $/km in its own chip right.
+        val foot = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        foot.addView(
+            text(NahCopy.cardReason(e, t), 17f, font600, CARD_SOFT),
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
         )
+        NahCopy.kmChip(e)?.let { km ->
+            foot.addView(
+                text(km, 15f, font700, Color.WHITE).apply {
+                    gravity = Gravity.CENTER
+                    minimumHeight = dp(30)
+                    setPadding(dp(12), 0, dp(12), 0)
+                    background = GradientDrawable().apply { cornerRadius = dp(999f); setColor(CARD_CHIP) }
+                },
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(30)).apply { marginStart = dp(12) },
+            )
+        }
+        root.addView(foot, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) })
         return root
     }
 
@@ -243,6 +260,8 @@ class BadgeOverlay(private val context: Context) {
         private const val TOP_MARGIN_DP = 44
         private val CARD_EDGE = Color.rgb(0x2A, 0x2A, 0x2A)
         private val CARD_MUTED = Color.rgb(0xA8, 0xA8, 0xA8)
+        private val CARD_SOFT = Color.rgb(0xDE, 0xDE, 0xDE)
+        private val CARD_CHIP = Color.rgb(0x26, 0x26, 0x26)
 
         /** The verdict word's colour on the black card: bet green, eh yellow, nah red. */
         fun wordColor(v: Verdict): Int = when (v) {

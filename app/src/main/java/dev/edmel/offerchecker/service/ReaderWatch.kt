@@ -55,7 +55,7 @@ object ReaderWatch {
         val nm = context.getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(
             NotificationChannel(CHANNEL, "Reader turned off", NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "When nahmeter stops reading while Uber is open"
+                description = "When nah.meter stops reading while Uber is open"
             },
         )
         val settings = PendingIntent.getActivity(
@@ -65,7 +65,7 @@ object ReaderWatch {
         )
         return Notification.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_check)
-            .setContentTitle("nahmeter stopped reading")
+            .setContentTitle("nah.meter stopped reading")
             .setContentText("Tap to turn it back on in Accessibility.")
             .setContentIntent(settings)
             .setAutoCancel(true)

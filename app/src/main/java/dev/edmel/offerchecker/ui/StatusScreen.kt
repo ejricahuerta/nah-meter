@@ -99,6 +99,7 @@ fun StatusScreen(settings: AppSettings, modifier: Modifier = Modifier) {
                             (if (o.orders > 1) " · ×${o.orders}" else "") + " · " + NahCopy.shortReason(e, t)
                     } ?: NahCopy.cardReason(e, t),
                     spoken = "Last offer: " + NahCopy.spoken(e, t),
+                    kmChip = NahCopy.kmChip(e),
                 )
             }
         }
@@ -130,7 +131,7 @@ fun StatusScreen(settings: AppSettings, modifier: Modifier = Modifier) {
                 NahDivider()
                 SetupStep(
                     if (battery) StepState.Done else StepState.Todo, "Battery unrestricted",
-                    if (battery) "Android won't pause nahmeter" else "Restricted · Android may stop nahmeter",
+                    if (battery) "Android won't pause nah.meter" else "Restricted · Android may stop nah.meter",
                     if (battery) null else "Allow",
                 ) { SystemSetup.requestUnrestrictedBattery(ctx) }
                 if (SystemSetup.isSamsung || SystemSetup.isXiaomi) {
@@ -138,14 +139,14 @@ fun StatusScreen(settings: AppSettings, modifier: Modifier = Modifier) {
                     SetupStep(
                         StepState.Manual,
                         if (SystemSetup.isSamsung) "Never sleeping (Samsung)" else "Autostart (Xiaomi)",
-                        if (SystemSetup.isSamsung) "Survives long shifts · add nahmeter to Never sleeping apps" else "Turn on Autostart, battery No restrictions",
+                        if (SystemSetup.isSamsung) "Survives long shifts · add nah.meter to Never sleeping apps" else "Turn on Autostart, battery No restrictions",
                         "Open",
                     ) { SystemSetup.openBrandBattery(ctx) }
                 }
                 NahDivider()
                 SetupStep(
                     if (notifs) StepState.Done else StepState.Todo, "Notifications",
-                    if (notifs) "On · shows that nahmeter is on" else "Off · needed to keep running",
+                    if (notifs) "On · shows that nah.meter is on" else "Off · needed to keep running",
                     if (notifs) null else "Allow",
                 ) {
                     if (Build.VERSION.SDK_INT >= 33) notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -172,7 +173,7 @@ fun StatusScreen(settings: AppSettings, modifier: Modifier = Modifier) {
         Diagnostics(a11y, running)
 
         Text(
-            "Advice only: nahmeter never taps anything in Uber. No internet permission; nothing leaves your phone.",
+            "Advice only: nah.meter never taps anything in Uber. No internet permission; nothing leaves your phone.",
             style = Nah.style(13.sp, 400, 18.sp, color = c.inkMuted),
         )
     }
@@ -189,7 +190,7 @@ private fun Diagnostics(a11y: Boolean, running: Boolean) {
     val log by ServiceState.log.collectAsState()
     var crash by remember { mutableStateOf(CrashLog.read(ctx)) }
     val diag = buildString {
-        appendLine("nahmeter ${appVersion(ctx)}, Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}), ${Build.MANUFACTURER} ${Build.MODEL}")
+        appendLine("nah.meter ${appVersion(ctx)}, Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}), ${Build.MANUFACTURER} ${Build.MODEL}")
         appendLine("Accessibility enabled: $a11y, reader running: $running")
         appendLine("Uber screen events received: $uberEvents")
         appendLine("Windows at last scan: ${windows.joinToString().ifEmpty { "none" }}")
@@ -222,7 +223,7 @@ private fun Diagnostics(a11y: Boolean, running: Boolean) {
                 "Copy diagnostics",
                 onClick = {
                     val cm = ctx.getSystemService(android.content.ClipboardManager::class.java)
-                    cm.setPrimaryClip(android.content.ClipData.newPlainText("nahmeter diagnostics", diag))
+                    cm.setPrimaryClip(android.content.ClipData.newPlainText("nah.meter diagnostics", diag))
                     Toast.makeText(ctx, "Copied", Toast.LENGTH_SHORT).show()
                 },
                 kind = NahButtonKind.Secondary, small = true,

@@ -1,13 +1,13 @@
 # CLAUDE.md
 
-nahmeter ("nah." for short) is a sideloaded Android app for Uber Eats couriers. It reads each
+nah.meter ("nah." for short) is a sideloaded Android app for Uber Eats couriers. It reads each
 offer the Uber Driver app shows and docks a one-word verdict above the offer card: **bet.**,
 **eh.**, **nah.** or **can't read.** Kotlin, Jetpack Compose, min API 26, target API 35.
 
 Android only: iPhone is out of scope until the project is funded (see README, "iPhone: not
 supported yet"); don't start iOS work unless asked.
 
-The product spec is the nahmeter PRD; the look comes from the nahmeter design system and app
+The product spec is the nah.meter PRD; the look comes from the nah.meter design system and app
 screens (links in `README.md`). When they disagree with the code, ask before changing behaviour.
 
 ## Hard rules
@@ -91,7 +91,7 @@ app/   Android
   service/NahCopy.kt       every verdict word and reason string (the brand voice)
   service/ServiceState.kt  in-process state shared with the UI, including the diagnostics log
   service/CrashLog.kt      the last crash's stack trace, saved on the phone, shown in Diagnostics
-  service/ReaderWatch.kt   "nahmeter stopped reading" notification if the reader stops mid-shift
+  service/ReaderWatch.kt   "nah.meter stopped reading" notification if the reader stops mid-shift
   service/Voice.kt         says the verdict out loud ("nah. 14 an hour"), on-device TTS, on media
                            volume at the user's level (Uber moves navigation volume), then restores it
   service/ReadingTileService.kt, PauseReceiver.kt  pause / resume from the shade (tile, notification)
@@ -134,7 +134,7 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
   card has been gone for 600 ms. This stops flip-flopping between noisy OCR reads.
 - The verdict stays up as long as Uber's card does (no timer, decided 2026-10-29): it goes when
   the card has been gone for 600 ms (closed or accepted), or when tapped.
-- Accepted vs passed isn't known yet (nahmeter sees the screen, never the tap). To learn it from
+- Accepted vs passed isn't known yet (nah.meter sees the screen, never the tap). To learn it from
   real text, the log has "After the card (4 s / 12 s)" entries: Uber's text after each read card
   goes. Build accepted/passed tracking from those pastes, not from guesses.
 - Card docking: `cardTop` comes from the accessibility node, else from OCR (pay line top minus
@@ -156,8 +156,13 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
 
 ## UI and copy
 
+- The product is written **nah.meter** (the wordmark is "nah", the square red stop, "meter").
+  `nahmeter` stays only in package, file and CSV names (`app.nahmeter`, `nahmeter.apk`).
 - Tokens live in `ui/Nah.kt` and come from the design system's `tokens.json`. The verdict card
   and pill are black in both themes; colour only ever means a verdict.
+- The verdict card: the word and $/hr on top; under them the reason (17sp semibold, `cardSoft`:
+  "Under your $20", "Under $5.50 minimum", "Short on $/km", "Clears your $20") and the $/km in its
+  own chip (`cardChip`, `NahCopy.kmChip`). Nothing under 15sp.
 - Verdict words are lowercase and end in a full stop (`bet.`); in chips the stop becomes a dot
   before the word. Use `NahCopy` for every verdict string, never inline text.
 - Voice: short, plain, sentence case, no emoji or exclamation marks. Never "Accept" or "Decline".
@@ -178,7 +183,7 @@ each verdict with its source. A grey verdict logs the card text it saw. Entries 
 150 entries) so it survives restarts, and a crash writes its own `Crash` entry before the app dies. Before debugging, check
 that the first line's version matches the latest release.
 
-For "nahmeter keeps stopping", the same copy ends with **Last crash** (the stack trace, kept on the
+For "nah.meter keeps stopping", the same copy ends with **Last crash** (the stack trace, kept on the
 phone by `CrashLog`). The reader itself runs every step through `guarded`, so an error there is
 logged as "Error in …" instead of closing the app. The screenshot reader runs about once a second
 for as long as Uber is open, so it frees every bitmap as soon as it's done (a leak there crashes

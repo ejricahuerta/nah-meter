@@ -57,23 +57,23 @@ import dev.edmel.offerchecker.R
 import dev.edmel.offerchecker.core.Verdict
 import dev.edmel.offerchecker.service.NahCopy
 
-/** nahmeter colour tokens for one theme. The verdict card is black in both. */
+/** nah.meter colour tokens for one theme. The verdict card is black in both. */
 data class NahPalette(
     val ground: Color, val surface: Color, val surfaceRaised: Color, val line: Color, val controlBorder: Color,
     val ink: Color, val inkMuted: Color, val onInk: Color, val stop: Color,
-    val betInk: Color, val ehInk: Color, val nahInk: Color, val dark: Boolean,
+    val betInk: Color, val ehInk: Color, val nahInk: Color, val focusRing: Color, val dark: Boolean,
 )
 
 val Mono = NahPalette(
     ground = Color(0xFF000000), surface = Color(0xFF111111), surfaceRaised = Color(0xFF1F1F1F), line = Color(0xFF262626),
     controlBorder = Color(0xFF6B6B6B), ink = Color(0xFFFFFFFF), inkMuted = Color(0xFFA8A8A8), onInk = Color(0xFF000000),
-    stop = Color(0xFFFF3B30), betInk = Color(0xFF30D158), ehInk = Color(0xFFFFD60A), nahInk = Color(0xFFFF453A), dark = true,
+    stop = Color(0xFFFF3B30), betInk = Color(0xFF30D158), ehInk = Color(0xFFFFD60A), nahInk = Color(0xFFFF453A), focusRing = Color(0xFFFFFFFF), dark = true,
 )
 
 val Daylight = NahPalette(
     ground = Color(0xFFFFFFFF), surface = Color(0xFFF3F3F3), surfaceRaised = Color(0xFFE8E8E8), line = Color(0xFFE2E2E2),
     controlBorder = Color(0xFF767676), ink = Color(0xFF000000), inkMuted = Color(0xFF5E5E5E), onInk = Color(0xFFFFFFFF),
-    stop = Color(0xFFE5251B), betInk = Color(0xFF076B31), ehInk = Color(0xFF8A5A00), nahInk = Color(0xFFC4241B), dark = false,
+    stop = Color(0xFFE5251B), betInk = Color(0xFF076B31), ehInk = Color(0xFF8A5A00), nahInk = Color(0xFFC4241B), focusRing = Color(0xFF000000), dark = false,
 )
 
 private val LocalNah = staticCompositionLocalOf { Mono }
@@ -84,7 +84,7 @@ fun NahTheme(content: @Composable () -> Unit) {
     CompositionLocalProvider(LocalNah provides if (isSystemInDarkTheme()) Mono else Daylight, content = content)
 }
 
-/** nahmeter tokens, from the nahmeter design system. */
+/** nah.meter tokens, from the nah.meter design system. */
 object Nah {
     val c: NahPalette @Composable get() = LocalNah.current
 
@@ -92,6 +92,8 @@ object Nah {
     val card = Color(0xFF000000)
     val cardEdge = Color(0xFF2A2A2A)
     val cardMuted = Color(0xFFA8A8A8)
+    val cardSoft = Color(0xFFDEDEDE)
+    val cardChip = Color(0xFF262626)
     val bet = Color(0xFF30D158)
     val eh = Color(0xFFFFD60A)
     val nah = Color(0xFFFF3B30)
@@ -158,14 +160,16 @@ fun Stop(size: Dp, color: Color = Nah.c.stop) {
     Box(Modifier.size(size).background(color))
 }
 
-/** The `nahmeter.` wordmark: Geist Black, tracked −5.5%, with the square red full stop. */
+/** The `nah.meter` wordmark: Geist Black, tracked −5.5%, the square red full stop between the two words. */
 @Composable
 fun Wordmark(size: TextUnit = 26.sp) {
+    val style = Nah.style(size, 900, size, (-0.055).em, Nah.c.ink)
     Row(verticalAlignment = Alignment.Bottom) {
-        Text("nahmeter", style = Nah.style(size, 900, size, (-0.055).em, Nah.c.ink))
-        Box(Modifier.padding(start = (size.value * 0.06f).dp, bottom = (size.value * 0.12f).dp)) {
+        Text("nah", style = style)
+        Box(Modifier.padding(start = (size.value * 0.05f).dp, end = (size.value * 0.05f).dp, bottom = (size.value * 0.12f).dp)) {
             Stop((size.value * 0.2f).dp)
         }
+        Text("meter", style = style)
     }
 }
 
@@ -179,7 +183,10 @@ private fun rate(amount: String, unit: String, unitSize: TextUnit, unitColor: Co
 
 /** VerdictCard: black, the word left in its colour, $/hr right, the reason underneath. */
 @Composable
-fun VerdictCard(verdict: Verdict, hourly: String?, reason: String, modifier: Modifier = Modifier, spoken: String? = null) {
+fun VerdictCard(
+    verdict: Verdict, hourly: String?, reason: String, modifier: Modifier = Modifier, spoken: String? = null,
+    kmChip: String? = null,
+) {
     val unknown = verdict == Verdict.GREY
     Column(
         modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(Nah.card)
@@ -205,7 +212,16 @@ fun VerdictCard(verdict: Verdict, hourly: String?, reason: String, modifier: Mod
                 )
             }
         }
-        Text(reason, style = Nah.style(15.sp, 500, 20.sp, color = Nah.cardMuted))
+        // Foot: the reason (17 semibold, card-soft) left, the $/km in its own chip right.
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(reason, style = Nah.style(17.sp, 600, 22.sp, color = Nah.cardSoft), modifier = Modifier.weight(1f))
+            if (kmChip != null) {
+                Box(
+                    Modifier.height(30.dp).clip(CircleShape).background(Nah.cardChip).padding(horizontal = 12.dp),
+                    contentAlignment = Alignment.Center,
+                ) { Text(kmChip, style = Nah.style(15.sp, 700, 20.sp, color = Color.White), maxLines = 1) }
+            }
+        }
     }
 }
 

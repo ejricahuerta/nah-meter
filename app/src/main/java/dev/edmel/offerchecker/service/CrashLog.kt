@@ -6,7 +6,7 @@ import java.io.File
 
 /**
  * Keeps the last crash on the phone (never sent anywhere): the stack trace is written to a file
- * and shown in Status → Diagnostics, so "nahmeter keeps stopping" can be pasted and fixed.
+ * and shown in Status → Diagnostics, so "nah.meter keeps stopping" can be pasted and fixed.
  * A crash while the reader runs also posts [ReaderWatch]'s "turn it back on" notification.
  */
 object CrashLog {
@@ -26,7 +26,7 @@ object CrashLog {
             runCatching {
                 val time = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).format(java.util.Date())
                 file.writeText(
-                    "nahmeter $version crashed at $time on ${thread.name}, " +
+                    "nah.meter $version crashed at $time on ${thread.name}, " +
                         "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})\n" +
                         error.stackTraceToString().take(MAX_CHARS),
                 )

@@ -305,6 +305,15 @@ class OfferParserTest {
         assertFalse(samePlace("Burger King (1607 Birchmount Road)", "Booster Juice (5937 Leslie St)"))
     }
 
+    /** The card's new reasons ("Short on $/km", "Under $5.50 minimum") must never read back as a place either. */
+    @Test fun ownReasonLinesAreNotAPlace() {
+        for (reason in listOf("Short on \$/km", "Under \$5.50 minimum", "Under your \$20", "Clears your \$20", "\$0.53/km")) {
+            val o = read("\$9.40", "22 min (6.8 km) total", "nah.", reason, "Kakuya (Yonge St)", "Accept")
+            assertEquals(reason, "Kakuya (Yonge St)", o.pickup)
+            assertEquals(reason, null, o.dropoff)
+        }
+    }
+
     /** 2026-10-28 6:21: "can't read." (nahmeter's own card) was logged as the restaurant. */
     @Test fun ownVerdictCardIsNotAPlace() {
         val o = read("+ $5.10", "+ 13 min (+ 3.5 km) total", "can't read.", "Check this offer yourself", "Booster Juice (5937 Leslie St)", "Accept")

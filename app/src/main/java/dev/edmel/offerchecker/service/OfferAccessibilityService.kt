@@ -91,7 +91,7 @@ class OfferAccessibilityService : AccessibilityService() {
         StatusNotification.show(this)
         ServiceState.log(
             "Reader started",
-            "nahmeter ${runCatching { packageManager.getPackageInfo(packageName, 0).versionName }.getOrNull() ?: "?"}",
+            "nah.meter ${runCatching { packageManager.getPackageInfo(packageName, 0).versionName }.getOrNull() ?: "?"}",
         )
     }
 
