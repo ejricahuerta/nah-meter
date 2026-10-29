@@ -112,9 +112,9 @@ fun RuleSteppers(t: Thresholds, showBuffer: Boolean) {
     NahDivider()
     ThresholdField(
         "Per hour", money(t.minHourly), "/hr", "Under this is nah.",
-        "Decrease per hour by $1", "Increase per hour by $1",
-        { scope.launch { repo.setMinHourly(step(t.minHourly, "-1", "5", "80")) } },
-        { scope.launch { repo.setMinHourly(step(t.minHourly, "1", "5", "80")) } },
+        "Decrease per hour by $0.50", "Increase per hour by $0.50",
+        { scope.launch { repo.setMinHourly(step(t.minHourly, "-0.50", "5", "80")) } },
+        { scope.launch { repo.setMinHourly(step(t.minHourly, "0.50", "5", "80")) } },
     )
     NahDivider()
     ThresholdField(
