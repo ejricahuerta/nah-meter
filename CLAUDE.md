@@ -102,6 +102,7 @@ app/   Android
   ui/HomeScreen.kt         power button, today's overview, app tiles (DeliveryApps), rules strip
   ui/SettingsScreen.kt     Settings and its pages; PermissionsScreen.kt holds the setup steps and Diagnostics
   ui/VoiceScreen.kt        Settings → Voice: what it says (3 lines), which verdicts, volume, speed, voice
+  ui/LegalScreen.kt        Terms, Privacy and Licences (from assets/legal/*.md) and the "Agree to continue" gate
   ui/SetupScreen.kt        the five setup steps (Welcome, Your apps, Your rules, Permissions, Test it); first run and Settings → Run setup again
 ```
 
@@ -171,6 +172,9 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
 - Verdict words are lowercase and end in a full stop (`bet.`); in chips the stop becomes a dot
   before the word. Use `NahCopy` for every verdict string, never inline text.
 - Voice: short, plain, sentence case, no emoji or exclamation marks. Never "Accept" or "Decline".
+- Legal documents live in `app/src/main/assets/legal/` (the app and the README read the same
+  files). Changing what they mean bumps `LEGAL_VERSION` (`data/Settings.kt`): everyone is asked to
+  agree again, and the reader gives no verdicts until they do.
 - No helper text that restates a label or a visible state ("Tap to pause" under a power button). Add a
   line only for a reason, a warning, a step or a number.
 - The overlay is classic Views (not Compose); `TypefaceSpan(Typeface)` needs API 28, so use the

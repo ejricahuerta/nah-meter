@@ -19,6 +19,7 @@ import dev.edmel.offerchecker.core.ReadResult
 import dev.edmel.offerchecker.core.Scorer
 import dev.edmel.offerchecker.core.Verdict
 import dev.edmel.offerchecker.data.AppSettings
+import dev.edmel.offerchecker.data.LEGAL_VERSION
 import dev.edmel.offerchecker.data.OfferDatabase
 import dev.edmel.offerchecker.data.OfferEntry
 import dev.edmel.offerchecker.data.SettingsRepository
@@ -49,6 +50,8 @@ class OfferAccessibilityService : AccessibilityService() {
     private var voice: Voice? = null
     /** The status notification shows the current reading state (on / paused). */
     private var notified = false
+    /** "Waiting for terms" is logged once per start. */
+    private var loggedNoTerms = false
     @Volatile private var settings = AppSettings()
 
     private var scanPending = false
@@ -77,12 +80,17 @@ class OfferAccessibilityService : AccessibilityService() {
         badge = BadgeOverlay(this)
         scope.launch {
             settingsRepo.settings.collect {
-                if (it.readingEnabled != settings.readingEnabled || !notified) {
+                val agreed = it.termsAccepted >= LEGAL_VERSION
+                if (it.readingEnabled != settings.readingEnabled || agreed != (settings.termsAccepted >= LEGAL_VERSION) || !notified) {
                     notified = true
-                    StatusNotification.show(this@OfferAccessibilityService, it.readingEnabled)
+                    StatusNotification.show(this@OfferAccessibilityService, it.readingEnabled, agreed)
+                }
+                if (!agreed && !loggedNoTerms) {
+                    loggedNoTerms = true
+                    ServiceState.log("Waiting for terms", "no verdicts until the terms are agreed in the app")
                 }
                 settings = it
-                if (!it.readingEnabled) badge.hide()
+                if (!it.readingEnabled || !agreed) badge.hide()
             }
         }
         ServiceState.service = this
@@ -98,7 +106,8 @@ class OfferAccessibilityService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         // Uber's offer can be a pop-up over another app (e.g. Maps): a window appearing or
         // disappearing anywhere triggers a scan, but only Uber's windows are ever read.
-        if (!settings.readingEnabled) return
+        // Nothing is read until the current terms are agreed to in the app.
+        if (!settings.readingEnabled || settings.termsAccepted < LEGAL_VERSION) return
         val fromUber = isUberPackage(event.packageName)
         if (!fromUber && event.eventType != AccessibilityEvent.TYPE_WINDOWS_CHANGED) return
         if (fromUber) ServiceState.uberEventsFlow.value++

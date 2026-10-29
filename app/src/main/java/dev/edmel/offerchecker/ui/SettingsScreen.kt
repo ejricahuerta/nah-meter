@@ -37,7 +37,7 @@ import dev.edmel.offerchecker.service.ServiceState
 import kotlinx.coroutines.launch
 
 /** The pages Settings can show; Home's "Fix in Settings" opens [PERMISSIONS] directly. */
-enum class SettingsPage { MAIN, PERMISSIONS, APPS, VOICE }
+enum class SettingsPage { MAIN, PERMISSIONS, APPS, VOICE, TERMS, PRIVACY, LICENCES }
 
 @Composable
 fun SettingsScreen(
@@ -49,6 +49,9 @@ fun SettingsScreen(
         SettingsPage.PERMISSIONS -> PermissionsScreen(onBack = { onPage(SettingsPage.MAIN) }, modifier = modifier)
         SettingsPage.APPS -> DeliveryAppsScreen(settings, onBack = { onPage(SettingsPage.MAIN) }, modifier = modifier)
         SettingsPage.VOICE -> VoiceScreen(settings, onBack = { onPage(SettingsPage.MAIN) }, modifier = modifier)
+        SettingsPage.TERMS -> LegalScreen(LegalDoc.TERMS, onBack = { onPage(SettingsPage.MAIN) }, modifier = modifier)
+        SettingsPage.PRIVACY -> LegalScreen(LegalDoc.PRIVACY, onBack = { onPage(SettingsPage.MAIN) }, modifier = modifier)
+        SettingsPage.LICENCES -> LegalScreen(LegalDoc.LICENCES, onBack = { onPage(SettingsPage.MAIN) }, modifier = modifier)
         SettingsPage.MAIN -> SettingsMain(settings, onPage, onRunSetup, modifier)
     }
 }
@@ -146,7 +149,13 @@ private fun SettingsMain(settings: AppSettings, onPage: (SettingsPage) -> Unit, 
         Column {
             SectionLabel("About")
             NahGroup {
-                NahRow("nah.meter ${appVersion(ctx)}", "No internet permission · nothing leaves your phone")
+                NahRow("nah.meter ${appVersion(ctx)}", "No internet permission · nothing leaves your phone · not affiliated with Uber")
+                NahDivider()
+                LegalLink(LegalDoc.TERMS) { onPage(SettingsPage.TERMS) }
+                NahDivider()
+                LegalLink(LegalDoc.PRIVACY) { onPage(SettingsPage.PRIVACY) }
+                NahDivider()
+                LegalLink(LegalDoc.LICENCES) { onPage(SettingsPage.LICENCES) }
             }
         }
     }
