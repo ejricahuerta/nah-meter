@@ -130,6 +130,22 @@ fun ThresholdsScreen(settings: AppSettings, modifier: Modifier = Modifier) {
             NahRow("Say the verdict out loud", "\"nah. 14 an hour\", for when you're driving") {
                 NahSwitch(settings.voice, { v -> scope.launch { repo.setVoice(v) } }, "Say the verdict out loud")
             }
+            if (settings.voice) {
+                NahDivider()
+                // Its own level, on media volume: Uber turns navigation volume up and down.
+                fun setVolume(v: Int) {
+                    val level = v.coerceIn(10, 100)
+                    scope.launch { repo.setVoiceVolume(level) }
+                    ServiceState.service?.sayVolumeSample(level)
+                }
+                ThresholdField(
+                    "Voice volume", "${settings.voiceVolume}", "%",
+                    "Of your media volume, set just for the verdict. Uber can't change it.",
+                    "Voice quieter by 10%", "Voice louder by 10%",
+                    { setVolume(settings.voiceVolume - 10) },
+                    { setVolume(settings.voiceVolume + 10) },
+                )
+            }
             NahDivider()
             NahRow("Compact verdict", "Small pill at the top instead") {
                 NahSwitch(settings.compactBadge, { v -> scope.launch { repo.setCompactBadge(v) } }, "Compact verdict")

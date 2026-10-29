@@ -19,6 +19,8 @@ data class AppSettings(
     val vibration: Boolean = true,
     /** Say the verdict out loud ("nah. 14 an hour"), for couriers who are driving. */
     val voice: Boolean = true,
+    /** How loud the spoken verdict is, as a share of the phone's media volume (10–100). */
+    val voiceVolume: Int = 70,
     /** Compact pill at the top of the screen instead of the card docked above the offer. */
     val compactBadge: Boolean = false,
     /** The welcome screen has been seen. */
@@ -38,6 +40,7 @@ class SettingsRepository(context: Context) {
         val readingEnabled = booleanPreferencesKey("reading_enabled")
         val vibration = booleanPreferencesKey("vibration")
         val voice = booleanPreferencesKey("voice")
+        val voiceVolume = intPreferencesKey("voice_volume")
         val compactBadge = booleanPreferencesKey("compact_badge")
         val onboarded = booleanPreferencesKey("onboarded")
     }
@@ -58,6 +61,7 @@ class SettingsRepository(context: Context) {
             readingEnabled = this[Keys.readingEnabled] ?: d.readingEnabled,
             vibration = this[Keys.vibration] ?: d.vibration,
             voice = this[Keys.voice] ?: d.voice,
+            voiceVolume = this[Keys.voiceVolume] ?: d.voiceVolume,
             compactBadge = this[Keys.compactBadge] ?: d.compactBadge,
             onboarded = this[Keys.onboarded] ?: d.onboarded,
         )
@@ -70,6 +74,7 @@ class SettingsRepository(context: Context) {
     suspend fun setReadingEnabled(v: Boolean) = store.edit { it[Keys.readingEnabled] = v }
     suspend fun setVibration(v: Boolean) = store.edit { it[Keys.vibration] = v }
     suspend fun setVoice(v: Boolean) = store.edit { it[Keys.voice] = v }
+    suspend fun setVoiceVolume(v: Int) = store.edit { it[Keys.voiceVolume] = v.coerceIn(10, 100) }
     suspend fun setCompactBadge(v: Boolean) = store.edit { it[Keys.compactBadge] = v }
     suspend fun setOnboarded() = store.edit { it[Keys.onboarded] = true }
 }

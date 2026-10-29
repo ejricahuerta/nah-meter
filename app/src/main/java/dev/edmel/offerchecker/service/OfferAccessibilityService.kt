@@ -345,7 +345,7 @@ class OfferAccessibilityService : AccessibilityService() {
         val s = settings
         guarded("verdict card") { badge.show(e, s.thresholds, s.compactBadge, cardTop ?: popupTop) }
         if (s.vibration) runCatching { alerts.vibrate(e.verdict) }
-        if (s.voice) voice?.say(NahCopy.speech(e))
+        if (s.voice) voice?.say(NahCopy.speech(e), s.voiceVolume)
         ServiceState.lastReadFlow.value = LastRead(System.currentTimeMillis(), e, raw)
         val offer = e.offer ?: return
         if (e.verdict == Verdict.GREY) return
@@ -376,7 +376,12 @@ class OfferAccessibilityService : AccessibilityService() {
         val s = settings
         badge.show(e, s.thresholds, s.compactBadge, null)
         if (s.vibration) alerts.vibrate(e.verdict)
-        if (s.voice) voice?.say(NahCopy.speech(e))
+        if (s.voice) voice?.say(NahCopy.speech(e), s.voiceVolume)
+    }
+
+    /** A sample verdict at [volumePercent], so the volume setting can be tried out. */
+    fun sayVolumeSample(volumePercent: Int) {
+        voice?.say("nah. 14 an hour.", volumePercent)
     }
 
     override fun onInterrupt() = Unit
