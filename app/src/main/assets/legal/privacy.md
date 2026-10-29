@@ -9,6 +9,7 @@ nah.meter is made by edmel.dev. This policy says what the app reads, what it kee
 - No account and no sign-in.
 - No internet permission: the app can't send anything anywhere.
 - No ads, analytics or tracking.
+- It does nothing with what it sees except work out the verdict and keep your own log on your phone.
 - What it reads and keeps stays on your phone, unless you choose to share it.
 
 ## What nah.meter reads
@@ -18,6 +19,15 @@ nah.meter uses Android's Accessibility service to see delivery offers. Android s
 - **Offer text.** The pay, time, distance, restaurant and drop-off area on Uber's offer card.
 - **Screenshots of Uber's windows.** When Uber hides its text, nah.meter takes a screenshot, crops it to Uber's windows and reads the text on your phone. The screenshot is dropped as soon as it's read. It is never saved or sent.
 - **Other apps.** nah.meter doesn't read their content. When Uber's offer pops up over another app, the diagnostics log notes that app's package name, so a problem can be traced.
+
+## What nah.meter does with it
+
+Two things only:
+
+- It works out the verdict and shows or says it.
+- It keeps the offer log, diagnostics and crash report on your phone, so you can look back in History and Home, and so a problem can be traced.
+
+edmel.dev never receives what nah.meter sees: there is no server and the app can't connect to the internet. Nobody sells it, shares it, or uses it for ads, profiling, research or tracking.
 
 ## What nah.meter keeps on your phone
 

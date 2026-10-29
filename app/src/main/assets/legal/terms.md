@@ -16,6 +16,8 @@ nah.meter is free. You get a personal, non-exclusive right to install and use it
 
 nah.meter reads delivery offers on your screen and shows a verdict: bet., eh., nah. or can't read. It never taps, accepts or declines anything for you. Every offer is your decision.
 
+It does nothing with what it sees except work out the verdict and keep your own log on your phone. The Privacy policy has the details.
+
 ## Not affiliated with Uber
 
 nah.meter is an independent app. It isn't made, endorsed or supported by Uber, DoorDash, SkipTheDishes or any delivery company. Their names are trademarks of their owners and are used only to say which apps nah.meter works with.
