@@ -43,12 +43,14 @@ data class Thresholds(
     val minHourly: BigDecimal = BigDecimal("20.00"),
     val minPerKm: BigDecimal = BigDecimal("1.00"),
     val waitBufferMin: Int = 0,
+    /** Waiting for food at each pickup on a multi-order offer: 2 orders add 4 min. */
+    val perOrderWaitMin: Int = 2,
 )
 
 data class Evaluation(
     val verdict: Verdict,
     val offer: Offer?,
-    /** Uber's minutes plus the wait buffer. */
+    /** Uber's minutes plus the wait buffer and, for several orders, the pickup waits. */
     val effectiveMinutes: Int?,
     /** Rounded to 2 decimals, for display only. */
     val hourly: BigDecimal?,

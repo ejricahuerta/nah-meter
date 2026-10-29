@@ -33,7 +33,7 @@ import dev.edmel.offerchecker.core.Verdict
 /**
  * The nahmeter verdict, drawn over Uber as a TYPE_ACCESSIBILITY_OVERLAY window (no "draw over
  * other apps" permission needed). Always black, in both themes, so it lifts off any map:
- *  - the verdict card (`nah-card`): docked 8dp above Uber's offer card, 16dp from each side,
+ *  - the verdict card (`nah-card`): docked 20dp above Uber's offer card, 16dp from each side,
  *    the word on the left in its colour, $/hr on the right, the reason underneath;
  *  - the compact pill (`nah-pill`): at the top of the screen; tap it to expand to the card.
  * Tapping the card dismisses it. It never takes focus from Uber.
@@ -160,9 +160,8 @@ class BadgeOverlay(private val context: Context) {
             LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
         )
         if (!unknown) {
-            val stacked = e.offer?.orders?.takeIf { it > 1 }?.let { " ×$it" } ?: ""
             row.addView(
-                text(rate("$${e.hourly!!.toPlainString()}", "/hr$stacked", 15), 36f, font800, Color.WHITE, -0.04f)
+                text(rate("$${e.hourly!!.toPlainString()}", "/hr", 15), 36f, font800, Color.WHITE, -0.04f)
                     .apply { maxLines = 1; setPadding(dp(12), 0, 0, dp(6)) },
             )
         }
@@ -244,7 +243,8 @@ class BadgeOverlay(private val context: Context) {
         private const val IN_MS = 160L
         private const val OUT_MS = 100L
         private const val SIDE_MARGIN_DP = 16
-        private const val DOCK_GAP_DP = 8
+        // The OCR estimate of Uber's card top runs about 8dp low, so this leaves a visible ~12dp gap.
+        private const val DOCK_GAP_DP = 20
         private const val TOP_MARGIN_DP = 44
         private val CARD_EDGE = Color.rgb(0x2A, 0x2A, 0x2A)
         private val CARD_MUTED = Color.rgb(0xA8, 0xA8, 0xA8)

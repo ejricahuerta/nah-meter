@@ -128,7 +128,7 @@ class OfferParserTest {
         assertTrue(o.stacked)
         val e = Scorer.score(o, Thresholds())
         assertEquals(Verdict.RED, e.verdict)
-        assertEquals("\$16.17/hr · \$0.85/km", e.ratesText)
+        assertEquals("\$14.80/hr · \$0.85/km", e.ratesText)
     }
 
     @Test fun textRecognitionSlips() {
@@ -168,7 +168,7 @@ class OfferParserTest {
         val card = OfferParser.cardFromOcr(lines, 2424)!!
         val e = Scorer.evaluate(OfferParser.parse(card), Thresholds())!!
         assertEquals(Verdict.RED, e.verdict)
-        assertEquals("\$16.17/hr · \$0.85/km", e.ratesText)
+        assertEquals("\$14.80/hr · \$0.85/km", e.ratesText)
         assertTrue(e.offer!!.stacked)
     }
 
@@ -264,7 +264,8 @@ class OfferParserTest {
         assertFalse(o.addOn)
         val e = Scorer.score(o, Thresholds())
         assertEquals(Verdict.RED, e.verdict)
-        assertEquals("\$18.71/hr · \$1.30/km", e.ratesText)
+        // 61 min + 2 min pickup wait per order (3) = 67 min.
+        assertEquals("\$17.03/hr · \$1.30/km", e.ratesText)
         assertEquals(120, read("$30.00", "2 hr (40 km) total").minutes)
         assertEquals(75, read("$30.00", "1 hour 15 min (40 km) total").minutes)
     }
@@ -281,7 +282,8 @@ class OfferParserTest {
             assertEquals(2, o.orders)
             val e = Scorer.score(o, Thresholds())
             assertEquals(Verdict.RED, e.verdict)
-            assertEquals("\$12.90/hr · \$0.35/km", e.ratesText)
+            // 63 min + 2 min pickup wait per order (2) = 67 min.
+            assertEquals("\$12.13/hr · \$0.35/km", e.ratesText)
         }
         // An hour that can't be read at all is can't read., never "3 min".
         for (trip in listOf("? hr 3 min (38.3 km) total", "hr 3 min (38.3 km) total", "Q hr 3 min (38.3 km) total")) {
