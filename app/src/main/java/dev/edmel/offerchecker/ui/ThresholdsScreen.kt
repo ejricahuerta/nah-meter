@@ -63,7 +63,7 @@ fun ThresholdsScreen(settings: AppSettings, modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("Thresholds", style = Nah.title.copy(color = c.ink))
+            Text("Rules", style = Nah.title.copy(color = c.ink))
             Text("Checked in order. The first one missed decides.", style = Nah.style(14.sp, 400, 20.sp, color = c.inkMuted))
         }
 
@@ -120,36 +120,6 @@ fun ThresholdsScreen(settings: AppSettings, modifier: Modifier = Modifier) {
                 { scope.launch { repo.setWaitBuffer((t.waitBufferMin - 1).coerceIn(0, 30)) } },
                 { scope.launch { repo.setWaitBuffer((t.waitBufferMin + 1).coerceIn(0, 30)) } },
             )
-        }
-
-        NahGroup {
-            NahRow("Buzz on verdict", "bet short · eh double · nah long") {
-                NahSwitch(settings.vibration, { v -> scope.launch { repo.setVibration(v) } }, "Buzz on verdict")
-            }
-            NahDivider()
-            NahRow("Say the verdict out loud", "\"nah. 14 an hour\", for when you're driving") {
-                NahSwitch(settings.voice, { v -> scope.launch { repo.setVoice(v) } }, "Say the verdict out loud")
-            }
-            if (settings.voice) {
-                NahDivider()
-                // Its own level, on media volume: Uber turns navigation volume up and down.
-                fun setVolume(v: Int) {
-                    val level = v.coerceIn(10, 100)
-                    scope.launch { repo.setVoiceVolume(level) }
-                    ServiceState.service?.sayVolumeSample(level)
-                }
-                ThresholdField(
-                    "Voice volume", "${settings.voiceVolume}", "%",
-                    "Of your media volume, set just for the verdict. Uber can't change it.",
-                    "Voice quieter by 10%", "Voice louder by 10%",
-                    { setVolume(settings.voiceVolume - 10) },
-                    { setVolume(settings.voiceVolume + 10) },
-                )
-            }
-            NahDivider()
-            NahRow("Compact verdict", "Small pill at the top instead") {
-                NahSwitch(settings.compactBadge, { v -> scope.launch { repo.setCompactBadge(v) } }, "Compact verdict")
-            }
         }
     }
 }

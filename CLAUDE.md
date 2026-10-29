@@ -97,7 +97,10 @@ app/   Android
   service/ReadingTileService.kt, PauseReceiver.kt  pause / resume from the shade (tile, notification)
   data/                    DataStore settings, Room offer log (last 200), CSV export
   ui/Nah.kt                design tokens (Mono/Daylight), Geist, components
-  ui/*Screen.kt            Welcome (onboarding), Status, Thresholds, Log
+  ui/MainActivity.kt       the four tabs: Home, History (LogScreen), Rules (ThresholdsScreen), Settings
+  ui/HomeScreen.kt         power button, today's overview, app tiles (DeliveryApps), rules strip
+  ui/SettingsScreen.kt     Settings and its pages; PermissionsScreen.kt holds the setup steps and Diagnostics
+  ui/OnboardingScreen.kt   Welcome, shown once
 ```
 
 Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applicationId` is
@@ -148,7 +151,7 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
 ## Changing the parser or scorer
 
 - Every fix starts from real text: add a test using the exact lines from the user's diagnostics
-  log (Status → Diagnostics → Copy). Existing tests named after dates or offers are real cases;
+  log (Settings → Permissions → Diagnostics → Copy). Existing tests named after dates or offers are real cases;
   keep them passing.
 - The PRD's eight scoring cases in `ScorerTest` are acceptance criteria. Exactly meeting a
   threshold passes. Comparisons are exact (`BigDecimal`); rounding is for display only, half-up.
@@ -173,7 +176,7 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
 
 ## Debugging an on-phone problem
 
-Ask the user to wait for an offer, then open **Status → Diagnostics → Show → Copy diagnostics**
+Ask the user to wait for an offer, then open **Settings → Permissions → Diagnostics → Show → Copy diagnostics**
 and paste it. The log shows Uber coming on screen (its area, and which app it popped up over) and
 leaving, but not other apps opening and closing; the card's lines read by each method; and
 each verdict with its source. A grey verdict logs the card text it saw. Entries are

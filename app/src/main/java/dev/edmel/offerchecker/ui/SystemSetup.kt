@@ -78,6 +78,16 @@ object SystemSetup {
         if (candidates.none { start(ctx, it) }) openAppInfo(ctx)
     }
 
+    /** True when any of [packages] is installed. */
+    fun installed(ctx: Context, packages: List<String>): Boolean =
+        packages.any { runCatching { ctx.packageManager.getPackageInfo(it, 0) }.isSuccess }
+
+    /** Opens the first of [packages] that can be launched; false when none can. */
+    fun openApp(ctx: Context, packages: List<String>): Boolean {
+        val intent = packages.firstNotNullOfOrNull { ctx.packageManager.getLaunchIntentForPackage(it) } ?: return false
+        return start(ctx, intent)
+    }
+
     fun openUber(ctx: Context) {
         uberInstalled(ctx).firstNotNullOfOrNull { ctx.packageManager.getLaunchIntentForPackage(it) }?.let { start(ctx, it) }
     }

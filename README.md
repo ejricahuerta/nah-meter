@@ -52,15 +52,15 @@ Example: $6.07, 23 min, 11.5 km → **nah.** `$15.83/hr`, with "Under your $20 �
 1. Download the APK on the phone and tap it.
 2. Allow **Install unknown apps** for your browser or file app when asked.
 3. If Play Protect warns, tap **More details → Install anyway**.
-4. Open **nah.meter**; the Status screen lists what's missing, with a button for each.
+4. Open **nah.meter**; Settings → Permissions lists what's missing, with a button for each.
 5. **Android 13+:** Settings → Apps → nah.meter → **⋮ → Allow restricted settings**
    (sideloaded apps need this before step 6).
 6. Settings → Accessibility → **nah.meter → On**.
 7. Battery → **Unrestricted** for the app.
    Samsung: also add it to **Never sleeping apps**. Xiaomi/Redmi: turn on **Autostart** and set
-   battery to **No restrictions**. The Status screen links to the right page.
+   battery to **No restrictions**. Settings → Permissions links to the right page.
 8. Allow notifications (for the "Offer checker on" notice).
-9. Open Uber Driver and wait for an offer, or tap **Test the card** on the Status screen.
+9. Open Uber Driver and wait for an offer, or tap **Show** next to "Show a test verdict" in Settings.
 
 **Using the verdict:** a black card docks 8dp above Uber's offer card: the word, the $/hr and
 the reason. Turn on **Compact verdict** in Thresholds for a small pill at the top instead (tap it
@@ -78,9 +78,11 @@ long as the signing secrets below are set, because every build is then signed wi
   inside the offer card is read. When Uber hides its text, the app reads a screenshot of
   Uber's windows with on-device text recognition (Android 11+).
 - Floating badge (accessibility overlay: no "draw over apps" permission needed).
-- Settings: min pay, $/hr, $/km, wait buffer, vibration, badge size.
-- Status screen: reader on/off, each setup step with a one-tap link, and the last offer read
-  with the **raw text** it saw (for diagnosing a grey badge).
+- Four tabs: **Home** (a power button for reading on or off, today's offers, the delivery apps to
+  open, your rules in one line), **History** (the offer log), **Rules** (min pay, $/hr, $/km, wait
+  buffer) and **Settings** (permissions, verdict card, voice, haptics, appearance, delivery apps).
+- Settings → Permissions: each setup step with a one-tap link, and Diagnostics with the **raw
+  text** it saw (for diagnosing a grey badge).
 - Offer log: last 200 offers, today's average $/hr, CSV export.
 - Stacked offers are scored on the combined numbers and marked `×2`.
 
@@ -131,7 +133,7 @@ old app uninstalled first. Local builds without `KEYSTORE_FILE` set use the debu
 ## If Uber changes its offer screen
 
 The patterns live in `core/src/main/kotlin/dev/edmel/offerchecker/core/OfferParser.kt`.
-Check the raw text on the Status screen, adjust the pattern, add a test with that text,
+Check the raw text under Settings → Permissions → Diagnostics, adjust the pattern, add a test with that text,
 and push; a new APK is built automatically.
 
 ## Known unknowns

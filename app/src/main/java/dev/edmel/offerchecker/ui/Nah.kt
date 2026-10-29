@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -78,10 +79,10 @@ val Daylight = NahPalette(
 
 private val LocalNah = staticCompositionLocalOf { Mono }
 
-/** Mono (dark, the default) or Daylight (light), following the phone's dark-theme setting. */
+/** Mono (dark, the default) or Daylight (light); the Appearance setting picks, "Match phone" follows the phone. */
 @Composable
-fun NahTheme(content: @Composable () -> Unit) {
-    CompositionLocalProvider(LocalNah provides if (isSystemInDarkTheme()) Mono else Daylight, content = content)
+fun NahTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
+    CompositionLocalProvider(LocalNah provides if (dark) Mono else Daylight, content = content)
 }
 
 /** nah.meter tokens, from the nah.meter design system. */
@@ -150,6 +151,17 @@ object NahIcons {
         "M14 7a2 2 0 1 0 4 0a2 2 0 1 0 -4 0", "M8 17a2 2 0 1 0 4 0a2 2 0 1 0 -4 0",
     )
     val list = icon("list", 2f, "M8 6h12M8 12h12M8 18h12", "M4 6h.01M4 12h.01M4 18h.01")
+    val chevron = icon("chevron", 2.5f, "M9 6l6 6-6 6")
+    val cog = icon(
+        "cog", 2f, "M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z",
+        "M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 " +
+            "1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06" +
+            "a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2" +
+            "h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33" +
+            "H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06" +
+            "a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2" +
+            "h-.09a1.65 1.65 0 0 0-1.51 1z",
+    )
     val minus = icon("minus", 2.5f, "M6 12h12")
     val plus = icon("plus", 2.5f, "M6 12h12M12 6v12")
 }
@@ -316,6 +328,28 @@ fun NahSwitch(checked: Boolean, onChange: (Boolean) -> Unit, label: String) {
             Modifier.offset(x = if (checked) 26.dp else 6.dp, y = 6.dp).size(20.dp)
                 .clip(CircleShape).background(if (checked) c.onInk else c.controlBorder),
         )
+    }
+}
+
+/** Segmented: a few mutually exclusive choices side by side; the chosen one in ink. */
+@Composable
+fun NahSegmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
+    val c = Nah.c
+    Row(
+        modifier.fillMaxWidth().clip(CircleShape).background(c.surfaceRaised).padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        options.forEachIndexed { i, label ->
+            val on = i == selected
+            Box(
+                Modifier.weight(1f).heightIn(min = 44.dp).clip(CircleShape)
+                    .background(if (on) c.ink else Color.Transparent)
+                    .selectable(selected = on, role = Role.RadioButton, onClick = { onSelect(i) }),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(label, style = Nah.style(15.sp, 700, 20.sp, color = if (on) c.onInk else c.ink))
+            }
+        }
     }
 }
 
