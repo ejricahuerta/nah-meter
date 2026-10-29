@@ -133,7 +133,9 @@ class OfferAccessibilityService : AccessibilityService() {
         val scan = runCatching { CardReader.scan(uber.roots) }.getOrNull()
         if (scan != null && scan.screenTexts.isNotEmpty()) {
             ServiceState.lastScreenFlow.value = System.currentTimeMillis() to scan.screenTexts.take(MAX_SCREEN_TEXTS)
-            if (scan.screenTexts.any { '$' in it || "km" in it }) {
+            // Only screens with an offer's trip line: during a trip Uber's map and earnings change
+            // every few seconds and would push everything else out of the log.
+            if (scan.screenTexts.any(OfferParser::isTripLine)) {
                 logIfChanged("a11y", "Uber text (accessibility): ${scan.screenTexts.take(20).joinToString(" | ")}")
             }
         }
@@ -183,7 +185,7 @@ class OfferAccessibilityService : AccessibilityService() {
         val badgeArea = badge.screenRect
         val lines = if (badgeArea == null) allLines
         else allLines.filter { it.bottom <= badgeArea.top || it.top >= badgeArea.bottom }
-        if (lines.any { '$' in it.text || "km" in it.text }) {
+        if (lines.any { OfferParser.isTripLine(it.text) }) {
             logIfChanged("ocr", "Uber text (screenshot): ${lines.take(20).joinToString(" | ") { it.text }}")
         }
         val card = OfferParser.cardFromOcr(lines, screenHeight)
