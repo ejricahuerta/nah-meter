@@ -20,12 +20,20 @@ object OfferParser {
 
     /**
      * "23 min (11.5 km) total". Also accepts what text recognition makes of it:
-     * "(" read as "C", "[" or "{", missing brackets or spaces ("43min (13.6km)total").
+     * "(" read as "C", "[" or "{", missing brackets or spaces ("43min (13.6km)total"), and
+     * letters for digits in the time ("l hr 3 min": Uber's "1" has no foot and reads as l or I).
      */
     private val TRIP = Regex(
-        """(?:(\d+)\s*h(?:r|rs|our|ours)?\.?\s*)?(?:(\d+)\s*min\.?)?\s*[(\[{C]?\s*\+?\s*(\d+(?:[.,]\d+)?)\s*km\s*[)\]}]?\s*total""",
+        """(?:(?<![a-z])([0-9lIi|O]{1,2})\s*h(?:r|rs|our|ours)?\.?\s*)?(?:(?<![a-z])([0-9lIi|O]{1,3})\s*min\.?)?\s*[(\[{C]?\s*\+?\s*(\d+(?:[.,]\d+)?)\s*km\s*[)\]}]?\s*total""",
         RegexOption.IGNORE_CASE,
     )
+
+    /** An hours word in the trip line: if its number wasn't read, the minutes alone are wrong. */
+    private val HOURS_WORD = Regex("""(?<![a-z])h(?:r|rs|our|ours)\b""", RegexOption.IGNORE_CASE)
+
+    /** "l" → 1, "O" → 0: a time number as text recognition may have read it. */
+    private fun timeNumber(s: String): Int? =
+        s.map { LOOKALIKES[it] ?: it }.joinToString("").takeIf { it.isNotEmpty() }?.toIntOrNull()
 
     /** A line that is shaped like the trip line even if its numbers can't be read. */
     private val TRIP_LIKE = Regex("""(min|hr|hour).*km.*total""", RegexOption.IGNORE_CASE)
@@ -91,14 +99,18 @@ object OfferParser {
         val lines = lines(cardTexts)
         if (lines.none { TRIP_LIKE.containsMatchIn(it) }) return ReadResult.NoOffer
 
-        val trip = lines.firstNotNullOfOrNull { TRIP.find(it) }
+        val (tripLine, trip) = lines.firstNotNullOfOrNull { l -> TRIP.find(l)?.let { l to it } }
             ?: return ReadResult.Unreadable(lines)
         // The largest $ value inside the card is the pay.
         val pay = payValues(lines).maxOrNull()
             ?: return ReadResult.Unreadable(lines)
         // "1 hr 1 min" = 61; "1 hr" = 60; "23 min" = 23.
-        val hours = trip.groupValues[1].toIntOrNull()
-        val mins = trip.groupValues[2].toIntOrNull()
+        val hours = timeNumber(trip.groupValues[1])
+        val mins = timeNumber(trip.groupValues[2])
+        // "? hr 3 min" with the hours unreadable: 3 minutes would be a guess, and a wildly good one.
+        if (hours == null && HOURS_WORD.containsMatchIn(tripLine.substringBefore("km"))) {
+            return ReadResult.Unreadable(lines)
+        }
         val minutes = if (hours == null && mins == null) null else (hours ?: 0) * 60 + (mins ?: 0)
         val km = trip.groupValues[3].replace(',', '.').toBigDecimalOrNull()
         if (minutes == null || minutes <= 0 || km == null || km < BigDecimal.ZERO) {

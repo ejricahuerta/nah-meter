@@ -110,10 +110,13 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
 - Trip lines come as "23 min (11.5 km) total", "1 hr 1 min (14.6 km) total" and, on "Add a
   delivery" add-on cards, "+ 13 min (+ 3.5 km) total" with "+ $5.10": the add-on's numbers are what
   it adds, flagged `Offer.addOn`; the minimum-pay rule skips add-ons (decided 2026-10-28), so
-  they're judged on $/hr and $/km only. "Delivery (3)" sets `Offer.orders`.
+  they're judged on $/hr and $/km only. "Delivery (3)" sets `Offer.orders`; a multi-order offer
+  adds 2 min per order for waiting on food (`Thresholds.perOrderWaitMin`, decided 2026-10-29), so
+  2 orders score 4 min longer than Uber's time. The verdict card doesn't show "×2".
 - OCR mangles text. The parser tolerates: `$1l.59` and `$1159` (look-alike letters, dropped decimal
-  point), stray symbols before `$`, `(` read as `C`, missing spaces or brackets. Uber always shows
-  cents.
+  point), stray symbols before `$`, `(` read as `C`, missing spaces or brackets, `l hr 3 min` (Uber's
+  "1" reads as l or I). Uber always shows cents. A trip line with an hours word but no readable
+  hours number is `can't read.`: the minutes alone once scored 63 min as 3 ($270.80/hr).
 - **Pay is the dollar amount in the tallest text** in the band above the trip line, never the
   largest value: pages behind the pop-up have their own dollar amounts.
 - The restaurant and drop-off area are the lines between the trip line and the card's button
@@ -127,6 +130,8 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
   card has been gone for 600 ms. This stops flip-flopping between noisy OCR reads.
 - Card docking: `cardTop` comes from the accessibility node, else from OCR (pay line top minus
   1.4× its height), else from Uber's pop-up window top; unknown means the top of the screen.
+  The verdict card sits `DOCK_GAP_DP` (20dp) above it; the OCR estimate runs about 8dp low, so
+  that leaves a visible gap (8dp left none).
 - The overlay window uses screen coordinates (`FLAG_LAYOUT_IN_SCREEN`) and re-measures itself after
   layout. Without that, Android places it below the status bar and the card covers Uber's card by
   exactly the status bar's height (seen on a Pixel 11).

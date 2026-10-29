@@ -79,4 +79,15 @@ class ScorerTest {
         // The same numbers as a whole trip are under the minimum.
         assertEquals(Check.MIN_PAY, Scorer.score(addOn.copy(addOn = false), defaults).failed)
     }
+
+    /** Multi-order offers count 2 min of waiting for food per order; single orders and add-ons don't. */
+    @Test fun pickupWaitPerOrder() {
+        val t = Thresholds()
+        val two = Scorer.score(Offer(BigDecimal("20.00"), 56, BigDecimal("10"), orders = 2), t)
+        assertEquals(60, two.effectiveMinutes)
+        assertEquals(Verdict.GREEN, two.verdict) // exactly $20.00/hr passes
+        assertEquals(56, Scorer.score(Offer(BigDecimal("20.00"), 56, BigDecimal("10")), t).effectiveMinutes)
+        assertEquals(13, Scorer.score(Offer(BigDecimal("5.10"), 13, BigDecimal("3.5"), addOn = true), t).effectiveMinutes)
+        assertEquals(56, Scorer.score(Offer(BigDecimal("20.00"), 56, BigDecimal("10"), orders = 2), t.copy(perOrderWaitMin = 0)).effectiveMinutes)
+    }
 }

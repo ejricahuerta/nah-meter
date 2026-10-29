@@ -128,7 +128,7 @@ class OfferParserTest {
         assertTrue(o.stacked)
         val e = Scorer.score(o, Thresholds())
         assertEquals(Verdict.RED, e.verdict)
-        assertEquals("\$16.17/hr · \$0.85/km", e.ratesText)
+        assertEquals("\$14.80/hr · \$0.85/km", e.ratesText)
     }
 
     @Test fun textRecognitionSlips() {
@@ -168,7 +168,7 @@ class OfferParserTest {
         val card = OfferParser.cardFromOcr(lines, 2424)!!
         val e = Scorer.evaluate(OfferParser.parse(card), Thresholds())!!
         assertEquals(Verdict.RED, e.verdict)
-        assertEquals("\$16.17/hr · \$0.85/km", e.ratesText)
+        assertEquals("\$14.80/hr · \$0.85/km", e.ratesText)
         assertTrue(e.offer!!.stacked)
     }
 
@@ -264,9 +264,32 @@ class OfferParserTest {
         assertFalse(o.addOn)
         val e = Scorer.score(o, Thresholds())
         assertEquals(Verdict.RED, e.verdict)
-        assertEquals("\$18.71/hr · \$1.30/km", e.ratesText)
+        // 61 min + 2 min pickup wait per order (3) = 67 min.
+        assertEquals("\$17.03/hr · \$1.30/km", e.ratesText)
         assertEquals(120, read("$30.00", "2 hr (40 km) total").minutes)
         assertEquals(75, read("$30.00", "1 hour 15 min (40 km) total").minutes)
+    }
+
+    /**
+     * 2026-10-28 9:38: "$13.54 · Delivery (2) · 1 hr 3 min (38.3 km) total" got eh. at $270.80/hr:
+     * the hour was dropped and the trip scored as 3 minutes. Uber's "1" reads as l or I.
+     */
+    @Test fun hourWithALetterForTheOne() {
+        val card = arrayOf("Delivery (2)", "$13.54", "including estimated tip")
+        for (trip in listOf("1 hr 3 min (38.3 km) total", "l hr 3 min (38.3 km) total", "I hr 3 min (38.3 km) total", "|hr 3min (38.3km) total")) {
+            val o = read(*card, trip, "Ziyafet Kebab Modern Turkish", "Cuisine", "Church St & Dundas St E, Toronto", "Match")
+            assertEquals(trip, 63, o.minutes)
+            assertEquals(2, o.orders)
+            val e = Scorer.score(o, Thresholds())
+            assertEquals(Verdict.RED, e.verdict)
+            // 63 min + 2 min pickup wait per order (2) = 67 min.
+            assertEquals("\$12.13/hr · \$0.35/km", e.ratesText)
+        }
+        // An hour that can't be read at all is can't read., never "3 min".
+        for (trip in listOf("? hr 3 min (38.3 km) total", "hr 3 min (38.3 km) total", "Q hr 3 min (38.3 km) total")) {
+            assertTrue(trip, OfferParser.parse(listOf(*card, trip)) is ReadResult.Unreadable)
+        }
+        assertEquals(13, read("$5.10", "13 min (3.5 km) total", "Kebab House (Church St)", "Accept").minutes)
     }
 
     @Test fun tripWithoutATimeIsUnreadable() {

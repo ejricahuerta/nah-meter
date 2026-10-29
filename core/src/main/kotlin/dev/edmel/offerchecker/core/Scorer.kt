@@ -21,7 +21,9 @@ object Scorer {
     }
 
     fun score(offer: Offer, t: Thresholds): Evaluation {
-        val minutes = offer.minutes + t.waitBufferMin
+        // Uber's time leaves out waiting for the food; with several orders that adds up.
+        val pickupWait = if (offer.orders > 1) t.perOrderWaitMin * offer.orders else 0
+        val minutes = offer.minutes + t.waitBufferMin + pickupWait
         if (minutes <= 0) return Evaluation.CANT_READ
         val m = BigDecimal(minutes)
         val hourly = offer.pay.multiply(SIXTY).divide(m, 2, RoundingMode.HALF_UP)
