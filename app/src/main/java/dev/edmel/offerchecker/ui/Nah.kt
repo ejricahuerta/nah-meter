@@ -166,7 +166,7 @@ fun Wordmark(size: TextUnit = 26.sp) {
     val style = Nah.style(size, 900, size, (-0.055).em, Nah.c.ink)
     Row(verticalAlignment = Alignment.Bottom) {
         Text("nah", style = style)
-        Box(Modifier.padding(horizontal = (size.value * 0.05f).dp, bottom = (size.value * 0.12f).dp)) {
+        Box(Modifier.padding(start = (size.value * 0.05f).dp, end = (size.value * 0.05f).dp, bottom = (size.value * 0.12f).dp)) {
             Stop((size.value * 0.2f).dp)
         }
         Text("meter", style = style)
