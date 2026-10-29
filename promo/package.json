@@ -1,0 +1,29 @@
+{
+  "name": "nahmeter-promo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "nah.meter promo video (Remotion). Renders to out/; nothing here ships in the app.",
+  "type": "module",
+  "scripts": {
+    "fonts": "node scripts/copy-fonts.mjs",
+    "audio": "node scripts/make-audio.mjs",
+    "prepare-assets": "npm run fonts && npm run audio",
+    "studio": "npm run prepare-assets && remotion studio",
+    "stills": "npm run fonts && node scripts/stills.mjs",
+    "render:vertical": "remotion render NahPromoVertical out/nahmeter-promo-vertical.mp4",
+    "render:wide": "remotion render NahPromoWide out/nahmeter-promo-wide.mp4",
+    "render": "npm run prepare-assets && npm run render:vertical && npm run render:wide"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.539",
+    "@remotion/fonts": "4.0.539",
+    "@remotion/media": "4.0.539",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "remotion": "4.0.539"
+  },
+  "devDependencies": {
+    "@types/react": "19.1.8",
+    "typescript": "5.8.3"
+  }
+}
