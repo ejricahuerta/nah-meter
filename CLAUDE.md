@@ -160,8 +160,9 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
 
 nah.meter is a community app run at cost: a 14-day trial from the first sign-in, then $5 CAD a month
 by Interac e-Transfer, or free months on request. The backend is on edmel.dev (repo
-`ejricahuerta/edmel.dev`, `docs/nahmeter.md`): Supabase in Canada, `/api/nahmeter/*`, and an admin page
-where the owner records e-Transfers and grants free months.
+`ejricahuerta/edmel.dev`, `docs/nahmeter.md`): `nahmeter_*` tables in the shared Supabase project
+"default" (US West), `/api/nahmeter/*`, sign-in emails sent through Resend, and an admin page where
+the owner records e-Transfers and grants free months.
 
 - Sign-in: the app asks edmel.dev to email a link; the link (`https://edmel.dev/nahmeter/auth/confirm`)
   is an Android App Link back into the app (`assetlinks.json` holds the release key's SHA-256), with

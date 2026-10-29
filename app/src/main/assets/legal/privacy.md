@@ -52,7 +52,7 @@ nah.meter is a community app run at cost: free for 14 days, then $5 CAD a month 
 
 - **What we hold.** Your email; when you signed up; your trial and paid dates; your pay code; and for each payment or free month: the date, amount, months added, the e-Transfer reference and the sender name it shows, and any note.
 - **Why.** To sign you in, run your trial and licence, match e-Transfers to your account, answer you, and keep the records tax law requires.
-- **Where.** In a database run by Supabase in Canada, behind edmel.dev, which is hosted by Vercel. Sign-in emails are sent by Resend. Like any website, edmel.dev's hosting sees your connection details, such as your IP address, when the app checks in. These providers handle it under their own privacy terms.
+- **Where.** In a database run by Supabase in the United States, behind edmel.dev, which is hosted by Vercel. Sign-in emails are sent by Resend. Data stored in the United States can be accessed under US law. Like any website, edmel.dev's hosting sees your connection details, such as your IP address, when the app checks in. These providers handle it under their own privacy terms.
 - **Payments.** An Interac e-Transfer goes from your bank to ours. We see what it shows: your name, your email or phone, the amount and the message.
 - **How long.** Until you delete your account. Deleting it removes your email, dates and payment records from our database. Our bank keeps its own record of e-Transfers, as banks must.
 - **Your rights.** To see or correct what we hold, email contact@edmel.dev. To delete it, use Settings → Account → Delete account, or email us.
