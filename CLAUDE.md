@@ -81,7 +81,7 @@ never a push to `main`.
 ```
 core/  pure Kotlin, no Android: what to read and how to score it (unit-tested)
   OfferParser.kt  all text patterns; card texts -> ReadResult; OCR lines -> card texts
-  Scorer.kt       the four rules, exact BigDecimal maths -> Evaluation
+  Scorer.kt       the five rules (max km off by default) and the unpaid extra km, exact BigDecimal maths -> Evaluation
   Model.kt        Offer, ReadResult, Thresholds, Evaluation, Verdict, Check, OcrLine
 app/   Android
   service/OfferAccessibilityService.kt  event loop: find Uber windows, read, score, show, log

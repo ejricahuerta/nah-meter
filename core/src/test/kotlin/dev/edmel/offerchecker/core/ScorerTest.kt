@@ -90,4 +90,49 @@ class ScorerTest {
         assertEquals(13, Scorer.score(Offer(BigDecimal("5.10"), 13, BigDecimal("3.5"), addOn = true), t).effectiveMinutes)
         assertEquals(56, Scorer.score(Offer(BigDecimal("20.00"), 56, BigDecimal("10"), orders = 2), t.copy(perOrderWaitMin = 0)).effectiveMinutes)
     }
+
+    /** Max km: over it is red, exactly it passes, off by default; checked right after the minimum. */
+    @Test fun maxKm() {
+        val t = Thresholds(maxKm = BigDecimal("15"))
+        val far = Scorer.score(offer("40.00", 40, "16"), t)
+        assertEquals(Verdict.RED, far.verdict)
+        assertEquals(Check.MAX_KM, far.failed)
+        assertEquals("Over 15 km max", far.failedRule)
+        assertEquals(Verdict.GREEN, Scorer.score(offer("40.00", 40, "15"), t).verdict)
+        assertEquals(Verdict.GREEN, Scorer.score(offer("40.00", 40, "16"), defaults).verdict)
+        // The minimum comes first; a good $/hr doesn't save a trip that's too far.
+        assertEquals(Check.MIN_PAY, Scorer.score(offer("5.00", 10, "16"), t).failed)
+        assertEquals(Check.MAX_KM, Scorer.score(offer("60.00", 30, "16"), t).failed)
+        // Add-ons are checked on the km they add; several orders on the card's total.
+        assertEquals(Check.MAX_KM, Scorer.score(Offer(BigDecimal("20.00"), 20, BigDecimal("16"), addOn = true), t).failed)
+        assertEquals(Check.MAX_KM, Scorer.score(Offer(BigDecimal("40.00"), 40, BigDecimal("16"), orders = 2), t).failed)
+        assertEquals("Over 12.5 km max", Scorer.score(offer("40.00", 40, "16"), Thresholds(maxKm = BigDecimal("12.5"))).failedRule)
+    }
+
+    /** The unpaid drive back adds the same share of km and of Uber's minutes to the rates. */
+    @Test fun extraKmLowersRates() {
+        val e = Scorer.score(offer("6.07", 23, "11.5"), Thresholds(extraKmPercent = 50))
+        assertEquals(35, e.effectiveMinutes) // 23 + 11.5 rounded half-up to 12
+        assertEquals(BigDecimal("10.41"), e.hourly)
+        assertEquals(BigDecimal("0.35"), e.perKm) // 6.07 / 17.25
+        assertEquals(0, BigDecimal("5.75").compareTo(e.extraKm))
+        assertEquals(Verdict.RED, e.verdict)
+
+        val off = Scorer.score(offer("6.07", 23, "11.5"), defaults)
+        assertEquals(23, off.effectiveMinutes)
+        assertEquals(null, off.extraKm)
+
+        // Add-ons don't get it: the trip they add to already counts its way back.
+        val addOn = Scorer.score(Offer(BigDecimal("5.10"), 13, BigDecimal("3.5"), addOn = true), Thresholds(extraKmPercent = 50))
+        assertEquals(13, addOn.effectiveMinutes)
+        assertEquals(BigDecimal("1.46"), addOn.perKm)
+
+        // It can turn a green into a yellow on $/km alone.
+        val green = offer("30.00", 30, "25")
+        assertEquals(Verdict.GREEN, Scorer.score(green, defaults).verdict)
+        assertEquals(Check.PER_KM, Scorer.score(green, Thresholds(extraKmPercent = 50)).failed)
+
+        // The max checks the trip alone, not the drive back.
+        assertEquals(null, Scorer.score(offer("40.00", 40, "11.5"), Thresholds(maxKm = BigDecimal("12"), extraKmPercent = 50)).failed)
+    }
 }

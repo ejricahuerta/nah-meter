@@ -57,6 +57,8 @@ class SettingsRepository(context: Context) {
         val minPay = stringPreferencesKey("min_pay")
         val minHourly = stringPreferencesKey("min_hourly")
         val minPerKm = stringPreferencesKey("min_per_km")
+        val maxKm = stringPreferencesKey("max_km")
+        val extraKmPercent = intPreferencesKey("extra_km_pct")
         val waitBuffer = intPreferencesKey("wait_buffer_min")
         val readingEnabled = booleanPreferencesKey("reading_enabled")
         val vibration = booleanPreferencesKey("vibration")
@@ -85,6 +87,8 @@ class SettingsRepository(context: Context) {
                 minHourly = dec(Keys.minHourly, d.thresholds.minHourly),
                 minPerKm = dec(Keys.minPerKm, d.thresholds.minPerKm),
                 waitBufferMin = this[Keys.waitBuffer] ?: d.thresholds.waitBufferMin,
+                maxKm = this[Keys.maxKm]?.toBigDecimalOrNull(),
+                extraKmPercent = (this[Keys.extraKmPercent] ?: d.thresholds.extraKmPercent).coerceIn(0, 100),
             ),
             readingEnabled = this[Keys.readingEnabled] ?: d.readingEnabled,
             vibration = this[Keys.vibration] ?: d.vibration,
@@ -105,6 +109,9 @@ class SettingsRepository(context: Context) {
     suspend fun setMinPay(v: BigDecimal) = store.edit { it[Keys.minPay] = v.toPlainString() }
     suspend fun setMinHourly(v: BigDecimal) = store.edit { it[Keys.minHourly] = v.toPlainString() }
     suspend fun setMinPerKm(v: BigDecimal) = store.edit { it[Keys.minPerKm] = v.toPlainString() }
+    /** null turns the limit off. */
+    suspend fun setMaxKm(v: BigDecimal?) = store.edit { prefs -> if (v == null) prefs.remove(Keys.maxKm) else prefs[Keys.maxKm] = v.toPlainString() }
+    suspend fun setExtraKmPercent(v: Int) = store.edit { it[Keys.extraKmPercent] = v.coerceIn(0, 100) }
     suspend fun setWaitBuffer(v: Int) = store.edit { it[Keys.waitBuffer] = v }
     suspend fun setReadingEnabled(v: Boolean) = store.edit { it[Keys.readingEnabled] = v }
     suspend fun setVibration(v: Boolean) = store.edit { it[Keys.vibration] = v }

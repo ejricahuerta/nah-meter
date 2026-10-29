@@ -153,7 +153,11 @@ private fun WelcomeStep(thresholds: Thresholds) {
             Example(Verdict.RED, "not worth your time")
         }
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Point("Your rules: ${Scorer.money(thresholds.minPay)} min, ${Scorer.money(thresholds.minHourly)}/hr, ${Scorer.money(thresholds.minPerKm)}/km")
+            Point(
+                "Your rules: ${Scorer.money(thresholds.minPay)} min, ${Scorer.money(thresholds.minHourly)}/hr, ${Scorer.money(thresholds.minPerKm)}/km" +
+                    (thresholds.maxKm?.let { ", ${Scorer.km(it)} km max" } ?: "") +
+                    (if (thresholds.extraKmPercent > 0) ", +${thresholds.extraKmPercent}% km" else ""),
+            )
             Point("It never taps Match for you, and it has no internet access. You decide.")
         }
     }
@@ -246,7 +250,7 @@ private fun RulesStep(thresholds: Thresholds) {
     val preview = Scorer.score(EXAMPLE_OFFER, thresholds)
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text("Set your rules", style = Nah.title.copy(color = c.ink), modifier = Modifier.semantics { heading() })
-        NahGroup { RuleSteppers(thresholds, showBuffer = false) }
+        NahGroup { RuleSteppers(thresholds, showExtras = false) }
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             SectionLabel("Your rules on a real offer")
             VerdictCard(

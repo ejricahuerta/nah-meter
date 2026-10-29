@@ -260,7 +260,8 @@ class OfferAccessibilityService : AccessibilityService() {
         return listOfNotNull(
             "pay ${Scorer.money(o.pay)}" + (if (o.addOn) " (add-on)" else "") + " · ${o.minutes} min · ${o.km.toPlainString()} km" +
                 (if (o.orders > 1) " · ${o.orders} orders" else ""),
-            if (wait > 0) "scored as ${e.effectiveMinutes} min (+$wait min waiting)" else null,
+            if (wait > 0) "scored as ${e.effectiveMinutes} min (+$wait min)" else null,
+            e.extraKm?.let { "extra: ${Scorer.km(it)} km back, unpaid" },
             "rates: ${e.ratesText}",
             e.failedRule?.let { "rule: $it" } ?: "rule: meets all targets",
             o.pickup?.let { "restaurant: $it" },
