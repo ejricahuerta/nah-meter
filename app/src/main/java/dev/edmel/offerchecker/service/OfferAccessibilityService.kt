@@ -40,7 +40,7 @@ class OfferAccessibilityService : AccessibilityService() {
     // A failed write or settings read is logged, never allowed to take the reader (and Uber's overlay) down.
     private val scope = CoroutineScope(
         SupervisorJob() + Dispatchers.Main.immediate +
-            CoroutineExceptionHandler { _, e -> ServiceState.log("Error", "${e.javaClass.simpleName}: ${e.message}") },
+            CoroutineExceptionHandler { _, e -> ServiceState.log(LogEntry.error("Error in the reader", e, frames = 3)) },
     )
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var settingsRepo: SettingsRepository
@@ -81,7 +81,10 @@ class OfferAccessibilityService : AccessibilityService() {
         ServiceState.runningFlow.value = true
         ReaderWatch.readerStarted(this)
         StatusNotification.show(this)
-        ServiceState.log("Reader started")
+        ServiceState.log(
+            "Reader started",
+            "nahmeter ${runCatching { packageManager.getPackageInfo(packageName, 0).versionName }.getOrNull() ?: "?"}",
+        )
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
@@ -241,10 +244,8 @@ class OfferAccessibilityService : AccessibilityService() {
             block()
         } catch (e: Throwable) {
             if (e is OutOfMemoryError) System.gc()
-            logIfChanged(
-                "error", "Error in $step",
-                listOfNotNull("${e.javaClass.simpleName}: ${e.message}", e.stackTrace.firstOrNull()?.let { "at $it" }),
-            )
+            val entry = LogEntry.error("Error in $step", e, frames = 3)
+            logIfChanged("error", entry.title, entry.details)
         }
     }
 
@@ -341,6 +342,7 @@ class OfferAccessibilityService : AccessibilityService() {
 
     private fun shutdown() {
         if (ServiceState.service !== this) return
+        ServiceState.log("Reader stopped", "the accessibility service was turned off or closed")
         ServiceState.service = null
         ServiceState.runningFlow.value = false
         handler.removeCallbacksAndMessages(null)

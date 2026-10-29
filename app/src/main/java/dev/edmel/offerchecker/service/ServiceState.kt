@@ -1,8 +1,12 @@
 package dev.edmel.offerchecker.service
 
+import android.content.Context
 import dev.edmel.offerchecker.core.Evaluation
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
+import java.io.File
+import java.util.concurrent.Executors
 
 /** Uber apps whose offers are read: Uber Driver, Uber Eats and any other com.ubercab app. */
 val KNOWN_UBER_PACKAGES = listOf("com.ubercab.driver", "com.ubercab.eats", "com.ubercab")
@@ -25,9 +29,29 @@ data class LogEntry(val time: Long, val title: String, val details: List<String>
     /** Same title and details, whenever it was logged. */
     fun sameAs(o: LogEntry) = title == o.title && details == o.details
 
-    private companion object {
-        val TIME_FORMAT: ThreadLocal<java.text.SimpleDateFormat> =
+    companion object {
+        private val TIME_FORMAT: ThreadLocal<java.text.SimpleDateFormat> =
             ThreadLocal.withInitial { java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US) }
+        private val HEADER = Regex("""^\[(.+?)] - (.*)$""")
+
+        /** Reads back entries written by [format], separated by blank lines; oldest first. */
+        fun parseAll(text: String): List<LogEntry> = text.split("\n\n").mapNotNull { block ->
+            val lines = block.trim('\n').lines()
+            val m = lines.firstOrNull()?.let(HEADER::matchEntire) ?: return@mapNotNull null
+            val time = runCatching { TIME_FORMAT.get()!!.parse(m.groupValues[1])!!.time }.getOrNull() ?: return@mapNotNull null
+            LogEntry(time, m.groupValues[2], lines.drop(1).map { it.removePrefix("- ") })
+        }
+
+        /** An error as a log entry: what it was, where it happened, and its cause. */
+        fun error(title: String, e: Throwable, frames: Int = 1): LogEntry {
+            val root = generateSequence(e) { it.cause }.last()
+            return LogEntry(
+                System.currentTimeMillis(), title,
+                listOf("${e.javaClass.name}: ${e.message}") +
+                    e.stackTrace.take(frames).map { "at $it" } +
+                    (if (root !== e) listOf("caused by ${root.javaClass.name}: ${root.message}") else emptyList()),
+            )
+        }
     }
 }
 
@@ -60,10 +84,49 @@ object ServiceState {
     internal fun log(title: String, vararg details: String) = log(LogEntry(System.currentTimeMillis(), title, details.toList()))
 
     internal fun log(entry: LogEntry) {
-        logFlow.value = (listOf(entry) + logFlow.value).take(MAX_LOG)
+        logFlow.update { (listOf(entry) + it).take(MAX_LOG) }
+        val f = file ?: return
+        writer.execute { save(f, entry) }
     }
 
-    private const val MAX_LOG = 60
+    /**
+     * The log is also kept in a file on the phone (never sent anywhere), so it survives the app
+     * being closed or crashing: a crash's entry is the last thing written before the app dies.
+     */
+    @Volatile private var file: File? = null
+    private val writer = Executors.newSingleThreadExecutor()
+
+    /** Loads the saved log; call before logging, from the service and the app. */
+    @Synchronized fun init(context: Context) {
+        if (file != null) return
+        val f = File(context.applicationContext.filesDir, LOG_FILE)
+        val saved = runCatching { LogEntry.parseAll(f.readText()) }.getOrDefault(emptyList())
+        logFlow.update { current -> (current + saved.asReversed()).take(MAX_LOG) }
+        file = f
+    }
+
+    /** Writes [entry] now, on this thread: for a crash, when there is no later. */
+    internal fun logNow(entry: LogEntry) {
+        logFlow.update { (listOf(entry) + it).take(MAX_LOG) }
+        file?.let { runCatching { save(it, entry) } }
+    }
+
+    private fun save(f: File, entry: LogEntry) {
+        runCatching {
+            f.appendText(entry.format() + "\n\n")
+            // Keep the file to about the last MAX_LOG entries.
+            if (f.length() > MAX_FILE_BYTES) f.writeText(logFlow.value.asReversed().joinToString("") { it.format() + "\n\n" })
+        }
+    }
+
+    fun clearLog() {
+        logFlow.value = emptyList()
+        file?.let { f -> writer.execute { runCatching { f.delete() } } }
+    }
+
+    private const val MAX_LOG = 150
+    private const val LOG_FILE = "diagnostics.log"
+    private const val MAX_FILE_BYTES = 256 * 1024L
 
     @Volatile internal var service: OfferAccessibilityService? = null
 

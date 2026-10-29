@@ -164,7 +164,9 @@ Ask the user to wait for an offer, then open **Status → Diagnostics → Show �
 and paste it. The log shows the windows seen (and Uber's area), the text read by each method, and
 each verdict with its source. A grey verdict logs the card text it saw. Entries are
 `[yyyy-MM-dd HH:mm:ss] - title` with one `- detail` line each (`LogEntry`); log through
-`ServiceState.log(title, details…)`, never a run-on line with `|` separators. Before debugging, check
+`ServiceState.log(title, details…)`, never a run-on line with `|` separators. Errors go in as
+`LogEntry.error(title, throwable)`. The log is saved on the phone (`files/diagnostics.log`, last
+150 entries) so it survives restarts, and a crash writes its own `Crash` entry before the app dies. Before debugging, check
 that the first line's version matches the latest release.
 
 For "nahmeter keeps stopping", the same copy ends with **Last crash** (the stack trace, kept on the

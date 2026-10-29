@@ -227,6 +227,11 @@ private fun Diagnostics(a11y: Boolean, running: Boolean) {
                 },
                 kind = NahButtonKind.Secondary, small = true,
             )
+            NahButton(
+                "Clear log",
+                onClick = { ServiceState.clearLog() },
+                kind = NahButtonKind.Tertiary, small = true,
+            )
             if (crash != null) {
                 NahButton(
                     "Clear last crash",

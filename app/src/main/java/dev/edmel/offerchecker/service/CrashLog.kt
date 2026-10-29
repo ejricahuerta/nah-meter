@@ -14,6 +14,7 @@ object CrashLog {
     @Volatile private var installed = false
 
     fun install(context: Context) {
+        ServiceState.init(context)
         if (installed) return
         installed = true
         val file = File(context.applicationContext.filesDir, FILE)
@@ -30,6 +31,7 @@ object CrashLog {
                         error.stackTraceToString().take(MAX_CHARS),
                 )
             }
+            runCatching { ServiceState.logNow(LogEntry.error("Crash (${thread.name})", error, frames = 8)) }
             // Android turns the reader off after a crash; if that happens mid-shift, say so.
             if (ServiceState.service != null) ReaderWatch.readerStopped(context.applicationContext)
             previous?.uncaughtException(thread, error)
