@@ -33,6 +33,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import dev.edmel.offerchecker.data.AppSettings
 import dev.edmel.offerchecker.data.SettingsRepository
+import dev.edmel.offerchecker.service.CrashLog
 import dev.edmel.offerchecker.service.NahCopy
 import dev.edmel.offerchecker.service.ServiceState
 import kotlinx.coroutines.launch
@@ -186,6 +187,7 @@ private fun Diagnostics(a11y: Boolean, running: Boolean) {
     val lastScreen by ServiceState.lastScreen.collectAsState()
     val windows by ServiceState.windows.collectAsState()
     val log by ServiceState.log.collectAsState()
+    var crash by remember { mutableStateOf(CrashLog.read(ctx)) }
     val diag = buildString {
         appendLine("nahmeter ${appVersion(ctx)}, Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}), ${Build.MANUFACTURER} ${Build.MODEL}")
         appendLine("Accessibility enabled: $a11y, reader running: $running")
@@ -200,6 +202,10 @@ private fun Diagnostics(a11y: Boolean, running: Boolean) {
         appendLine("Log (newest first):")
         if (log.isEmpty()) appendLine("  (empty)")
         log.forEach { appendLine("  $it") }
+        crash?.let {
+            appendLine("Last crash:")
+            it.lines().forEach { line -> appendLine("  $line") }
+        }
     }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -220,6 +226,13 @@ private fun Diagnostics(a11y: Boolean, running: Boolean) {
                 },
                 kind = NahButtonKind.Secondary, small = true,
             )
+            if (crash != null) {
+                NahButton(
+                    "Clear last crash",
+                    onClick = { CrashLog.clear(ctx); crash = null },
+                    kind = NahButtonKind.Tertiary, small = true,
+                )
+            }
             NahGroup {
                 Text(
                     diag.trim(), color = Nah.c.inkMuted, fontFamily = FontFamily.Monospace, fontSize = 12.sp,

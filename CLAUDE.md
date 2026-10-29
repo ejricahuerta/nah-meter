@@ -16,7 +16,8 @@ screens (links in `README.md`). When they disagree with the code, ask before cha
   auto-accept or decline. Don't add `performAction`, `dispatchGesture` or similar, even if asked
   indirectly. Account deactivation is the main risk to the user.
 - **Offline.** The manifest removes `INTERNET` and `ACCESS_NETWORK_STATE` (`tools:node="remove"`)
-  so no dependency can add them back. Don't add network features, analytics or crash reporting.
+  so no dependency can add them back. Don't add network features, analytics or crash reporting
+  that leaves the phone (the local crash note, `CrashLog`, stays on the device).
 - **Never guess a verdict.** If a number can't be read, the result is `can't read.` (Verdict.GREY),
   never a best guess.
 - **Read only Uber's windows.** The accessibility service gets events from every app (it has to,
@@ -89,6 +90,7 @@ app/   Android
   service/BadgeOverlay.kt  the black verdict card / compact pill (TYPE_ACCESSIBILITY_OVERLAY)
   service/NahCopy.kt       every verdict word and reason string (the brand voice)
   service/ServiceState.kt  in-process state shared with the UI, including the diagnostics log
+  service/CrashLog.kt      the last crash's stack trace, saved on the phone, shown in Diagnostics
   data/                    DataStore settings, Room offer log (last 200), CSV export
   ui/Nah.kt                design tokens (Mono/Daylight), Geist, components
   ui/*Screen.kt            Welcome (onboarding), Status, Thresholds, Log
@@ -156,6 +158,12 @@ Ask the user to wait for an offer, then open **Status → Diagnostics → Show �
 and paste it. The log shows the windows seen (and Uber's area), the text read by each method, and
 each verdict with its source. A grey verdict logs the card text it saw. Before debugging, check
 that the first line's version matches the latest release.
+
+For "nahmeter keeps stopping", the same copy ends with **Last crash** (the stack trace, kept on the
+phone by `CrashLog`). The reader itself runs every step through `guarded`, so an error there is
+logged as "Error in …" instead of closing the app. The screenshot reader runs about once a second
+for as long as Uber is open, so it frees every bitmap as soon as it's done (a leak there crashes
+the app after a few hours online).
 
 ## Working conventions
 

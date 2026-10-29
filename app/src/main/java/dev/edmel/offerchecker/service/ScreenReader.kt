@@ -33,32 +33,51 @@ object ScreenReader {
             service.mainExecutor,
             object : AccessibilityService.TakeScreenshotCallback {
                 override fun onSuccess(result: AccessibilityService.ScreenshotResult) {
-                    val buffer = result.hardwareBuffer
-                    val screen = runCatching {
-                        Bitmap.wrapHardwareBuffer(buffer, result.colorSpace)?.copy(Bitmap.Config.ARGB_8888, false)
-                    }.getOrNull()
-                    buffer.close()
-                    if (screen == null) {
-                        done(null, 0)
-                        return
-                    }
-                    val crop = area?.let { Rect(it).apply { intersect(0, 0, screen.width, screen.height) } }
-                        ?.takeIf { it.width() > 0 && it.height() > 0 }
-                    val image = crop?.let { Bitmap.createBitmap(screen, it.left, it.top, it.width(), it.height()) } ?: screen
-                    val offsetY = crop?.top ?: 0
-                    val offsetX = crop?.left ?: 0
-                    recognizer().process(InputImage.fromBitmap(image, 0))
-                        .addOnSuccessListener { text ->
-                            val lines = text.textBlocks.flatMap { block ->
-                                block.lines.mapNotNull { line ->
-                                    line.boundingBox?.let {
-                                        OcrLine(line.text, it.top + offsetY, it.bottom + offsetY, it.left + offsetX, it.right + offsetX)
-                                    }
-                                }
-                            }
-                            done(lines, screen.height)
+                    // Runs about once a second for hours while Uber is open: every bitmap is freed
+                    // as soon as it's done with, or the screenshots pile up in memory until Android
+                    // closes the app. Any failure is a failed read, never a crash.
+                    var screen: Bitmap? = null
+                    var image: Bitmap? = null
+                    try {
+                        val buffer = result.hardwareBuffer
+                        val wrapped = Bitmap.wrapHardwareBuffer(buffer, result.colorSpace)
+                        screen = wrapped?.copy(Bitmap.Config.ARGB_8888, false)
+                        wrapped?.recycle()
+                        buffer.close()
+                        val full = screen ?: return done(null, 0)
+                        val crop = area?.let { a ->
+                            Rect(a).takeIf { it.intersect(0, 0, full.width, full.height) && it.width() > 0 && it.height() > 0 }
                         }
-                        .addOnFailureListener { done(null, screen.height) }
+                        val input = crop?.let { Bitmap.createBitmap(full, it.left, it.top, it.width(), it.height()) } ?: full
+                        image = input
+                        val offsetY = crop?.top ?: 0
+                        val offsetX = crop?.left ?: 0
+                        val height = full.height
+                        recognizer().process(InputImage.fromBitmap(input, 0))
+                            .addOnCompleteListener { task ->
+                                val lines = if (task.isSuccessful) {
+                                    runCatching {
+                                        task.result.textBlocks.flatMap { block ->
+                                            block.lines.mapNotNull { line ->
+                                                line.boundingBox?.let {
+                                                    OcrLine(line.text, it.top + offsetY, it.bottom + offsetY, it.left + offsetX, it.right + offsetX)
+                                                }
+                                            }
+                                        }
+                                    }.getOrNull()
+                                } else {
+                                    null
+                                }
+                                if (input !== full) input.recycle()
+                                full.recycle()
+                                done(lines, height)
+                            }
+                    } catch (e: Throwable) {
+                        runCatching { result.hardwareBuffer.close() }
+                        if (image != null && image !== screen) image.recycle()
+                        screen?.recycle()
+                        done(null, 0)
+                    }
                 }
 
                 override fun onFailure(errorCode: Int) = done(null, 0)
