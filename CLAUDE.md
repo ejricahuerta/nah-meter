@@ -100,7 +100,7 @@ app/   Android
   ui/MainActivity.kt       the four tabs: Home, History (LogScreen), Rules (ThresholdsScreen), Settings
   ui/HomeScreen.kt         power button, today's overview, app tiles (DeliveryApps), rules strip
   ui/SettingsScreen.kt     Settings and its pages; PermissionsScreen.kt holds the setup steps and Diagnostics
-  ui/OnboardingScreen.kt   Welcome, shown once
+  ui/SetupScreen.kt        the five setup steps (Welcome, Your apps, Your rules, Permissions, Test it); first run and Settings → Run setup again
 ```
 
 Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applicationId` is

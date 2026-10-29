@@ -40,12 +40,15 @@ import kotlinx.coroutines.launch
 enum class SettingsPage { MAIN, PERMISSIONS, APPS }
 
 @Composable
-fun SettingsScreen(settings: AppSettings, page: SettingsPage, onPage: (SettingsPage) -> Unit, modifier: Modifier = Modifier) {
+fun SettingsScreen(
+    settings: AppSettings, page: SettingsPage, onPage: (SettingsPage) -> Unit, onRunSetup: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     BackHandler(enabled = page != SettingsPage.MAIN) { onPage(SettingsPage.MAIN) }
     when (page) {
         SettingsPage.PERMISSIONS -> PermissionsScreen(onBack = { onPage(SettingsPage.MAIN) }, modifier = modifier)
         SettingsPage.APPS -> DeliveryAppsScreen(settings, onBack = { onPage(SettingsPage.MAIN) }, modifier = modifier)
-        SettingsPage.MAIN -> SettingsMain(settings, onPage, modifier)
+        SettingsPage.MAIN -> SettingsMain(settings, onPage, onRunSetup, modifier)
     }
 }
 
@@ -59,7 +62,7 @@ fun BackHeader(title: String, onBack: () -> Unit) {
 }
 
 @Composable
-private fun SettingsMain(settings: AppSettings, onPage: (SettingsPage) -> Unit, modifier: Modifier = Modifier) {
+private fun SettingsMain(settings: AppSettings, onPage: (SettingsPage) -> Unit, onRunSetup: () -> Unit, modifier: Modifier = Modifier) {
     val ctx = LocalContext.current
     val repo = remember { SettingsRepository(ctx) }
     val scope = rememberCoroutineScope()
@@ -88,6 +91,8 @@ private fun SettingsMain(settings: AppSettings, onPage: (SettingsPage) -> Unit, 
             SectionLabel("Health")
             NahGroup {
                 LinkRow("Permissions", if (todo == 0) "All on" else "$todo to fix", todo > 0) { onPage(SettingsPage.PERMISSIONS) }
+                NahDivider()
+                LinkRow("Run setup again", "Apps, rules, permissions and a test", false) { onRunSetup() }
             }
         }
 

@@ -4,6 +4,7 @@ import android.graphics.Color as AndroidColor
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
@@ -34,6 +35,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -105,11 +107,18 @@ private fun App() {
     val settings by repo.settings.collectAsState(initial = null)
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var settingsPage by rememberSaveable { mutableIntStateOf(0) }
+    // Settings → Run setup again.
+    var rerunSetup by rememberSaveable { mutableStateOf(false) }
+    // Back on Setup's first page leaves a re-run (its later pages go back a page themselves).
+    BackHandler(enabled = rerunSetup) { rerunSetup = false }
 
     Box(Modifier.fillMaxSize().background(Nah.c.ground).windowInsetsPadding(WindowInsets.safeDrawing)) {
         val s = settings ?: return@Box
-        if (!s.onboarded) {
-            OnboardingScreen(s.thresholds, onSetUp = { scope.launch { repo.setOnboarded() } })
+        if (!s.onboarded || rerunSetup) {
+            SetupScreen(s, onFinish = {
+                rerunSetup = false
+                if (!s.onboarded) scope.launch { repo.setOnboarded() }
+            })
             return@Box
         }
         Column(Modifier.fillMaxSize()) {
@@ -122,7 +131,7 @@ private fun App() {
                     )
                     Tab.HISTORY -> LogScreen(s.thresholds)
                     Tab.RULES -> ThresholdsScreen(s)
-                    Tab.SETTINGS -> SettingsScreen(s, SettingsPage.entries[settingsPage], { settingsPage = it.ordinal })
+                    Tab.SETTINGS -> SettingsScreen(s, SettingsPage.entries[settingsPage], { settingsPage = it.ordinal }, { rerunSetup = true })
                 }
             }
             TabBar(tab) { tab = it }
