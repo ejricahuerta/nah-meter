@@ -5,7 +5,9 @@ docked just above the offer card within about a second: **bet.**, **eh.** or **n
 decide without doing math under the 15-second timer. "nah." for short.
 
 - **Advice only.** It never taps anything in Uber: no auto-accept, no auto-decline.
-- **Offline.** No internet permission at all; nothing leaves the phone.
+- **Offers never leave the phone.** The app only goes online to sign in and check your licence.
+- **Community app, run at cost.** 14 days free, then $5 CAD a month by Interac e-Transfer, or free
+  months if you can't pay right now ([edmel.dev/nahmeter](https://edmel.dev/nahmeter)).
 - **Android 8.0+**, sideloaded APK (not on Google Play).
 - The look follows the nah.meter design system: black and white, Geist, heavy lowercase type, and
   colour only on the verdict word. Mono (dark) by default, Daylight when the phone is in light mode.
@@ -52,7 +54,8 @@ Example: $6.07, 23 min, 11.5 km → **nah.** `$15.83/hr`, with "Under your $20 �
 1. Download the APK on the phone and tap it.
 2. Allow **Install unknown apps** for your browser or file app when asked.
 3. If Play Protect warns, tap **More details → Install anyway**.
-4. Open **nah.meter**; Settings → Permissions lists what's missing, with a button for each.
+4. Open **nah.meter**, agree to the terms and sign in with your email (tap the link it sends you,
+   on the phone). Settings → Permissions lists what's missing, with a button for each.
 5. **Android 13+:** Settings → Apps → nah.meter → **⋮ → Allow restricted settings**
    (sideloaded apps need this before step 6).
 6. Settings → Accessibility → **nah.meter → On**.

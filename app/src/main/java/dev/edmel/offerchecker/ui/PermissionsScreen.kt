@@ -152,7 +152,7 @@ private fun AccessibilityDisclosure(onAgree: () -> Unit, onDecline: () -> Unit) 
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 val body = Nah.style(15.sp, 400, 22.sp, color = Nah.c.ink)
                 Text("nah.meter helps you see and decide on each offer. It uses Accessibility to read Uber's offer cards: their text, or a screenshot of Uber's windows read on your phone.", style = body)
-                Text("It uses what it sees only to advise you. It never taps anything, doesn't read other apps, and has no internet, so nothing is sent.", style = body)
+                Text("It uses what it sees only to advise you. It never taps anything, doesn't read other apps, and what it reads never leaves your phone.", style = body)
                 Text("It keeps the offers it reads in History on your phone. The Privacy policy has the details.", style = body)
             }
         },

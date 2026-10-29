@@ -1,6 +1,7 @@
 package dev.edmel.offerchecker.ui
 
 import android.graphics.Color as AndroidColor
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
@@ -49,6 +50,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.edmel.offerchecker.data.AccountRepository
 import dev.edmel.offerchecker.data.AppSettings
 import dev.edmel.offerchecker.data.Appearance
 import dev.edmel.offerchecker.data.LEGAL_VERSION
@@ -60,6 +62,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         CrashLog.install(this)
+        // Opened by the sign-in email's link.
+        if (savedInstanceState == null) SignInLink.tokenFrom(intent)?.let { SignInLink.pending.value = it }
         // Mono (dark) until the Appearance setting is read; the bars follow the theme.
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.dark(AndroidColor.BLACK),
@@ -91,6 +95,12 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        SignInLink.tokenFrom(intent)?.let { SignInLink.pending.value = it }
+    }
 }
 
 private enum class Tab(val label: String, val icon: ImageVector) {
@@ -106,6 +116,8 @@ private fun App() {
     val repo = remember { SettingsRepository(ctx) }
     val scope = rememberCoroutineScope()
     val settings by repo.settings.collectAsState(initial = null)
+    val accountRepo = remember { AccountRepository(ctx) }
+    val account by accountRepo.state.collectAsState(initial = null)
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var settingsPage by rememberSaveable { mutableIntStateOf(0) }
     // Settings → Run setup again.
@@ -113,8 +125,15 @@ private fun App() {
     // Back on Setup's first page leaves a re-run (its later pages go back a page themselves).
     BackHandler(enabled = rerunSetup) { rerunSetup = false }
 
+    FinishSignIn()
+    // The licence dates change on edmel.dev (a payment, free months): re-check when the app opens.
+    LaunchedEffect(account?.signedIn) {
+        if (account?.signedIn == true) runCatching { accountRepo.refreshLicence() }
+    }
+
     Box(Modifier.fillMaxSize().background(Nah.c.ground).windowInsetsPadding(WindowInsets.safeDrawing)) {
         val s = settings ?: return@Box
+        val a = account ?: return@Box
         if (!s.onboarded || rerunSetup) {
             SetupScreen(s, onFinish = {
                 rerunSetup = false
@@ -127,6 +146,11 @@ private fun App() {
             AgreeScreen(onAgree = { scope.launch { repo.setTermsAccepted(LEGAL_VERSION) } })
             return@Box
         }
+        // The trial and the licence need an account; offers still never leave the phone.
+        if (!a.signedIn) {
+            SignInScreen(a)
+            return@Box
+        }
         Column(Modifier.fillMaxSize()) {
             Box(Modifier.weight(1f)) {
                 when (Tab.entries[tab]) {
@@ -134,6 +158,8 @@ private fun App() {
                         s,
                         onEditRules = { tab = Tab.RULES.ordinal },
                         onOpenPermissions = { settingsPage = SettingsPage.PERMISSIONS.ordinal; tab = Tab.SETTINGS.ordinal },
+                        account = a,
+                        onOpenAccount = { settingsPage = SettingsPage.ACCOUNT.ordinal; tab = Tab.SETTINGS.ordinal },
                     )
                     Tab.HISTORY -> LogScreen(s.thresholds)
                     Tab.RULES -> ThresholdsScreen(s)

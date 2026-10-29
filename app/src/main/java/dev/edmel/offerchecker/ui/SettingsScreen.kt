@@ -30,6 +30,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import dev.edmel.offerchecker.data.AccountRepository
+import dev.edmel.offerchecker.data.AccountState
 import dev.edmel.offerchecker.data.AppSettings
 import dev.edmel.offerchecker.data.Appearance
 import dev.edmel.offerchecker.data.SettingsRepository
@@ -37,7 +39,7 @@ import dev.edmel.offerchecker.service.ServiceState
 import kotlinx.coroutines.launch
 
 /** The pages Settings can show; Home's "Fix in Settings" opens [PERMISSIONS] directly. */
-enum class SettingsPage { MAIN, PERMISSIONS, APPS, VOICE, TERMS, PRIVACY, LICENCES }
+enum class SettingsPage { MAIN, PERMISSIONS, APPS, VOICE, TERMS, PRIVACY, LICENCES, ACCOUNT }
 
 @Composable
 fun SettingsScreen(
@@ -45,14 +47,17 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
 ) {
     BackHandler(enabled = page != SettingsPage.MAIN) { onPage(SettingsPage.MAIN) }
+    val ctx = LocalContext.current
+    val account by remember { AccountRepository(ctx) }.state.collectAsState(initial = AccountState())
     when (page) {
+        SettingsPage.ACCOUNT -> AccountPage(account, onBack = { onPage(SettingsPage.MAIN) }, modifier = modifier)
         SettingsPage.PERMISSIONS -> PermissionsScreen(onBack = { onPage(SettingsPage.MAIN) }, modifier = modifier)
         SettingsPage.APPS -> DeliveryAppsScreen(settings, onBack = { onPage(SettingsPage.MAIN) }, modifier = modifier)
         SettingsPage.VOICE -> VoiceScreen(settings, onBack = { onPage(SettingsPage.MAIN) }, modifier = modifier)
         SettingsPage.TERMS -> LegalScreen(LegalDoc.TERMS, onBack = { onPage(SettingsPage.MAIN) }, modifier = modifier)
         SettingsPage.PRIVACY -> LegalScreen(LegalDoc.PRIVACY, onBack = { onPage(SettingsPage.MAIN) }, modifier = modifier)
         SettingsPage.LICENCES -> LegalScreen(LegalDoc.LICENCES, onBack = { onPage(SettingsPage.MAIN) }, modifier = modifier)
-        SettingsPage.MAIN -> SettingsMain(settings, onPage, onRunSetup, modifier)
+        SettingsPage.MAIN -> SettingsMain(settings, account, onPage, onRunSetup, modifier)
     }
 }
 
@@ -66,7 +71,7 @@ fun BackHeader(title: String, onBack: () -> Unit) {
 }
 
 @Composable
-private fun SettingsMain(settings: AppSettings, onPage: (SettingsPage) -> Unit, onRunSetup: () -> Unit, modifier: Modifier = Modifier) {
+private fun SettingsMain(settings: AppSettings, account: AccountState, onPage: (SettingsPage) -> Unit, onRunSetup: () -> Unit, modifier: Modifier = Modifier) {
     val ctx = LocalContext.current
     val repo = remember { SettingsRepository(ctx) }
     val scope = rememberCoroutineScope()
@@ -90,6 +95,13 @@ private fun SettingsMain(settings: AppSettings, onPage: (SettingsPage) -> Unit, 
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         Text("Settings", style = Nah.title.copy(color = c.ink))
+
+        Column {
+            SectionLabel("Account")
+            NahGroup {
+                LinkRow(account.email ?: "Account", licenceLine(account.licence), licenceAlert(account.licence)) { onPage(SettingsPage.ACCOUNT) }
+            }
+        }
 
         Column {
             SectionLabel("Health")
@@ -149,7 +161,7 @@ private fun SettingsMain(settings: AppSettings, onPage: (SettingsPage) -> Unit, 
         Column {
             SectionLabel("About")
             NahGroup {
-                NahRow("nah.meter ${appVersion(ctx)}", "No internet permission · nothing leaves your phone · not affiliated with Uber")
+                NahRow("nah.meter ${appVersion(ctx)}", "Offers never leave your phone · not affiliated with Uber")
                 NahDivider()
                 LegalLink(LegalDoc.TERMS) { onPage(SettingsPage.TERMS) }
                 NahDivider()

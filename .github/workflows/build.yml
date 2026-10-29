@@ -59,6 +59,23 @@ jobs:
       - name: Rename APK
         run: cp app/build/outputs/apk/release/app-release.apk nahmeter.apk
 
+      # The app may go online only to sign in and check the licence with edmel.dev. ML Kit's usage
+      # reporting to Google (Firebase datatransport) must stay out: fail if it's in the APK.
+      - name: Check nothing else can send data
+        run: |
+          AAPT2=$(ls "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -1)
+          "$AAPT2" dump xmltree --file AndroidManifest.xml nahmeter.apk > manifest.txt
+          if grep -q "TransportBackendDiscovery" manifest.txt; then
+            echo "::error::ML Kit's usage reporting (datatransport TransportBackendDiscovery) is in the APK."
+            exit 1
+          fi
+          if grep -Eq "com\.google\.firebase\.(installations|remoteconfig|analytics|crashlytics)" manifest.txt; then
+            echo "::error::A Firebase component that reports to Google is in the APK:"
+            grep -E "com\.google\.firebase" manifest.txt
+            exit 1
+          fi
+          echo "::notice::No usage reporting in the APK."
+
       - uses: actions/upload-artifact@v4
         with:
           name: nahmeter-apk

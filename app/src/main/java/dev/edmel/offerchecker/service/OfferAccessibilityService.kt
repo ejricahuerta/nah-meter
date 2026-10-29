@@ -18,6 +18,8 @@ import dev.edmel.offerchecker.core.OfferParser
 import dev.edmel.offerchecker.core.ReadResult
 import dev.edmel.offerchecker.core.Scorer
 import dev.edmel.offerchecker.core.Verdict
+import dev.edmel.offerchecker.data.AccountRepository
+import dev.edmel.offerchecker.data.AccountState
 import dev.edmel.offerchecker.data.AppSettings
 import dev.edmel.offerchecker.data.LEGAL_VERSION
 import dev.edmel.offerchecker.data.OfferDatabase
@@ -28,6 +30,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.math.BigDecimal
@@ -48,11 +52,11 @@ class OfferAccessibilityService : AccessibilityService() {
     private lateinit var badge: BadgeOverlay
     private lateinit var alerts: Alerts
     private var voice: Voice? = null
-    /** The status notification shows the current reading state (on / paused). */
-    private var notified = false
-    /** "Waiting for terms" is logged once per start. */
-    private var loggedNoTerms = false
+    private lateinit var accountRepo: AccountRepository
+    /** What the status notification last showed: reading on/off, and what verdicts are waiting for (if anything). */
+    private var shownStatus: Pair<Boolean, String?>? = null
     @Volatile private var settings = AppSettings()
+    @Volatile private var account = AccountState()
 
     private var scanPending = false
     private val scan = Runnable { scanPending = false; guarded("scan") { scanScreen() } }
@@ -78,19 +82,35 @@ class OfferAccessibilityService : AccessibilityService() {
         alerts = Alerts(this)
         voice = runCatching { Voice(this) }.getOrNull()
         badge = BadgeOverlay(this)
+        accountRepo = AccountRepository(this)
         scope.launch {
             settingsRepo.settings.collect {
-                val agreed = it.termsAccepted >= LEGAL_VERSION
-                if (it.readingEnabled != settings.readingEnabled || agreed != (settings.termsAccepted >= LEGAL_VERSION) || !notified) {
-                    notified = true
-                    StatusNotification.show(this@OfferAccessibilityService, it.readingEnabled, agreed)
-                }
-                if (!agreed && !loggedNoTerms) {
-                    loggedNoTerms = true
-                    ServiceState.log("Waiting for terms", "no verdicts until the terms are agreed in the app")
-                }
                 settings = it
-                if (!it.readingEnabled || !agreed) badge.hide()
+                refreshStatus()
+            }
+        }
+        scope.launch {
+            accountRepo.state.collect {
+                account = it
+                refreshStatus()
+            }
+        }
+        // The licence is a date cached on the phone, so a shift never waits on the network. It's
+        // re-checked every 12 h (hourly while it has ended, so a payment unlocks it), and the
+        // status is re-read every 15 min so it ends on time.
+        scope.launch {
+            var lastCheck = 0L
+            while (isActive) {
+                val now = System.currentTimeMillis()
+                val every = if (account.signedIn && !account.canRead(now)) HOUR_MS else 12 * HOUR_MS
+                if (account.signedIn && now - lastCheck >= every) {
+                    lastCheck = now
+                    runCatching { accountRepo.refreshLicence() }
+                        .onSuccess { ServiceState.log("Licence checked", "${it.status}, verdicts until ${java.text.DateFormat.getDateTimeInstance().format(java.util.Date(it.readUntil))}") }
+                        .onFailure { ServiceState.log("Licence check failed", it.message ?: it.javaClass.simpleName) }
+                }
+                refreshStatus()
+                delay(15 * 60 * 1000L)
             }
         }
         ServiceState.service = this
@@ -103,11 +123,30 @@ class OfferAccessibilityService : AccessibilityService() {
         )
     }
 
+    /** Why verdicts are held back, as the notification says it; null when they aren't. */
+    private fun waitingFor(): String? = when {
+        settings.termsAccepted < LEGAL_VERSION -> "Open nah.meter to agree to the terms."
+        !account.signedIn -> "Open nah.meter to sign in."
+        !account.canRead() -> "Your licence ended. Open nah.meter to renew."
+        else -> null
+    }
+
+    /** Updates the notification (and the log) when reading or what it waits for changes. */
+    private fun refreshStatus() {
+        val status = settings.readingEnabled to waitingFor()
+        if (status != shownStatus) {
+            shownStatus = status
+            StatusNotification.show(this, status.first, status.second)
+            status.second?.let { ServiceState.log("No verdicts for now", it) }
+        }
+        if (!status.first || status.second != null) badge.hide()
+    }
+
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         // Uber's offer can be a pop-up over another app (e.g. Maps): a window appearing or
         // disappearing anywhere triggers a scan, but only Uber's windows are ever read.
-        // Nothing is read until the current terms are agreed to in the app.
-        if (!settings.readingEnabled || settings.termsAccepted < LEGAL_VERSION) return
+        // Nothing is read until the terms are agreed, the courier is signed in and the licence covers today.
+        if (!settings.readingEnabled || waitingFor() != null) return
         val fromUber = isUberPackage(event.packageName)
         if (!fromUber && event.eventType != AccessibilityEvent.TYPE_WINDOWS_CHANGED) return
         if (fromUber) ServiceState.uberEventsFlow.value++
@@ -426,5 +465,6 @@ class OfferAccessibilityService : AccessibilityService() {
         private val AFTER_CARD_MS = listOf(4_000L, 12_000L)
         private const val MAX_AFTER_LINES = 15
         private const val OCR_STUCK_MS = 10_000L
+        private const val HOUR_MS = 60 * 60 * 1000L
     }
 }

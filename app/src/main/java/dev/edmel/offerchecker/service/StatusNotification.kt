@@ -15,7 +15,8 @@ object StatusNotification {
     private const val CHANNEL = "status"
     const val ID = 1
 
-    fun build(context: Context, reading: Boolean = true, agreed: Boolean = true): Notification {
+    /** [waitingFor] is why verdicts are held back (terms, sign-in or licence), shown instead of the usual text. */
+    fun build(context: Context, reading: Boolean = true, waitingFor: String? = null): Notification {
         val nm = context.getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(
             NotificationChannel(CHANNEL, "Reader status", NotificationManager.IMPORTANCE_LOW).apply {
@@ -32,12 +33,12 @@ object StatusNotification {
             context, 0, Intent(context, PauseReceiver::class.java),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        if (!agreed) {
-            // No verdicts until the current terms are agreed to: ask to open the app.
+        if (waitingFor != null) {
+            // No verdicts until it's sorted in the app: say why and open the app on tap.
             return Notification.Builder(context, CHANNEL)
                 .setSmallIcon(R.drawable.ic_stat_check)
                 .setContentTitle("nah.meter is waiting")
-                .setContentText("Open nah.meter to agree to the terms.")
+                .setContentText(waitingFor)
                 .setContentIntent(open)
                 .setOngoing(true)
                 .build()
@@ -56,8 +57,8 @@ object StatusNotification {
             .build()
     }
 
-    fun show(context: Context, reading: Boolean = true, agreed: Boolean = true) {
-        runCatching { context.getSystemService(NotificationManager::class.java).notify(ID, build(context, reading, agreed)) }
+    fun show(context: Context, reading: Boolean = true, waitingFor: String? = null) {
+        runCatching { context.getSystemService(NotificationManager::class.java).notify(ID, build(context, reading, waitingFor)) }
     }
 
     fun cancel(context: Context) {
