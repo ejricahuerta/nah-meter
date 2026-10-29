@@ -129,6 +129,8 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
   (`OfferDao.addIfNew`). Uber re-shows the same card after you leave and come back.
 - One verdict per card: re-reads of the same card (same minutes and km) are ignored until the
   card has been gone for 600 ms. This stops flip-flopping between noisy OCR reads.
+- The verdict stays up as long as Uber's card does (no timer, decided 2026-10-29): it goes when
+  the card has been gone for 600 ms (closed or accepted), or when tapped.
 - Card docking: `cardTop` comes from the accessibility node, else from OCR (pay line top minus
   1.4× its height), else from Uber's pop-up window top; unknown means the top of the screen.
   The verdict card sits `DOCK_GAP_DP` (20dp) above it; the OCR estimate runs about 8dp low, so

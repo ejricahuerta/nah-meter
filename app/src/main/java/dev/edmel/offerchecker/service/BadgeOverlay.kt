@@ -7,8 +7,6 @@ import android.graphics.Rect
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
-import android.os.Handler
-import android.os.Looper
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.TextPaint
@@ -36,12 +34,11 @@ import dev.edmel.offerchecker.core.Verdict
  *  - the verdict card (`nah-card`): docked 20dp above Uber's offer card, 16dp from each side,
  *    the word on the left in its colour, $/hr on the right, the reason underneath;
  *  - the compact pill (`nah-pill`): at the top of the screen; tap it to expand to the card.
- * Tapping the card dismisses it. It never takes focus from Uber.
+ * It stays until Uber's card goes (closed or accepted); tapping it dismisses it sooner.
+ * It never takes focus from Uber.
  */
 class BadgeOverlay(private val context: Context) {
     private val wm = context.getSystemService(WindowManager::class.java)
-    private val handler = Handler(Looper.getMainLooper())
-    private val autoHide = Runnable { hide() }
     private var view: View? = null
 
     private val params = WindowManager.LayoutParams(
@@ -124,12 +121,11 @@ class BadgeOverlay(private val context: Context) {
         v.alpha = 0f
         v.translationY = dp(12f)
         v.animate().alpha(1f).translationY(0f).setDuration(IN_MS).setInterpolator(DecelerateInterpolator()).start()
-        handler.removeCallbacks(autoHide)
-        handler.postDelayed(autoHide, AUTO_HIDE_MS)
+        // No timer: it stays while Uber's card does, and goes when the reader sees the card go
+        // (closed or accepted). Tapping it still dismisses it.
     }
 
     fun hide(animate: Boolean = true) {
-        handler.removeCallbacks(autoHide)
         val v = view ?: return
         view = null
         if (!animate) {
@@ -239,7 +235,6 @@ class BadgeOverlay(private val context: Context) {
     private fun dp(v: Float) = v * context.resources.displayMetrics.density
 
     companion object {
-        const val AUTO_HIDE_MS = 20_000L
         private const val IN_MS = 160L
         private const val OUT_MS = 100L
         private const val SIDE_MARGIN_DP = 16
