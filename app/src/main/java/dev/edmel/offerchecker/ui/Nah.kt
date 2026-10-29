@@ -419,7 +419,7 @@ fun SetupStep(state: StepState, title: String, desc: String, action: String? = n
 /** ThresholdField: label, big value with unit, hint, and round −/+ steppers. */
 @Composable
 fun ThresholdField(
-    label: String, value: String, unit: String?, hint: String,
+    label: String, value: String, unit: String?, hint: String?,
     minusLabel: String, plusLabel: String, onMinus: () -> Unit, onPlus: () -> Unit,
 ) {
     val c = Nah.c
@@ -434,7 +434,7 @@ fun ThresholdField(
                 if (unit == null) buildAnnotatedString { append(value) } else rate(value, unit, 15.sp, c.inkMuted),
                 style = Nah.style(24.sp, 800, 28.sp, (-0.03).em, c.ink),
             )
-            Text(hint, style = Nah.style(13.sp, 400, 18.sp, color = c.inkMuted))
+            if (hint != null) Text(hint, style = Nah.style(13.sp, 400, 18.sp, color = c.inkMuted))
         }
         RoundButton(NahIcons.minus, minusLabel, onMinus)
         RoundButton(NahIcons.plus, plusLabel, onPlus)

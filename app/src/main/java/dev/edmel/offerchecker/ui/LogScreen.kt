@@ -115,7 +115,7 @@ fun LogScreen(thresholds: Thresholds, modifier: Modifier = Modifier) {
         if (shown.isEmpty()) {
             item {
                 NahGroup {
-                    if (offers.isEmpty()) NahRow("No offers yet", "Every offer nah.meter reads lands here.")
+                    if (offers.isEmpty()) NahRow("No offers yet")
                     else NahRow("No offers match these filters.")
                 }
             }
@@ -262,12 +262,6 @@ private fun OfferDetails(e: OfferEntry, thresholds: Thresholds, onDismiss: () ->
                 Detail("Restaurant", e.pickup ?: "Not read")
                 NahDivider()
                 Detail("Drop-off", e.dropoff ?: "Not read")
-            }
-            if (e.pickup == null && e.dropoff == null) {
-                Text(
-                    "Places are read from offers logged since this update.",
-                    style = Nah.style(13.sp, 400, 18.sp, color = c.inkMuted),
-                )
             }
         }
     }

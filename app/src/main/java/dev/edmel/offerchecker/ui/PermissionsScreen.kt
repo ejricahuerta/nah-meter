@@ -76,16 +76,16 @@ fun PermissionSteps() {
             SetupStep(
                 if (a11y) StepState.Done else StepState.Todo, "Accessibility",
                 when {
-                    reading -> "On · offers are read as they appear"
+                    reading -> "On"
                     a11y -> "On but not running · turn it off and on again"
-                    else -> "Off · offers aren't being read"
+                    else -> "Off"
                 },
                 if (reading) null else "Open",
             ) { SystemSetup.openAccessibility(ctx) }
             NahDivider()
             SetupStep(
                 if (battery) StepState.Done else StepState.Todo, "Battery unrestricted",
-                if (battery) "Android won't pause nah.meter" else "Restricted · Android may stop nah.meter",
+                if (battery) "Unrestricted" else "Restricted · Android may stop nah.meter",
                 if (battery) null else "Allow",
             ) { SystemSetup.requestUnrestrictedBattery(ctx) }
             if (SystemSetup.isSamsung || SystemSetup.isXiaomi) {
@@ -100,7 +100,7 @@ fun PermissionSteps() {
             NahDivider()
             SetupStep(
                 if (notifs) StepState.Done else StepState.Todo, "Notifications",
-                if (notifs) "On · shows that nah.meter is on" else "Off · needed to keep running",
+                if (notifs) "On" else "Off · needed to keep running",
                 if (notifs) null else "Allow",
             ) {
                 if (Build.VERSION.SDK_INT >= 33) notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -120,7 +120,6 @@ fun PermissionSteps() {
 fun PermissionsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val ctx = LocalContext.current
     val running by ServiceState.running.collectAsState()
-    val c = Nah.c
     Column(
         modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(ScreenPadding),
         verticalArrangement = Arrangement.spacedBy(20.dp),
@@ -128,11 +127,6 @@ fun PermissionsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         BackHeader("Permissions", onBack)
         PermissionSteps()
         Diagnostics(SystemSetup.isAccessibilityEnabled(ctx), running)
-
-        Text(
-            "Advice only: nah.meter never taps anything in Uber. No internet permission; nothing leaves your phone.",
-            style = Nah.style(13.sp, 400, 18.sp, color = c.inkMuted),
-        )
     }
 }
 
@@ -172,10 +166,6 @@ private fun Diagnostics(a11y: Boolean, running: Boolean) {
             NahButton(if (open) "Hide" else "Show", { open = !open }, kind = NahButtonKind.Tertiary)
         }
         if (open) {
-            Text(
-                "What the reader saw around recent offers. If a badge was wrong, copy this and send it.",
-                style = Nah.label.copy(color = Nah.c.inkMuted),
-            )
             NahButton(
                 "Copy diagnostics",
                 onClick = {

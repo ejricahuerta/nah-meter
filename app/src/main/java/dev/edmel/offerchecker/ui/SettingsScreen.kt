@@ -93,7 +93,7 @@ private fun SettingsMain(settings: AppSettings, onPage: (SettingsPage) -> Unit, 
             NahGroup {
                 LinkRow("Permissions", if (todo == 0) "All on" else "$todo to fix", todo > 0) { onPage(SettingsPage.PERMISSIONS) }
                 NahDivider()
-                LinkRow("Run setup again", "Apps, rules, permissions and a test", false) { onRunSetup() }
+                LinkRow("Run setup again", null, false) { onRunSetup() }
             }
         }
 
@@ -101,7 +101,7 @@ private fun SettingsMain(settings: AppSettings, onPage: (SettingsPage) -> Unit, 
             SectionLabel("Verdicts")
             NahGroup {
                 SegmentedRow(
-                    "Verdict card", "A full card above the offer, or a small pill at the top",
+                    "Verdict card", null,
                     listOf("Full", "Compact"), if (settings.compactBadge) 1 else 0,
                 ) { i -> scope.launch { repo.setCompactBadge(i == 1) } }
                 NahDivider()
@@ -113,7 +113,7 @@ private fun SettingsMain(settings: AppSettings, onPage: (SettingsPage) -> Unit, 
                     NahSwitch(settings.vibration, { v -> scope.launch { repo.setVibration(v) } }, "Haptics")
                 }
                 NahDivider()
-                NahRow("Show a test verdict", "Check that the card shows and speaks") {
+                NahRow("Show a test verdict") {
                     NahButton(
                         "Show",
                         {
@@ -154,7 +154,7 @@ private fun SettingsMain(settings: AppSettings, onPage: (SettingsPage) -> Unit, 
 
 /** A row that opens another page: title, a line under it (red when something needs doing), a chevron. */
 @Composable
-private fun LinkRow(title: String, desc: String, alert: Boolean, onClick: () -> Unit) {
+private fun LinkRow(title: String, desc: String?, alert: Boolean, onClick: () -> Unit) {
     val c = Nah.c
     Box(Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onClick)) {
         NahRow(title, desc, descColor = if (alert) c.nahInk else c.inkMuted) {
@@ -165,14 +165,14 @@ private fun LinkRow(title: String, desc: String, alert: Boolean, onClick: () -> 
 
 /** A row with a title and line, and a segmented control under them. */
 @Composable
-private fun SegmentedRow(title: String, desc: String, options: List<String>, selected: Int, onSelect: (Int) -> Unit) {
+private fun SegmentedRow(title: String, desc: String?, options: List<String>, selected: Int, onSelect: (Int) -> Unit) {
     Column(
         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(title, style = Nah.style(16.sp, 600, 22.sp, color = Nah.c.ink))
-            Text(desc, style = Nah.style(14.sp, 400, 20.sp, color = Nah.c.inkMuted))
+            if (desc != null) Text(desc, style = Nah.style(14.sp, 400, 20.sp, color = Nah.c.inkMuted))
         }
         NahSegmented(options, selected, onSelect)
     }
@@ -191,18 +191,18 @@ private fun DeliveryAppsScreen(settings: AppSettings, onBack: () -> Unit, modifi
     ) {
         BackHeader("Delivery apps", onBack)
         Text(
-            "Pick the apps you drive for; they show on Home. nah.meter reads offers from Uber Eats only, for now.",
+            "nah.meter reads offers from Uber Eats only, for now.",
             style = Nah.style(14.sp, 400, 20.sp, color = c.inkMuted),
         )
         NahGroup {
             DeliveryApps.ALL.forEachIndexed { i, app ->
                 if (i > 0) NahDivider()
                 if (app.verdicts) {
-                    NahRow(app.name, "Verdicts on") {
+                    NahRow(app.name) {
                         Text("Always on", style = Nah.style(14.sp, 600, 20.sp, color = c.inkMuted))
                     }
                 } else {
-                    NahRow(app.name, "Opens from Home · verdicts coming soon") {
+                    NahRow(app.name, "Verdicts soon") {
                         NahSwitch(
                             app.id in settings.apps,
                             { on -> scope.launch { repo.setApps(if (on) settings.apps + app.id else settings.apps - app.id) } },

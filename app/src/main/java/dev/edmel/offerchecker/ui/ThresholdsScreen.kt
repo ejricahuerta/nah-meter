@@ -60,14 +60,10 @@ fun ThresholdsScreen(settings: AppSettings, modifier: Modifier = Modifier) {
         modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(ScreenPadding),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("Rules", style = Nah.title.copy(color = c.ink))
-            Text("Pay first, then $/hr, then $/km.", style = Nah.style(14.sp, 400, 20.sp, color = c.inkMuted))
-        }
+        Text("Rules", style = Nah.title.copy(color = c.ink))
 
         // The real verdict card, scored with the rules below as they change.
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            SectionLabel("Live preview")
             VerdictCard(
                 preview.verdict, preview.hourly?.let { "$${it.toPlainString()}" }, NahCopy.cardReason(preview, t),
                 spoken = NahCopy.spoken(preview, t), kmChip = NahCopy.kmChip(preview),
@@ -84,9 +80,11 @@ fun ThresholdsScreen(settings: AppSettings, modifier: Modifier = Modifier) {
         Column {
             SectionLabel("Per app (optional)")
             NahGroup {
-                NahRow("Uber Eats", "Uses your rules above")
+                NahRow("Uber Eats") {
+                    Text("Default", style = Nah.style(14.sp, 600, 20.sp, color = c.inkMuted))
+                }
                 NahDivider()
-                NahRow("DoorDash", "When verdicts arrive") {
+                NahRow("DoorDash") {
                     Text("Soon", style = Nah.style(14.sp, 600, 20.sp, color = c.inkMuted))
                 }
             }
