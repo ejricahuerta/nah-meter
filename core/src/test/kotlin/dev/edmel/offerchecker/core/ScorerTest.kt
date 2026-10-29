@@ -135,4 +135,16 @@ class ScorerTest {
         // The max checks the trip alone, not the drive back.
         assertEquals(null, Scorer.score(offer("40.00", 40, "11.5"), Thresholds(maxKm = BigDecimal("12"), extraKmPercent = 50)).failed)
     }
+
+    /** The drive back only counts on trips over 10 km by default; exactly 10 km doesn't. */
+    @Test fun extraKmOnlyOverSetKm() {
+        val t = Thresholds(extraKmPercent = 50)
+        assertEquals(null, Scorer.score(offer("10.00", 20, "9"), t).extraKm)
+        assertEquals(20, Scorer.score(offer("10.00", 20, "10"), t).effectiveMinutes)
+        val over = Scorer.score(offer("10.00", 20, "10.5"), t)
+        assertEquals(0, BigDecimal("5.25").compareTo(over.extraKm))
+        assertEquals(30, over.effectiveMinutes)
+        // 0 counts it on every trip.
+        assertEquals(0, BigDecimal("4.5").compareTo(Scorer.score(offer("10.00", 20, "9"), t.copy(extraKmOverKm = 0)).extraKm))
+    }
 }

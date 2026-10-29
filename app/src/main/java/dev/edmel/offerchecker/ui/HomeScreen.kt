@@ -131,7 +131,7 @@ fun HomeScreen(
                 Text(
                     "${Scorer.money(t.minPay)} min · ${Scorer.money(t.minHourly)}/hr · ${Scorer.money(t.minPerKm)}/km" +
                         (t.maxKm?.let { " · ${Scorer.km(it)} km max" } ?: "") +
-                        (if (t.extraKmPercent > 0) " · +${t.extraKmPercent}% km" else ""),
+                        (if (t.extraKmPercent > 0) " · +${t.extraKmPercent}% km" + (if (t.extraKmOverKm > 0) " over ${t.extraKmOverKm} km" else "") else ""),
                     style = Nah.style(16.sp, 600, 22.sp, color = c.ink),
                 )
             }

@@ -10,7 +10,8 @@ import java.math.RoundingMode
  *   3. $/hr ≥ min hourly    else Red
  *   4. $/km ≥ min per km    else Yellow
  *   5. otherwise            Green
- * The unpaid drive back ([Thresholds.extraKmPercent]) adds km and minutes to the rates, not to the max.
+ * The unpaid drive back ([Thresholds.extraKmPercent], on trips over [Thresholds.extraKmOverKm]) adds km
+ * and minutes to the rates, not to the max.
  * Comparisons are exact (no rounding); rates are rounded to 2 decimals for display only.
  */
 object Scorer {
@@ -27,8 +28,10 @@ object Scorer {
         // Uber's time leaves out waiting for the food; with several orders that adds up.
         val pickupWait = if (offer.orders > 1) t.perOrderWaitMin * offer.orders else 0
         // The drive back isn't paid: the same share of the km and, at the offer's pace, of Uber's
-        // minutes. Not for add-ons: the trip they add to already counts its own way back.
-        val pct = if (offer.addOn) 0 else t.extraKmPercent.coerceIn(0, 100)
+        // minutes. Only on trips over the set km (shorter ones stay in your area), and not for
+        // add-ons: the trip they add to already counts its own way back.
+        val returns = !offer.addOn && offer.km > BigDecimal(t.extraKmOverKm.coerceAtLeast(0))
+        val pct = if (returns) t.extraKmPercent.coerceIn(0, 100) else 0
         val extraKm = offer.km.multiply(BigDecimal(pct)).movePointLeft(2)
         val extraMin = BigDecimal(offer.minutes * pct).divide(HUNDRED, 0, RoundingMode.HALF_UP).toInt()
         val minutes = offer.minutes + extraMin + t.waitBufferMin + pickupWait

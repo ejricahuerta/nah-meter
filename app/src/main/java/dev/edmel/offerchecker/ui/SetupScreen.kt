@@ -156,7 +156,7 @@ private fun WelcomeStep(thresholds: Thresholds) {
             Point(
                 "Your rules: ${Scorer.money(thresholds.minPay)} min, ${Scorer.money(thresholds.minHourly)}/hr, ${Scorer.money(thresholds.minPerKm)}/km" +
                     (thresholds.maxKm?.let { ", ${Scorer.km(it)} km max" } ?: "") +
-                    (if (thresholds.extraKmPercent > 0) ", +${thresholds.extraKmPercent}% km" else ""),
+                    (if (thresholds.extraKmPercent > 0) ", +${thresholds.extraKmPercent}% km" + (if (thresholds.extraKmOverKm > 0) " over ${thresholds.extraKmOverKm} km" else "") else ""),
             )
             Point("It never taps Match for you, and it has no internet access. You decide.")
         }

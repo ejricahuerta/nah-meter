@@ -146,6 +146,17 @@ fun RuleSteppers(t: Thresholds, showExtras: Boolean) {
             { scope.launch { repo.setExtraKmPercent(pct - 10) } },
             { scope.launch { repo.setExtraKmPercent(pct + 10) } },
         )
+        if (pct > 0) {
+            NahDivider()
+            val over = t.extraKmOverKm
+            ThresholdField(
+                "Only on trips over", if (over == 0) "Any trip" else "$over", if (over == 0) null else " km",
+                "Shorter trips stay in your area.",
+                "Decrease by 1 km", "Increase by 1 km",
+                { scope.launch { repo.setExtraKmOverKm(over - 1) } },
+                { scope.launch { repo.setExtraKmOverKm(over + 1) } },
+            )
+        }
         NahDivider()
         ThresholdField(
             "Restaurant wait buffer", "${t.waitBufferMin}", " min", "Added to Uber's time",

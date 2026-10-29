@@ -52,6 +52,8 @@ data class Thresholds(
      * Uber's minutes (the same pace). Lowers $/hr and $/km; 0 is off.
      */
     val extraKmPercent: Int = 0,
+    /** The drive back only counts on trips over this many km; shorter ones stay in your area. 0 is every trip. */
+    val extraKmOverKm: Int = 10,
 )
 
 data class Evaluation(
