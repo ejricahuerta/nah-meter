@@ -155,7 +155,6 @@ private fun WelcomeStep(thresholds: Thresholds) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Point("Your rules: ${Scorer.money(thresholds.minPay)} min, ${Scorer.money(thresholds.minHourly)}/hr, ${Scorer.money(thresholds.minPerKm)}/km")
             Point("It never taps Match for you, and it has no internet access. You decide.")
-            Point("No account. Nothing leaves your phone.")
         }
     }
 }
@@ -194,14 +193,14 @@ private fun AppsStep(settings: AppSettings) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text("Which apps do you drive for?", style = Nah.title.copy(color = c.ink), modifier = Modifier.semantics { heading() })
         Text(
-            "They show on Home so you can open them in one tap. nah.meter gives verdicts for Uber Eats today.",
+            "nah.meter gives verdicts for Uber Eats today.",
             style = Nah.style(15.sp, 400, 22.sp, color = c.inkMuted),
         )
         NahGroup {
             DeliveryApps.ALL.forEachIndexed { i, app ->
                 if (i > 0) NahDivider()
                 val picked = app.verdicts || app.id in settings.apps
-                NahRow(app.name, if (app.verdicts) "Verdicts on" else "Opens from Home · verdicts coming soon") {
+                NahRow(app.name, if (app.verdicts) "Verdicts on" else "Verdicts soon") {
                     NahCheck(picked, enabled = !app.verdicts, label = app.name) { on ->
                         scope.launch { repo.setApps(if (on) settings.apps + app.id else settings.apps - app.id) }
                     }
@@ -247,10 +246,6 @@ private fun RulesStep(thresholds: Thresholds) {
     val preview = Scorer.score(EXAMPLE_OFFER, thresholds)
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text("Set your rules", style = Nah.title.copy(color = c.ink), modifier = Modifier.semantics { heading() })
-        Text(
-            "Pay first, then $/hr, then $/km. You can change these any time under Rules.",
-            style = Nah.style(15.sp, 400, 22.sp, color = c.inkMuted),
-        )
         NahGroup { RuleSteppers(thresholds, showBuffer = false) }
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             SectionLabel("Your rules on a real offer")
@@ -273,15 +268,7 @@ private fun PermissionsStep() {
     val c = Nah.c
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text("Let it read offers", style = Nah.title.copy(color = c.ink), modifier = Modifier.semantics { heading() })
-        Text(
-            "Go down the list. Each one has a button that opens the right page; come back here when it's on.",
-            style = Nah.style(15.sp, 400, 22.sp, color = c.inkMuted),
-        )
         PermissionSteps()
-        Text(
-            "No internet permission. Offers stay on your phone and nothing is ever tapped for you.",
-            style = Nah.style(13.sp, 400, 18.sp, color = c.inkMuted),
-        )
     }
 }
 
@@ -301,7 +288,7 @@ private fun TestStep(settings: AppSettings) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text("Test it", style = Nah.title.copy(color = c.ink), modifier = Modifier.semantics { heading() })
         Text(
-            "This is how a verdict sits above an offer. The offer below is a stand-in, not the real app.",
+            "The offer below is a stand-in.",
             style = Nah.style(15.sp, 400, 22.sp, color = c.inkMuted),
         )
         Column(

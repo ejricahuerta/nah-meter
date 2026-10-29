@@ -107,19 +107,11 @@ fun HomeScreen(
                 active = on,
                 onChange = { v -> scope.launch { repo.setReadingEnabled(v) } },
             )
-            Text(
-                when {
-                    !reading -> "nah.meter can't read offers until Accessibility is on"
-                    settings.readingEnabled -> "Tap to pause verdicts"
-                    else -> "No verdicts until you turn it back on"
-                },
-                style = Nah.style(14.sp, 400, 20.sp, color = c.inkMuted),
-            )
             if (!a11y || !running) NahButton("Fix in Settings", onOpenPermissions, kind = NahButtonKind.Secondary, small = true)
         }
 
         Column {
-            SectionLabel("Today · offers, not earnings")
+            SectionLabel("Today")
             Overview(today, Modifier.alpha(if (settings.readingEnabled) 1f else 0.5f))
         }
 
@@ -174,7 +166,7 @@ private fun Overview(today: List<OfferEntry>, modifier: Modifier = Modifier) {
     val c = Nah.c
     NahGroup(modifier) {
         if (today.isEmpty()) {
-            NahRow("No offers yet today", "Every offer nah.meter reads lands here.")
+            NahRow("No offers yet today")
             return@NahGroup
         }
         fun count(v: Verdict) = today.count { it.verdict == v.name }

@@ -49,12 +49,7 @@ private val MODES = listOf(
     VoiceMode.WORD_HOURLY_KM to "Word + $/hr + $/km",
 )
 
-private val SPOKEN_VERDICTS = listOf(
-    Verdict.GREEN to "Clears all your rules",
-    Verdict.YELLOW to "Pays the hour but short on $/km",
-    Verdict.RED to "Under your minimum or $/hr",
-    Verdict.GREY to "A number couldn't be read",
-)
+private val SPOKEN_VERDICTS = listOf(Verdict.GREEN, Verdict.YELLOW, Verdict.RED, Verdict.GREY)
 
 /**
  * Settings → Voice: whether the verdict is read out loud, exactly what it says, which verdicts,
@@ -86,7 +81,7 @@ fun VoiceScreen(settings: AppSettings, onBack: () -> Unit, modifier: Modifier = 
         BackHeader("Voice", onBack)
 
         NahGroup {
-            NahRow("Read verdicts out loud", "For when you're driving") {
+            NahRow("Read verdicts out loud") {
                 NahSwitch(settings.voice, { v -> scope.launch { repo.setVoice(v) } }, "Read verdicts out loud")
             }
         }
@@ -101,10 +96,6 @@ fun VoiceScreen(settings: AppSettings, onBack: () -> Unit, modifier: Modifier = 
                     Text(
                         "“$line”",
                         style = Nah.style(28.sp, 800, 34.sp, (-0.02).em, Nah.verdictColor(preview.verdict)),
-                    )
-                    Text(
-                        "On a $${EXAMPLE_OFFER.pay.toPlainString()} offer, ${EXAMPLE_OFFER.minutes} min, ${EXAMPLE_OFFER.km.toPlainString()} km",
-                        style = Nah.style(15.sp, 400, 22.sp, color = Nah.cardMuted),
                     )
                 }
             }
@@ -126,10 +117,10 @@ fun VoiceScreen(settings: AppSettings, onBack: () -> Unit, modifier: Modifier = 
         Column {
             SectionLabel("Speak these verdicts")
             NahGroup {
-                SPOKEN_VERDICTS.forEachIndexed { i, (v, hint) ->
+                SPOKEN_VERDICTS.forEachIndexed { i, v ->
                     if (i > 0) NahDivider()
                     NahRow(
-                        NahCopy.word(v), hint,
+                        NahCopy.word(v),
                         leading = { Box(Modifier.size(12.dp).clip(CircleShape).background(Nah.verdictColor(v))) },
                     ) {
                         NahSwitch(
@@ -152,7 +143,7 @@ fun VoiceScreen(settings: AppSettings, onBack: () -> Unit, modifier: Modifier = 
             }
             ThresholdField(
                 "Volume", "${settings.voiceVolume}", "%",
-                if (settings.voiceVolume == 0) "Silent: nothing is spoken." else "nah.meter's own level, set just for the verdict.",
+                if (settings.voiceVolume == 0) "Silent: nothing is spoken." else null,
                 "Volume down 5%", "Volume up 5%",
                 { setVolume(settings.voiceVolume - 5) },
                 { setVolume(settings.voiceVolume + 5) },
@@ -165,7 +156,7 @@ fun VoiceScreen(settings: AppSettings, onBack: () -> Unit, modifier: Modifier = 
             }
             val tenths = (settings.voiceSpeed * 10).roundToInt()
             ThresholdField(
-                "Speed", String.format(Locale.US, "%.1f", tenths / 10f), "×", "How fast it talks. 1.0 is normal.",
+                "Speed", String.format(Locale.US, "%.1f", tenths / 10f), "×", null,
                 "Speak slower", "Speak faster",
                 { setSpeed(tenths - 1) },
                 { setSpeed(tenths + 1) },
@@ -179,9 +170,6 @@ fun VoiceScreen(settings: AppSettings, onBack: () -> Unit, modifier: Modifier = 
                 Box(Modifier.fillMaxWidth().clickable(enabled = voices.isNotEmpty(), role = Role.Button) { pickerOpen = !pickerOpen }) {
                     NahRow(
                         current ?: "Automatic",
-                        if (current != null) "Your pick"
-                        else if (voices.isEmpty()) "Your phone's own voice"
-                        else "English (Canada) if installed, else your phone's own voice",
                         trailing = {
                             if (voices.isNotEmpty()) {
                                 Text(if (pickerOpen) "Done" else "Change", style = Nah.style(15.sp, 600, 20.sp, color = Nah.c.ink))
@@ -191,7 +179,7 @@ fun VoiceScreen(settings: AppSettings, onBack: () -> Unit, modifier: Modifier = 
                 }
                 if (pickerOpen && voices.isNotEmpty()) {
                     NahDivider()
-                    RadioRow("Automatic", "English (Canada) if installed, else your phone's own voice", settings.voiceName == null) {
+                    RadioRow("Automatic", null, settings.voiceName == null) {
                         scope.launch { repo.setVoiceName(null) }
                         test(settings.copy(voiceName = null))
                     }
@@ -207,7 +195,7 @@ fun VoiceScreen(settings: AppSettings, onBack: () -> Unit, modifier: Modifier = 
         }
 
         NahGroup {
-            NahRow("Lower other audio", "Music and podcasts get quieter while it speaks") {
+            NahRow("Lower other audio") {
                 NahSwitch(settings.voiceDuck, { v -> scope.launch { repo.setVoiceDuck(v) } }, "Lower other audio")
             }
         }

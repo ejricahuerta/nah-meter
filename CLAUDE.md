@@ -171,6 +171,8 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
 - Verdict words are lowercase and end in a full stop (`bet.`); in chips the stop becomes a dot
   before the word. Use `NahCopy` for every verdict string, never inline text.
 - Voice: short, plain, sentence case, no emoji or exclamation marks. Never "Accept" or "Decline".
+- No helper text that restates a label or a visible state ("Tap to pause" under a power button). Add a
+  line only for a reason, a warning, a step or a number.
 - The overlay is classic Views (not Compose); `TypefaceSpan(Typeface)` needs API 28, so use the
   local `FontSpan`.
 - Accessibility: verdicts are polite live regions with a spoken description (`NahCopy.spoken`);
