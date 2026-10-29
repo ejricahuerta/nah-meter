@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.edmel.offerchecker.data.AppSettings
 import dev.edmel.offerchecker.data.Appearance
+import dev.edmel.offerchecker.data.LEGAL_VERSION
 import dev.edmel.offerchecker.data.SettingsRepository
 import dev.edmel.offerchecker.service.CrashLog
 import kotlinx.coroutines.launch
@@ -119,6 +120,11 @@ private fun App() {
                 rerunSetup = false
                 if (!s.onboarded) scope.launch { repo.setOnboarded() }
             })
+            return@Box
+        }
+        // Anyone who hasn't agreed to the current terms is asked on every launch until they do.
+        if (s.termsAccepted < LEGAL_VERSION) {
+            AgreeScreen(onAgree = { scope.launch { repo.setTermsAccepted(LEGAL_VERSION) } })
             return@Box
         }
         Column(Modifier.fillMaxSize()) {

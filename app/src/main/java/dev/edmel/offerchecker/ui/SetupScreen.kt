@@ -23,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -49,6 +50,7 @@ import dev.edmel.offerchecker.core.Scorer
 import dev.edmel.offerchecker.core.Thresholds
 import dev.edmel.offerchecker.core.Verdict
 import dev.edmel.offerchecker.data.AppSettings
+import dev.edmel.offerchecker.data.LEGAL_VERSION
 import dev.edmel.offerchecker.data.SettingsRepository
 import dev.edmel.offerchecker.service.NahCopy
 import dev.edmel.offerchecker.service.Voice
@@ -67,6 +69,15 @@ fun SetupScreen(settings: AppSettings, onFinish: () -> Unit, modifier: Modifier 
     val last = STEP_TITLES.size - 1
     BackHandler(enabled = step > 0) { step-- }
     val c = Nah.c
+    val ctx = LocalContext.current
+    val repo = remember { SettingsRepository(ctx) }
+    val scope = rememberCoroutineScope()
+    var agreed by rememberSaveable { mutableStateOf(settings.termsAccepted >= LEGAL_VERSION) }
+    var doc by rememberSaveable { mutableStateOf<LegalDoc?>(null) }
+    doc?.let {
+        LegalScreen(it, onBack = { doc = null }, modifier = modifier)
+        return
+    }
 
     Column(modifier.fillMaxSize()) {
         Column(
@@ -76,7 +87,7 @@ fun SetupScreen(settings: AppSettings, onFinish: () -> Unit, modifier: Modifier 
         ) {
             SetupStepper(step)
             when (step) {
-                0 -> WelcomeStep(settings.thresholds)
+                0 -> WelcomeStep(settings.thresholds, agreed, { agreed = it }, { doc = it })
                 1 -> AppsStep(settings)
                 2 -> RulesStep(settings.thresholds)
                 3 -> PermissionsStep()
@@ -95,8 +106,15 @@ fun SetupScreen(settings: AppSettings, onFinish: () -> Unit, modifier: Modifier 
                     last -> "Finish"
                     else -> "Continue"
                 },
-                { if (step == last) onFinish() else step++ },
+                {
+                    when (step) {
+                        0 -> { scope.launch { repo.setTermsAccepted(LEGAL_VERSION) }; step++ }
+                        last -> onFinish()
+                        else -> step++
+                    }
+                },
                 modifier = Modifier.weight(1f),
+                enabled = step != 0 || agreed,
             )
         }
     }
@@ -129,7 +147,7 @@ private fun SetupStepper(step: Int) {
 // ---------- 1 · Welcome ----------
 
 @Composable
-private fun WelcomeStep(thresholds: Thresholds) {
+private fun WelcomeStep(thresholds: Thresholds, agreed: Boolean, onAgreed: (Boolean) -> Unit, onOpen: (LegalDoc) -> Unit) {
     val c = Nah.c
     Column(verticalArrangement = Arrangement.spacedBy(28.dp)) {
         Wordmark(30.sp)
@@ -159,6 +177,16 @@ private fun WelcomeStep(thresholds: Thresholds) {
                     (if (thresholds.extraKmPercent > 0) ", +${thresholds.extraKmPercent}% km" + (if (thresholds.extraKmOverKm > 0) " over ${thresholds.extraKmOverKm} km" else "") else ""),
             )
             Point("It never taps Match for you, and it has no internet access. You decide.")
+            Point("Not affiliated with Uber.")
+        }
+        NahGroup {
+            NahRow("I agree to the Terms of use and Privacy policy") {
+                NahCheck(agreed, enabled = true, label = "I agree to the Terms of use and Privacy policy", onChange = onAgreed)
+            }
+            NahDivider()
+            LegalLink(LegalDoc.TERMS, onOpen)
+            NahDivider()
+            LegalLink(LegalDoc.PRIVACY, onOpen)
         }
     }
 }

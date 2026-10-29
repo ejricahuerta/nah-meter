@@ -144,5 +144,14 @@ and push; a new APK is built automatically.
 - If Uber stops exposing offer text to accessibility, the planned fallback is on-device
   screen capture + ML Kit text recognition (not in v1).
 
-Uber's terms discourage third-party tools. This app is strictly read-only to keep that risk
-low, but using it is at your own risk.
+## Legal
+
+The app shows these in Setup (agreeing is required) and under Settings → About:
+
+- [Terms of use](app/src/main/assets/legal/terms.md)
+- [Privacy policy](app/src/main/assets/legal/privacy.md)
+- [Open-source licences](app/src/main/assets/legal/licences.md)
+
+Uber's courier agreement limits tools that read or scrape its app. nah.meter is strictly read-only
+and never taps, but using it is at your own risk; the Terms of use say so plainly. nah.meter is not
+affiliated with Uber. Questions: contact@edmel.dev.

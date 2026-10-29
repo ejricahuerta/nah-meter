@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -36,6 +37,7 @@ import dev.edmel.offerchecker.data.SettingsRepository
 import dev.edmel.offerchecker.service.CrashLog
 import dev.edmel.offerchecker.service.NahCopy
 import dev.edmel.offerchecker.service.ServiceState
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import java.text.DateFormat
 import java.text.SimpleDateFormat
@@ -58,6 +60,26 @@ fun PermissionSteps() {
     val uber = remember(refresh) { SystemSetup.uberInstalled(ctx) }
     val reading = a11y && running
 
+    // What Accessibility is used for, agreed to once before the settings page opens.
+    val repo = remember { SettingsRepository(ctx) }
+    val scope = rememberCoroutineScope()
+    val agreedFlow = remember(repo) { repo.settings.map { it.a11yDisclosureAgreed } }
+    val disclosureAgreed by agreedFlow.collectAsState(initial = false)
+    var pending by remember { mutableStateOf<(() -> Unit)?>(null) }
+    fun afterDisclosure(open: () -> Unit) {
+        if (disclosureAgreed) open() else pending = open
+    }
+    pending?.let { open ->
+        AccessibilityDisclosure(
+            onAgree = {
+                pending = null
+                scope.launch { repo.setA11yDisclosureAgreed() }
+                open()
+            },
+            onDecline = { pending = null },
+        )
+    }
+
     // Setup steps, in the order the PRD's install guide gives them.
     val restricted = Build.VERSION.SDK_INT >= 33 && !a11y
     val checkable = listOf(a11y, battery, notifs, uber.isNotEmpty())
@@ -70,7 +92,7 @@ fun PermissionSteps() {
                     StepState.Todo, "Allow restricted settings",
                     "Android 13+: App info → ⋮ → Allow restricted settings, then turn on Accessibility",
                     "Open",
-                ) { SystemSetup.openAppInfo(ctx) }
+                ) { afterDisclosure { SystemSetup.openAppInfo(ctx) } }
                 NahDivider()
             }
             SetupStep(
@@ -81,7 +103,7 @@ fun PermissionSteps() {
                     else -> "Off"
                 },
                 if (reading) null else "Open",
-            ) { SystemSetup.openAccessibility(ctx) }
+            ) { afterDisclosure { SystemSetup.openAccessibility(ctx) } }
             NahDivider()
             SetupStep(
                 if (battery) StepState.Done else StepState.Todo, "Battery unrestricted",
@@ -114,6 +136,29 @@ fun PermissionSteps() {
             ) { SystemSetup.openUber(ctx) }
         }
     }
+}
+
+/**
+ * Shown before Accessibility is turned on: what nah.meter reads with it, what it never does, and
+ * what it keeps. "Agree" opens the settings page; "Not now" stays here.
+ */
+@Composable
+private fun AccessibilityDisclosure(onAgree: () -> Unit, onDecline: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDecline,
+        containerColor = Nah.c.surface,
+        title = { Text("Before you turn on Accessibility", style = Nah.heading.copy(color = Nah.c.ink)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                val body = Nah.style(15.sp, 400, 22.sp, color = Nah.c.ink)
+                Text("nah.meter helps you see and decide on each offer. It uses Accessibility to read Uber's offer cards: their text, or a screenshot of Uber's windows read on your phone.", style = body)
+                Text("It uses what it sees only to advise you. It never taps anything, doesn't read other apps, and has no internet, so nothing is sent.", style = body)
+                Text("It keeps the offers it reads in History on your phone. The Privacy policy has the details.", style = body)
+            }
+        },
+        confirmButton = { NahButton("Agree", onAgree, small = true) },
+        dismissButton = { NahButton("Not now", onDecline, kind = NahButtonKind.Tertiary, small = true) },
+    )
 }
 
 @Composable

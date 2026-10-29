@@ -15,7 +15,7 @@ object StatusNotification {
     private const val CHANNEL = "status"
     const val ID = 1
 
-    fun build(context: Context, reading: Boolean = true): Notification {
+    fun build(context: Context, reading: Boolean = true, agreed: Boolean = true): Notification {
         val nm = context.getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(
             NotificationChannel(CHANNEL, "Reader status", NotificationManager.IMPORTANCE_LOW).apply {
@@ -32,6 +32,16 @@ object StatusNotification {
             context, 0, Intent(context, PauseReceiver::class.java),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
+        if (!agreed) {
+            // No verdicts until the current terms are agreed to: ask to open the app.
+            return Notification.Builder(context, CHANNEL)
+                .setSmallIcon(R.drawable.ic_stat_check)
+                .setContentTitle("nah.meter is waiting")
+                .setContentText("Open nah.meter to agree to the terms.")
+                .setContentIntent(open)
+                .setOngoing(true)
+                .build()
+        }
         return Notification.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_check)
             .setContentTitle(if (reading) "nah.meter is on" else "nah.meter is paused")
@@ -46,8 +56,8 @@ object StatusNotification {
             .build()
     }
 
-    fun show(context: Context, reading: Boolean = true) {
-        runCatching { context.getSystemService(NotificationManager::class.java).notify(ID, build(context, reading)) }
+    fun show(context: Context, reading: Boolean = true, agreed: Boolean = true) {
+        runCatching { context.getSystemService(NotificationManager::class.java).notify(ID, build(context, reading, agreed)) }
     }
 
     fun cancel(context: Context) {

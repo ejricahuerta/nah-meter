@@ -21,6 +21,12 @@ enum class Appearance { MONO, DAYLIGHT, PHONE }
 /** What the spoken verdict says: the word, the word and $/hr, or the word, $/hr and $/km. */
 enum class VoiceMode { WORD, WORD_HOURLY, WORD_HOURLY_KM }
 
+/**
+ * The version of the terms of use and privacy policy (`assets/legal/`). Bump it when their meaning
+ * changes: everyone is asked to agree again, and the reader gives no verdicts until they do.
+ */
+const val LEGAL_VERSION = 1
+
 data class AppSettings(
     val thresholds: Thresholds = Thresholds(),
     /** Home's power button (and the tile and notification): when off, no offers are read and no badge shows. */
@@ -43,6 +49,10 @@ data class AppSettings(
     val compactBadge: Boolean = false,
     /** The welcome screen has been seen. */
     val onboarded: Boolean = false,
+    /** The [LEGAL_VERSION] last agreed to; 0 is never. */
+    val termsAccepted: Int = 0,
+    /** Agreed to the disclosure shown before turning on Accessibility. */
+    val a11yDisclosureAgreed: Boolean = false,
     val appearance: Appearance = Appearance.MONO,
     /** The delivery apps the courier drives for ("uber", "doordash", "skip"): the tiles Home shows. */
     val apps: Set<String> = setOf("uber", "doordash", "skip"),
@@ -72,6 +82,8 @@ class SettingsRepository(context: Context) {
         val voiceDuck = booleanPreferencesKey("voice_duck")
         val compactBadge = booleanPreferencesKey("compact_badge")
         val onboarded = booleanPreferencesKey("onboarded")
+        val termsAccepted = intPreferencesKey("terms_accepted")
+        val a11yDisclosureAgreed = booleanPreferencesKey("a11y_disclosure_agreed")
         val appearance = stringPreferencesKey("appearance")
         val apps = stringSetPreferencesKey("apps")
     }
@@ -103,6 +115,8 @@ class SettingsRepository(context: Context) {
             voiceDuck = this[Keys.voiceDuck] ?: d.voiceDuck,
             compactBadge = this[Keys.compactBadge] ?: d.compactBadge,
             onboarded = this[Keys.onboarded] ?: d.onboarded,
+            termsAccepted = this[Keys.termsAccepted] ?: d.termsAccepted,
+            a11yDisclosureAgreed = this[Keys.a11yDisclosureAgreed] ?: d.a11yDisclosureAgreed,
             appearance = this[Keys.appearance]?.let { v -> Appearance.entries.firstOrNull { it.name == v } } ?: d.appearance,
             apps = this[Keys.apps] ?: d.apps,
         )
@@ -127,6 +141,8 @@ class SettingsRepository(context: Context) {
     suspend fun setVoiceDuck(v: Boolean) = store.edit { it[Keys.voiceDuck] = v }
     suspend fun setCompactBadge(v: Boolean) = store.edit { it[Keys.compactBadge] = v }
     suspend fun setOnboarded() = store.edit { it[Keys.onboarded] = true }
+    suspend fun setTermsAccepted(version: Int) = store.edit { it[Keys.termsAccepted] = version }
+    suspend fun setA11yDisclosureAgreed() = store.edit { it[Keys.a11yDisclosureAgreed] = true }
     suspend fun setAppearance(v: Appearance) = store.edit { it[Keys.appearance] = v.name }
     suspend fun setApps(v: Set<String>) = store.edit { it[Keys.apps] = v }
 }
