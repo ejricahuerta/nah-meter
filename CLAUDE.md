@@ -160,7 +160,7 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
 
 nah.meter is a community app run at cost: a 14-day trial from the first sign-in, then $5 CAD a month
 by Interac e-Transfer, or free months on request. The backend is on edmel.dev (repo
-`ejricahuerta/edmel.dev`, `docs/nahmeter.md`): `nahmeter_*` tables in the shared Supabase project
+`ejricahuerta/edmel.dev`, `docs/nahmeter.md`): its own `nahmeter` schema in the shared Supabase project
 "default" (US West), `/api/nahmeter/*`, sign-in emails sent through Resend, and an admin page where
 the owner records e-Transfers and grants free months.
 
