@@ -37,7 +37,7 @@ import dev.edmel.offerchecker.service.ServiceState
 import kotlinx.coroutines.launch
 
 /** The pages Settings can show; Home's "Fix in Settings" opens [PERMISSIONS] directly. */
-enum class SettingsPage { MAIN, PERMISSIONS, APPS }
+enum class SettingsPage { MAIN, PERMISSIONS, APPS, VOICE }
 
 @Composable
 fun SettingsScreen(
@@ -48,6 +48,7 @@ fun SettingsScreen(
     when (page) {
         SettingsPage.PERMISSIONS -> PermissionsScreen(onBack = { onPage(SettingsPage.MAIN) }, modifier = modifier)
         SettingsPage.APPS -> DeliveryAppsScreen(settings, onBack = { onPage(SettingsPage.MAIN) }, modifier = modifier)
+        SettingsPage.VOICE -> VoiceScreen(settings, onBack = { onPage(SettingsPage.MAIN) }, modifier = modifier)
         SettingsPage.MAIN -> SettingsMain(settings, onPage, onRunSetup, modifier)
     }
 }
@@ -104,24 +105,8 @@ private fun SettingsMain(settings: AppSettings, onPage: (SettingsPage) -> Unit, 
                     listOf("Full", "Compact"), if (settings.compactBadge) 1 else 0,
                 ) { i -> scope.launch { repo.setCompactBadge(i == 1) } }
                 NahDivider()
-                NahRow("Say the verdict out loud", "\"nah. 14 an hour\", for when you're driving") {
-                    NahSwitch(settings.voice, { v -> scope.launch { repo.setVoice(v) } }, "Say the verdict out loud")
-                }
-                if (settings.voice) {
-                    NahDivider()
-                    // Its own level, on media volume: Uber turns navigation volume up and down.
-                    fun setVolume(v: Int) {
-                        val level = v.coerceIn(10, 100)
-                        scope.launch { repo.setVoiceVolume(level) }
-                        ServiceState.service?.sayVolumeSample(level)
-                    }
-                    ThresholdField(
-                        "Voice volume", "${settings.voiceVolume}", "%",
-                        "Of your media volume, set just for the verdict. Uber can't change it.",
-                        "Voice quieter by 10%", "Voice louder by 10%",
-                        { setVolume(settings.voiceVolume - 10) },
-                        { setVolume(settings.voiceVolume + 10) },
-                    )
+                LinkRow("Voice", if (settings.voice) "On · ${settings.voiceVolume}%" else "Off", false) {
+                    onPage(SettingsPage.VOICE)
                 }
                 NahDivider()
                 NahRow("Haptics", "bet short · eh double · nah long") {

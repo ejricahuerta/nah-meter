@@ -93,13 +93,15 @@ app/   Android
   service/CrashLog.kt      the last crash's stack trace, saved on the phone, shown in Diagnostics
   service/ReaderWatch.kt   "nah.meter stopped reading" notification if the reader stops mid-shift
   service/Voice.kt         says the verdict out loud ("nah. 14 an hour"), on-device TTS, on media
-                           volume at the user's level (Uber moves navigation volume), then restores it
+                           volume at the user's level (Uber moves navigation volume), then restores it;
+                           speed, voice and ducking from the settings; silent at 0% and on calls
   service/ReadingTileService.kt, PauseReceiver.kt  pause / resume from the shade (tile, notification)
   data/                    DataStore settings, Room offer log (last 200), CSV export
   ui/Nah.kt                design tokens (Mono/Daylight), Geist, components
   ui/MainActivity.kt       the four tabs: Home, History (LogScreen), Rules (ThresholdsScreen), Settings
   ui/HomeScreen.kt         power button, today's overview, app tiles (DeliveryApps), rules strip
   ui/SettingsScreen.kt     Settings and its pages; PermissionsScreen.kt holds the setup steps and Diagnostics
+  ui/VoiceScreen.kt        Settings → Voice: what it says (3 lines), which verdicts, volume, speed, voice
   ui/SetupScreen.kt        the five setup steps (Welcome, Your apps, Your rules, Permissions, Test it); first run and Settings → Run setup again
 ```
 

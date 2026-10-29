@@ -239,7 +239,7 @@ private fun NahCheck(checked: Boolean, enabled: Boolean, label: String, onChange
 // ---------- 3 · Your rules ----------
 
 /** The PRD's example offer, shown wherever the card needs something to be scored on. */
-private val EXAMPLE_OFFER = Offer(BigDecimal("6.07"), 23, BigDecimal("11.5"))
+internal val EXAMPLE_OFFER = Offer(BigDecimal("6.07"), 23, BigDecimal("11.5"))
 
 @Composable
 private fun RulesStep(thresholds: Thresholds) {
@@ -315,13 +315,13 @@ private fun TestStep(settings: AppSettings) {
             StandInOffer()
         }
         NahGroup {
-            NahRow("Read verdicts out loud", "\"${NahCopy.speech(preview)}\"") {
+            NahRow("Read verdicts out loud", "\"${NahCopy.speech(preview, settings.voiceMode)}\"") {
                 NahSwitch(settings.voice, { v -> scope.launch { repo.setVoice(v) } }, "Read verdicts out loud")
             }
         }
         NahButton(
             "Play the test verdict",
-            { voice.say(NahCopy.speech(preview), settings.voiceVolume) },
+            { voice.say(NahCopy.speech(preview, settings.voiceMode), settings) },
             modifier = Modifier.fillMaxWidth(), kind = NahButtonKind.Secondary,
         )
     }
