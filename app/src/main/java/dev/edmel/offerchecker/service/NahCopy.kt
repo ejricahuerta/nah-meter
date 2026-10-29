@@ -27,12 +27,32 @@ object NahCopy {
     /** In lists and chips the full stop becomes the coloured dot before the word. */
     fun chipWord(v: Verdict) = word(v).removeSuffix(".")
 
-    /** The $/km in its own chip on the verdict card ("$0.53/km"); null for can't read. or no distance. */
-    fun kmChip(e: Evaluation): String? =
-        if (e.verdict == Verdict.GREY) null else e.perKm?.let { "$${it.toPlainString()}/km" }
+    /** A rate split for the card, so the unit can be drawn smaller: "$15.83" and "/hr". */
+    data class Rate(val amount: String, val unit: String) {
+        override fun toString() = amount + unit
+    }
 
     /**
-     * Under the word on the verdict card: "Under your $20". The $/km is its own chip ([kmChip]).
+     * The verdict card's two rates: the big one beside the word, and the chip beside the reason.
+     * The strict rate ([Priority]) is big, so the number on top is the one that decided the
+     * verdict. With no distance there's no $/km: the $/hr is big and there's no chip.
+     * Null without a $/hr.
+     */
+    fun rates(hourly: BigDecimal?, perKm: BigDecimal?, priority: Priority): Pair<Rate, Rate?>? {
+        val hr = hourly?.let { Rate("$${it.toPlainString()}", "/hr") } ?: return null
+        val km = perKm?.let { Rate("$${it.toPlainString()}", "/km") }
+        return if (priority == Priority.PER_KM && km != null) km to hr else hr to km
+    }
+
+    /** [rates] for an evaluation; null for can't read. */
+    fun rates(e: Evaluation, t: Thresholds): Pair<Rate, Rate?>? =
+        if (e.verdict == Verdict.GREY) null else rates(e.hourly, e.perKm, t.priority)
+
+    /** "$15.83 per hour", "$0.53 per km": a rate as TalkBack should say it. */
+    fun spokenRate(r: Rate) = r.amount + if (r.unit == "/km") " per km" else " per hour"
+
+    /**
+     * Under the word on the verdict card: "Under your $20". The other rate is its own chip ([rates]).
      * An "Add a delivery" card starts with "Add-on ·": its rates are for the extra work only.
      */
     fun cardReason(e: Evaluation, t: Thresholds): String =
@@ -106,9 +126,15 @@ object NahCopy {
         return parts.joinToString(" ") + " a k"
     }
 
-    /** What TalkBack announces: "nah. $15.83 per hour. Under your $20, $0.53 per km." */
-    fun spoken(e: Evaluation, t: Thresholds): String =
-        if (e.verdict == Verdict.GREY) "can't read. Check this offer yourself."
-        else "${word(e.verdict)} $${e.hourly} per hour. " +
-            (cardReason(e, t) + (kmChip(e)?.let { " · $it" } ?: "")).replace(" · ", ", ").replace("/km", " per km") + "."
+    /**
+     * What TalkBack announces, the card in reading order: "nah. $15.83 per hour. Under your $20,
+     * $0.53 per km." With $/km strict the $/km comes first: "nah. $0.53 per km. Under your $1 per
+     * km, $15.83 per hour."
+     */
+    fun spoken(e: Evaluation, t: Thresholds): String {
+        val (big, chip) = rates(e, t) ?: return "can't read. Check this offer yourself."
+        return "${word(e.verdict)} ${spokenRate(big)}. " +
+            (cardReason(e, t) + (chip?.let { " · $it" } ?: ""))
+                .replace(" · ", ", ").replace("/km", " per km").replace("/hr", " per hour") + "."
+    }
 }

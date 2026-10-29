@@ -80,7 +80,7 @@ class BadgeOverlay(private val context: Context) {
     fun show(e: Evaluation, t: Thresholds, compact: Boolean, cardTop: Int?) {
         hide(animate = false)
         val screen = context.resources.displayMetrics
-        val v = if (compact) pill(e) else card(e, t)
+        val v = if (compact) pill(e, t) else card(e, t)
         v.contentDescription = NahCopy.spoken(e, t)
         v.accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
         // Card: tap to dismiss. Pill: tap to expand to the full card.
@@ -156,14 +156,16 @@ class BadgeOverlay(private val context: Context) {
             text(NahCopy.word(e.verdict), if (unknown) 44f else 64f, font900, wordColor(e.verdict), if (unknown) -0.05f else -0.07f),
             LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
         )
-        if (!unknown) {
+        // The strict rate big (normally $/hr), the other in the chip.
+        val rates = NahCopy.rates(e, t)
+        rates?.first?.let { big ->
             row.addView(
-                text(rate("$${e.hourly!!.toPlainString()}", "/hr", 15), 36f, font800, Color.WHITE, -0.04f)
+                text(rate(big.amount, big.unit, 15), 36f, font800, Color.WHITE, -0.04f)
                     .apply { maxLines = 1; setPadding(dp(12), 0, 0, dp(6)) },
             )
         }
         root.addView(row)
-        // Foot: the reason left (17sp semibold, card-soft), the $/km in its own chip right.
+        // Foot: the reason left (17sp semibold, card-soft), the other rate in its own chip right.
         val foot = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -172,9 +174,9 @@ class BadgeOverlay(private val context: Context) {
             text(NahCopy.cardReason(e, t), 17f, font600, CARD_SOFT),
             LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
         )
-        NahCopy.kmChip(e)?.let { km ->
+        rates?.second?.let { chip ->
             foot.addView(
-                text(km, 15f, font700, Color.WHITE).apply {
+                text(chip.toString(), 15f, font700, Color.WHITE).apply {
                     gravity = Gravity.CENTER
                     minimumHeight = dp(30)
                     setPadding(dp(12), 0, dp(12), 0)
@@ -189,7 +191,7 @@ class BadgeOverlay(private val context: Context) {
 
     // ---------- Compact pill (nah-pill) ----------
 
-    private fun pill(e: Evaluation): View {
+    private fun pill(e: Evaluation, t: Thresholds): View {
         val root = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -199,9 +201,10 @@ class BadgeOverlay(private val context: Context) {
             elevation = dp(12f)
         }
         root.addView(text(NahCopy.word(e.verdict), 24f, font900, wordColor(e.verdict), -0.05f))
-        if (e.verdict != Verdict.GREY) {
+        // The same big rate as the card: the strict one.
+        NahCopy.rates(e, t)?.first?.let { big ->
             root.addView(
-                text(rate("$${e.hourly!!.toPlainString()}", "/hr", 13), 22f, font800, Color.WHITE, -0.03f),
+                text(rate(big.amount, big.unit, 13), 22f, font800, Color.WHITE, -0.03f),
                 LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
                     .apply { marginStart = dp(10) },
             )

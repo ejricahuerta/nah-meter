@@ -66,8 +66,8 @@ Example: $6.07, 23 min, 11.5 km â†’ **nah.** `$15.83/hr`, with "Under your $20 Â
 8. Allow notifications (for the "Offer checker on" notice).
 9. Open Uber Driver and wait for an offer, or tap **Show** next to "Show a test verdict" in Settings.
 
-**Using the verdict:** a black card docks 8dp above Uber's offer card: the word, the $/hr and
-the reason. Turn on **Compact verdict** in Thresholds for a small pill at the top instead (tap it
+**Using the verdict:** a black card docks 8dp above Uber's offer card: the word, the strict rate
+($/hr, or $/km when strict on $/km), the reason and the other rate. Turn on **Compact verdict** in Thresholds for a small pill at the top instead (tap it
 to expand). Tap the card to dismiss it; it also leaves when the offer closes or after 20 s. Haptics:
 bet. one short buzz, eh. two short, nah. one long. The **Read offers** switch on Status pauses
 everything.

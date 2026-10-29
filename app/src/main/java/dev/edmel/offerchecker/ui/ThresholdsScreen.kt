@@ -34,7 +34,6 @@ import dev.edmel.offerchecker.core.Thresholds
 import dev.edmel.offerchecker.data.AppSettings
 import dev.edmel.offerchecker.data.OfferDatabase
 import dev.edmel.offerchecker.data.SettingsRepository
-import dev.edmel.offerchecker.service.NahCopy
 import dev.edmel.offerchecker.service.ServiceState
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
@@ -65,10 +64,7 @@ fun ThresholdsScreen(settings: AppSettings, modifier: Modifier = Modifier) {
 
         // The real verdict card, scored with the rules below as they change.
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            VerdictCard(
-                preview.verdict, preview.hourly?.let { "$${it.toPlainString()}" }, NahCopy.cardReason(preview, t),
-                spoken = NahCopy.spoken(preview, t), kmChip = NahCopy.kmChip(preview),
-            )
+            VerdictCard(preview, t)
             Text(
                 (if (isExample) "An example offer" else "Your last offer") +
                     " · $${sample.pay.toPlainString()} · ${sample.minutes} min · ${sample.km.toPlainString()} km",

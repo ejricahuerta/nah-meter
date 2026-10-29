@@ -258,10 +258,7 @@ private fun RulesStep(thresholds: Thresholds) {
         NahGroup { RuleSteppers(thresholds, showExtras = false) }
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             SectionLabel("Your rules on a real offer")
-            VerdictCard(
-                preview.verdict, preview.hourly?.let { "$${it.toPlainString()}" }, NahCopy.cardReason(preview, thresholds),
-                spoken = NahCopy.spoken(preview, thresholds), kmChip = NahCopy.kmChip(preview),
-            )
+            VerdictCard(preview, thresholds)
             Text(
                 "$${EXAMPLE_OFFER.pay.toPlainString()} · ${EXAMPLE_OFFER.minutes} min · ${EXAMPLE_OFFER.km.toPlainString()} km",
                 style = Nah.style(14.sp, 400, 20.sp, color = c.inkMuted),
@@ -304,10 +301,7 @@ private fun TestStep(settings: AppSettings) {
             Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(c.surface).padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            VerdictCard(
-                preview.verdict, preview.hourly?.let { "$${it.toPlainString()}" }, NahCopy.cardReason(preview, settings.thresholds),
-                spoken = NahCopy.spoken(preview, settings.thresholds), kmChip = NahCopy.kmChip(preview),
-            )
+            VerdictCard(preview, settings.thresholds)
             StandInOffer()
         }
         NahGroup {

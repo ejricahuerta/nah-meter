@@ -167,10 +167,11 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
   `nahmeter` stays only in package, file and CSV names (`app.nahmeter`, `nahmeter.apk`).
 - Tokens live in `ui/Nah.kt` and come from the design system's `tokens.json`. The verdict card
   and pill are black in both themes; colour only ever means a verdict.
-- The verdict card: the word and $/hr on top; under them the reason (17sp semibold, `cardSoft`:
-  "Under your $20", "Under $5.50 minimum", "Short on $/km", "Clears your $20"; strict on $/km:
-  "Under your $1/km", "Short on $/hr", "Clears your $1/km") and the $/km in its
-  own chip (`cardChip`, `NahCopy.kmChip`). Nothing under 15sp.
+- The verdict card: the word and the strict rate on top ($/hr, or $/km when strict on $/km; the
+  pill shows the same); under them the reason (17sp semibold, `cardSoft`: "Under your $20",
+  "Under $5.50 minimum", "Short on $/km", "Clears your $20"; strict on $/km: "Under your $1/km",
+  "Short on $/hr", "Clears your $1/km") and the other rate in its own chip (`cardChip`). Which
+  rate goes where comes only from `NahCopy.rates`. Nothing under 15sp.
 - Verdict words are lowercase and end in a full stop (`bet.`); in chips the stop becomes a dot
   before the word. Use `NahCopy` for every verdict string, never inline text.
 - Voice: short, plain, sentence case, no emoji or exclamation marks. Never "Accept" or "Decline".

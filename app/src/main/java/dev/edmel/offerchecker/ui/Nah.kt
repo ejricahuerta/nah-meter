@@ -55,6 +55,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import dev.edmel.offerchecker.R
+import dev.edmel.offerchecker.core.Evaluation
+import dev.edmel.offerchecker.core.Thresholds
 import dev.edmel.offerchecker.core.Verdict
 import dev.edmel.offerchecker.service.NahCopy
 
@@ -193,11 +195,14 @@ private fun rate(amount: String, unit: String, unitSize: TextUnit, unitColor: Co
     }
 }
 
-/** VerdictCard: black, the word left in its colour, $/hr right, the reason underneath. */
+/**
+ * VerdictCard: black, the word left in its colour, the strict rate right (normally $/hr), the
+ * reason underneath with the other rate in its own chip.
+ */
 @Composable
 fun VerdictCard(
-    verdict: Verdict, hourly: String?, reason: String, modifier: Modifier = Modifier, spoken: String? = null,
-    kmChip: String? = null,
+    verdict: Verdict, bigRate: NahCopy.Rate?, reason: String, modifier: Modifier = Modifier, spoken: String? = null,
+    chip: String? = null,
 ) {
     val unknown = verdict == Verdict.GREY
     Column(
@@ -206,7 +211,7 @@ fun VerdictCard(
             .padding(horizontal = 20.dp, vertical = 18.dp)
             .semantics(mergeDescendants = true) {
                 liveRegion = LiveRegionMode.Polite
-                contentDescription = spoken ?: "${NahCopy.word(verdict)} ${hourly ?: ""} $reason"
+                contentDescription = spoken ?: "${NahCopy.word(verdict)} ${bigRate?.let { NahCopy.spokenRate(it) } ?: ""} $reason"
             },
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
@@ -217,24 +222,34 @@ fun VerdictCard(
                 else Nah.style(64.sp, 900, 56.sp, (-0.07).em, Nah.verdictColor(verdict)),
                 modifier = Modifier.weight(1f),
             )
-            if (hourly != null) {
+            if (bigRate != null) {
                 Text(
-                    rate(hourly, "/hr", 15.sp, Nah.cardMuted),
+                    rate(bigRate.amount, bigRate.unit, 15.sp, Nah.cardMuted),
                     style = Nah.style(36.sp, 800, 38.sp, (-0.04).em, Color.White), maxLines = 1,
                 )
             }
         }
-        // Foot: the reason (17 semibold, card-soft) left, the $/km in its own chip right.
+        // Foot: the reason (17 semibold, card-soft) left, the other rate in its own chip right.
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(reason, style = Nah.style(17.sp, 600, 22.sp, color = Nah.cardSoft), modifier = Modifier.weight(1f))
-            if (kmChip != null) {
+            if (chip != null) {
                 Box(
                     Modifier.height(30.dp).clip(CircleShape).background(Nah.cardChip).padding(horizontal = 12.dp),
                     contentAlignment = Alignment.Center,
-                ) { Text(kmChip, style = Nah.style(15.sp, 700, 20.sp, color = Color.White), maxLines = 1) }
+                ) { Text(chip, style = Nah.style(15.sp, 700, 20.sp, color = Color.White), maxLines = 1) }
             }
         }
     }
+}
+
+/** The verdict card for [e] scored on [t], exactly as the overlay draws it. */
+@Composable
+fun VerdictCard(e: Evaluation, t: Thresholds, modifier: Modifier = Modifier) {
+    val rates = NahCopy.rates(e, t)
+    VerdictCard(
+        e.verdict, rates?.first, NahCopy.cardReason(e, t), modifier,
+        spoken = NahCopy.spoken(e, t), chip = rates?.second?.toString(),
+    )
 }
 
 /** VerdictPill: compact, black, the word and optionally $/hr. */
