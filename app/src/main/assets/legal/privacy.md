@@ -2,14 +2,14 @@
 
 Version 1 · Effective October 29, 2026
 
-nah.meter is made by edmel.dev. This policy says what the app reads, what it keeps, and where that goes.
+nah.meter is made by edmel.dev. It is a tool to help you see each delivery offer and decide for yourself, and it only advises. This policy says what the app reads, what it keeps, and where that goes.
 
 ## The short version
 
 - No account and no sign-in.
 - No internet permission: the app can't send anything anywhere.
 - No ads, analytics or tracking.
-- It does nothing with what it sees except work out the verdict and keep your own log on your phone.
+- It does nothing with what it sees except advise you on each offer and keep your own log on your phone.
 - What it reads and keeps stays on your phone, unless you choose to share it.
 
 ## What nah.meter reads
@@ -22,9 +22,9 @@ nah.meter uses Android's Accessibility service to see delivery offers. Android s
 
 ## What nah.meter does with it
 
-Two things only:
+nah.meter only helps you see and decide on each offer. It uses what it sees for two things:
 
-- It works out the verdict and shows or says it.
+- It works out its advice, the verdict, and shows or says it.
 - It keeps the offer log, diagnostics and crash report on your phone, so you can look back in History and Home, and so a problem can be traced.
 
 edmel.dev never receives what nah.meter sees: there is no server and the app can't connect to the internet. Nobody sells it, shares it, or uses it for ads, profiling, research or tracking.
