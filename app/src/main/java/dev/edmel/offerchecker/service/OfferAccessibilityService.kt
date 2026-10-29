@@ -313,10 +313,32 @@ class OfferAccessibilityService : AccessibilityService() {
             handler.postDelayed({ if (!scanPending) guarded("scan") { scanScreen() } }, CARD_GONE_MS + 50)
         } else if (now - cardMissingSince >= CARD_GONE_MS) {
             cardMissingSince = 0L
+            val gone = shownOffer
             lastKey = null
             shownOffer = null
             badge.hide()
+            // Learning what "accepted" looks like: what Uber shows a few seconds after the card.
+            if (gone != null) AFTER_CARD_MS.forEach { delay -> handler.postDelayed({ logAfterCard(gone, delay) }, delay) }
         }
+    }
+
+    /**
+     * Logs Uber's screen [afterMs] after an offer card went away (accepted, closed or expired), so
+     * real examples show how to tell an accepted offer from a passed one. Only Uber's text.
+     */
+    private fun logAfterCard(offer: Offer, afterMs: Long) = guarded("after the card") {
+        val uber = uberWindows()
+        val texts = runCatching { CardReader.scan(uber.roots).screenTexts }.getOrDefault(emptyList())
+        ServiceState.log(
+            "After the card (${afterMs / 1000} s)",
+            "offer: ${Scorer.money(offer.pay)} · ${offer.minutes} min · ${offer.km.toPlainString()} km" +
+                (offer.pickup?.let { " · $it" } ?: ""),
+            when {
+                uber.roots.isEmpty() -> "Uber not on screen"
+                else -> "Uber area: ${uber.bounds?.toShortString() ?: "?"}"
+            },
+            *(if (texts.isEmpty()) listOf("no text shared by Uber") else texts.take(MAX_AFTER_LINES)).toTypedArray(),
+        )
     }
 
     private fun onNewCard(e: Evaluation, raw: List<String>) {
@@ -391,6 +413,8 @@ class OfferAccessibilityService : AccessibilityService() {
         private const val MAX_SCREEN_TEXTS = 80
         private const val OCR_INTERVAL_MS = 1000L
         private const val MAX_LOG_LINES = 20
+        private val AFTER_CARD_MS = listOf(4_000L, 12_000L)
+        private const val MAX_AFTER_LINES = 15
         private const val OCR_STUCK_MS = 10_000L
     }
 }
