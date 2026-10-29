@@ -79,8 +79,8 @@ long as the signing secrets below are set, because every build is then signed wi
   Uber's windows with on-device text recognition (Android 11+).
 - Floating badge (accessibility overlay: no "draw over apps" permission needed).
 - Four tabs: **Home** (a power button for reading on or off, today's offers, the delivery apps to
-  open, your rules in one line), **History** (the offer log), **Rules** (min pay, $/hr, $/km, wait
-  buffer) and **Settings** (permissions, verdict card, voice, haptics, appearance, delivery apps).
+  open, your rules in one line), **History** (the offer log), **Rules** (min pay, $/hr, $/km, max km,
+  unpaid extra km for the drive back, wait buffer) and **Settings** (permissions, verdict card, voice, haptics, appearance, delivery apps).
 - Settings → Permissions: each setup step with a one-tap link, and Diagnostics with the **raw
   text** it saw (for diagnosing a grey badge).
 - History: the last 200 offers by day (offers and average $/hr per day), filtered by bet, eh or nah,
@@ -91,7 +91,7 @@ long as the signing secrets below are set, because every build is then signed wi
 
 | Path | What |
 |------|------|
-| `core/` | Pure Kotlin: `OfferParser` (all text patterns in one file) and `Scorer` (the four rules), with unit tests for every PRD test case. |
+| `core/` | Pure Kotlin: `OfferParser` (all text patterns in one file) and `Scorer` (the five rules), with unit tests for every PRD test case. |
 | `app/` | Android app: accessibility service, badge overlay, Compose screens, DataStore settings, Room offer log. |
 | `.github/workflows/build.yml` | Runs the tests, builds the signed APK and publishes it as the latest release. |
 

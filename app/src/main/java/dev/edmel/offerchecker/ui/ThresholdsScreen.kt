@@ -75,7 +75,7 @@ fun ThresholdsScreen(settings: AppSettings, modifier: Modifier = Modifier) {
             )
         }
 
-        NahGroup { RuleSteppers(t, showBuffer = true) }
+        NahGroup { RuleSteppers(t, showExtras = true) }
 
         Column {
             SectionLabel("Per app (optional)")
@@ -95,9 +95,12 @@ fun ThresholdsScreen(settings: AppSettings, modifier: Modifier = Modifier) {
 private fun step(v: BigDecimal, delta: String, lo: String, hi: String) =
     (v + BigDecimal(delta)).max(BigDecimal(lo)).min(BigDecimal(hi)).setScale(2, RoundingMode.HALF_UP)
 
-/** The rule steppers, as rows to put in a [NahGroup]: minimum pay, per hour, per km and (optionally) the wait buffer. */
+/**
+ * The rule steppers, as rows to put in a [NahGroup]: minimum pay, per hour, per km and, with
+ * [showExtras], max km, the unpaid extra km and the wait buffer.
+ */
 @Composable
-fun RuleSteppers(t: Thresholds, showBuffer: Boolean) {
+fun RuleSteppers(t: Thresholds, showExtras: Boolean) {
     val ctx = LocalContext.current
     val repo = remember { SettingsRepository(ctx) }
     val scope = rememberCoroutineScope()
@@ -121,7 +124,28 @@ fun RuleSteppers(t: Thresholds, showBuffer: Boolean) {
         { scope.launch { repo.setMinPerKm(step(t.minPerKm, "-0.05", "0", "5")) } },
         { scope.launch { repo.setMinPerKm(step(t.minPerKm, "0.05", "0", "5")) } },
     )
-    if (showBuffer) {
+    if (showExtras) {
+        // Max km: Off, then 5 to 100 km in 1 km steps.
+        fun setMax(km: Int?) {
+            scope.launch { repo.setMaxKm(km?.takeIf { it >= 5 }?.coerceAtMost(100)?.let { BigDecimal(it) }) }
+        }
+        val max = t.maxKm?.setScale(0, RoundingMode.HALF_UP)?.toInt()
+        NahDivider()
+        ThresholdField(
+            "Max km", max?.toString() ?: "Off", if (max == null) null else " km", "Over this is nah.",
+            "Decrease max km by 1 km", "Increase max km by 1 km",
+            { setMax(max?.minus(1)) },
+            { setMax(if (max == null) 5 else max + 1) },
+        )
+        NahDivider()
+        val pct = t.extraKmPercent
+        ThresholdField(
+            "Extra km (unpaid)", if (pct == 0) "Off" else "$pct", if (pct == 0) null else "%",
+            "The drive back. Lowers $/km and $/hr.",
+            "Decrease extra km by 10%", "Increase extra km by 10%",
+            { scope.launch { repo.setExtraKmPercent(pct - 10) } },
+            { scope.launch { repo.setExtraKmPercent(pct + 10) } },
+        )
         NahDivider()
         ThresholdField(
             "Restaurant wait buffer", "${t.waitBufferMin}", " min", "Added to Uber's time",

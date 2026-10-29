@@ -129,7 +129,9 @@ fun HomeScreen(
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text("Your rules", style = Nah.style(13.sp, 500, 18.sp, color = c.inkMuted))
                 Text(
-                    "${Scorer.money(t.minPay)} min · ${Scorer.money(t.minHourly)}/hr · ${Scorer.money(t.minPerKm)}/km",
+                    "${Scorer.money(t.minPay)} min · ${Scorer.money(t.minHourly)}/hr · ${Scorer.money(t.minPerKm)}/km" +
+                        (t.maxKm?.let { " · ${Scorer.km(it)} km max" } ?: "") +
+                        (if (t.extraKmPercent > 0) " · +${t.extraKmPercent}% km" else ""),
                     style = Nah.style(16.sp, 600, 22.sp, color = c.ink),
                 )
             }

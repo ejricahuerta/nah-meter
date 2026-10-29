@@ -39,6 +39,7 @@ object NahCopy {
     private fun baseReason(e: Evaluation, t: Thresholds): String = when {
         e.verdict == Verdict.GREY -> "Check this offer yourself"
         e.failed == Check.MIN_PAY -> "Under ${Scorer.money(t.minPay)} minimum"
+        e.failed == Check.MAX_KM -> "Over your ${t.maxKm?.let { Scorer.km(it) } ?: "max"} km"
         e.failed == Check.HOURLY -> "Under your ${Scorer.money(t.minHourly)}"
         e.failed == Check.PER_KM -> "Short on $/km"
         else -> "Clears your ${Scorer.money(t.minHourly)}"
@@ -48,6 +49,7 @@ object NahCopy {
     fun shortReason(e: Evaluation, t: Thresholds): String = when {
         e.verdict == Verdict.GREY -> "check it yourself"
         e.failed == Check.MIN_PAY -> "under your ${Scorer.money(t.minPay)} min"
+        e.failed == Check.MAX_KM -> "over your ${t.maxKm?.let { Scorer.km(it) } ?: "max"} km"
         e.failed == Check.HOURLY -> "under your ${Scorer.money(t.minHourly)}"
         e.failed == Check.PER_KM -> "short on $/km"
         else -> "clears your ${Scorer.money(t.minHourly)}"

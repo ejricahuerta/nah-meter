@@ -5,7 +5,7 @@ import java.math.BigDecimal
 enum class Verdict { GREEN, YELLOW, RED, GREY }
 
 /** The decision rules, in the order they're checked. */
-enum class Check { MIN_PAY, HOURLY, PER_KM }
+enum class Check { MIN_PAY, MAX_KM, HOURLY, PER_KM }
 
 /** One delivery offer as read from the card. Pay is in CAD; minutes are Uber's total. */
 data class Offer(
@@ -45,12 +45,19 @@ data class Thresholds(
     val waitBufferMin: Int = 0,
     /** Waiting for food at each pickup on a multi-order offer: 2 orders add 4 min. */
     val perOrderWaitMin: Int = 2,
+    /** The longest trip worth taking, in km (Uber's total on the card); null is no limit. */
+    val maxKm: BigDecimal? = null,
+    /**
+     * The unpaid drive back to the courier's area, as a % of the trip: 50 adds half the km, and half
+     * Uber's minutes (the same pace). Lowers $/hr and $/km; 0 is off.
+     */
+    val extraKmPercent: Int = 0,
 )
 
 data class Evaluation(
     val verdict: Verdict,
     val offer: Offer?,
-    /** Uber's minutes plus the wait buffer and, for several orders, the pickup waits. */
+    /** Uber's minutes plus the wait buffer, the pickup waits for several orders, and the drive back. */
     val effectiveMinutes: Int?,
     /** Rounded to 2 decimals, for display only. */
     val hourly: BigDecimal?,
@@ -60,6 +67,8 @@ data class Evaluation(
     val failedRule: String?,
     /** Which check [failedRule] is, for wording it elsewhere. */
     val failed: Check? = null,
+    /** The unpaid km added for the drive back ([Thresholds.extraKmPercent]); null when none. */
+    val extraKm: BigDecimal? = null,
 ) {
     /** "$15.83/hr · $0.53/km", or "Can't read" for grey. */
     val ratesText: String
