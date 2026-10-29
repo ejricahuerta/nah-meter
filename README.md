@@ -83,7 +83,8 @@ long as the signing secrets below are set, because every build is then signed wi
   buffer) and **Settings** (permissions, verdict card, voice, haptics, appearance, delivery apps).
 - Settings → Permissions: each setup step with a one-tap link, and Diagnostics with the **raw
   text** it saw (for diagnosing a grey badge).
-- Offer log: last 200 offers, today's average $/hr, CSV export.
+- History: the last 200 offers by day (offers and average $/hr per day), filtered by bet, eh or nah,
+  with CSV export. Tap an offer for its restaurant, drop-off and rates.
 - Stacked offers are scored on the combined numbers and marked `×2`.
 
 ## Project layout

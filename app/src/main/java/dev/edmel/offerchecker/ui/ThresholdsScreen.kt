@@ -60,56 +60,45 @@ fun ThresholdsScreen(settings: AppSettings, modifier: Modifier = Modifier) {
 
     Column(
         modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(ScreenPadding),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("Rules", style = Nah.title.copy(color = c.ink))
-            Text("Checked in order. The first one missed decides.", style = Nah.style(14.sp, 400, 20.sp, color = c.inkMuted))
+            Text("Pay first, then $/hr, then $/km.", style = Nah.style(14.sp, 400, 20.sp, color = c.inkMuted))
         }
 
-        Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(c.surface)
-                .padding(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 12.dp)
-                .semantics(mergeDescendants = true) {
-                    contentDescription = "${if (isExample) "An example offer" else "Your last offer"} would be " +
-                        "${NahCopy.word(preview.verdict)} $${preview.hourly} per hour"
-                },
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                buildAnnotatedString {
-                    append(if (isExample) "An example offer would be\n" else "Your last offer would be\n")
-                    withStyle(SpanStyle(color = c.ink, fontWeight = FontWeight.W600)) {
-                        append("$${sample.pay.toPlainString()} · ${sample.minutes} min · ${sample.km.toPlainString()} km")
-                    }
-                },
-                style = Nah.style(14.sp, 400, 19.sp, color = c.inkMuted),
-                modifier = Modifier.weight(1f),
+        // The real verdict card, scored with the rules below as they change.
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            SectionLabel("Live preview")
+            VerdictCard(
+                preview.verdict, preview.hourly?.let { "$${it.toPlainString()}" }, NahCopy.cardReason(preview, t),
+                spoken = NahCopy.spoken(preview, t), kmChip = NahCopy.kmChip(preview),
             )
-            VerdictPill(preview.verdict, preview.hourly?.let { "$${it.toPlainString()}" })
+            Text(
+                (if (isExample) "An example offer" else "Your last offer") +
+                    " · $${sample.pay.toPlainString()} · ${sample.minutes} min · ${sample.km.toPlainString()} km",
+                style = Nah.style(14.sp, 400, 20.sp, color = c.inkMuted),
+            )
         }
 
         NahGroup {
             ThresholdField(
-                "1 · Minimum pay", money(t.minPay), null, "Below this is always nah.",
-                "Decrease minimum pay by $0.50", "Increase minimum pay by $0.50",
-                { scope.launch { repo.setMinPay(step(t.minPay, "-0.50", "0", "50")) } },
-                { scope.launch { repo.setMinPay(step(t.minPay, "0.50", "0", "50")) } },
-            )
-            NahDivider()
-            val mins = sample.minutes + t.waitBufferMin
-            ThresholdField(
-                "2 · Hourly floor", money(t.minHourly), "/hr",
-                "$mins min offer needs ${money(t.minHourly * BigDecimal(mins) / BigDecimal(60))}",
-                "Decrease hourly floor by $0.50", "Increase hourly floor by $0.50",
-                { scope.launch { repo.setMinHourly(step(t.minHourly, "-0.50", "5", "80")) } },
-                { scope.launch { repo.setMinHourly(step(t.minHourly, "0.50", "5", "80")) } },
+                "Minimum pay", money(t.minPay), null, "Below this is always nah.",
+                "Decrease minimum pay by $0.25", "Increase minimum pay by $0.25",
+                { scope.launch { repo.setMinPay(step(t.minPay, "-0.25", "0", "50")) } },
+                { scope.launch { repo.setMinPay(step(t.minPay, "0.25", "0", "50")) } },
             )
             NahDivider()
             ThresholdField(
-                "3 · Per-km floor", money(t.minPerKm), "/km",
-                "${sample.km.toPlainString()} km offer needs ${money(t.minPerKm * sample.km)}",
-                "Decrease per-km floor by $0.05", "Increase per-km floor by $0.05",
+                "Per hour", money(t.minHourly), "/hr", "Under this is nah.",
+                "Decrease per hour by $1", "Increase per hour by $1",
+                { scope.launch { repo.setMinHourly(step(t.minHourly, "-1", "5", "80")) } },
+                { scope.launch { repo.setMinHourly(step(t.minHourly, "1", "5", "80")) } },
+            )
+            NahDivider()
+            ThresholdField(
+                "Per km", money(t.minPerKm), "/km", "Under this is eh.",
+                "Decrease per km by $0.05", "Increase per km by $0.05",
                 { scope.launch { repo.setMinPerKm(step(t.minPerKm, "-0.05", "0", "5")) } },
                 { scope.launch { repo.setMinPerKm(step(t.minPerKm, "0.05", "0", "5")) } },
             )
@@ -120,6 +109,17 @@ fun ThresholdsScreen(settings: AppSettings, modifier: Modifier = Modifier) {
                 { scope.launch { repo.setWaitBuffer((t.waitBufferMin - 1).coerceIn(0, 30)) } },
                 { scope.launch { repo.setWaitBuffer((t.waitBufferMin + 1).coerceIn(0, 30)) } },
             )
+        }
+
+        Column {
+            SectionLabel("Per app (optional)")
+            NahGroup {
+                NahRow("Uber Eats", "Uses your rules above")
+                NahDivider()
+                NahRow("DoorDash", "When verdicts arrive") {
+                    Text("Soon", style = Nah.style(14.sp, 600, 20.sp, color = c.inkMuted))
+                }
+            }
         }
     }
 }
