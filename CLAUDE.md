@@ -91,6 +91,7 @@ app/   Android
   service/NahCopy.kt       every verdict word and reason string (the brand voice)
   service/ServiceState.kt  in-process state shared with the UI, including the diagnostics log
   service/CrashLog.kt      the last crash's stack trace, saved on the phone, shown in Diagnostics
+  service/ReaderWatch.kt   "nahmeter stopped reading" notification if the reader stops mid-shift
   data/                    DataStore settings, Room offer log (last 200), CSV export
   ui/Nah.kt                design tokens (Mono/Daylight), Geist, components
   ui/*Screen.kt            Welcome (onboarding), Status, Thresholds, Log
@@ -169,6 +170,11 @@ phone by `CrashLog`). The reader itself runs every step through `guarded`, so an
 logged as "Error in …" instead of closing the app. The screenshot reader runs about once a second
 for as long as Uber is open, so it frees every bitmap as soon as it's done (a leak there crashes
 the app after a few hours online).
+
+Android turns an accessibility service off after it crashes, and only the user can turn it back
+on. If the reader stops (crash, or `onUnbind`/`onDestroy`) within 15 min of Uber being on screen,
+`ReaderWatch` posts a notification that opens Accessibility settings; it clears when the reader
+connects again.
 
 ## Working conventions
 

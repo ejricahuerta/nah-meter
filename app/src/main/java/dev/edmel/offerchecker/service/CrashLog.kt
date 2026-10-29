@@ -7,6 +7,7 @@ import java.io.File
 /**
  * Keeps the last crash on the phone (never sent anywhere): the stack trace is written to a file
  * and shown in Status → Diagnostics, so "nahmeter keeps stopping" can be pasted and fixed.
+ * A crash while the reader runs also posts [ReaderWatch]'s "turn it back on" notification.
  */
 object CrashLog {
     private const val FILE = "last-crash.txt"
@@ -29,6 +30,8 @@ object CrashLog {
                         error.stackTraceToString().take(MAX_CHARS),
                 )
             }
+            // Android turns the reader off after a crash; if that happens mid-shift, say so.
+            if (ServiceState.service != null) ReaderWatch.readerStopped(context.applicationContext)
             previous?.uncaughtException(thread, error)
         }
     }
