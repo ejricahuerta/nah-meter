@@ -10,14 +10,17 @@ import java.util.Locale
 
 /**
  * Says the verdict out loud ("nah. 14 an hour") so a courier who is driving doesn't have to look.
- * Uses the phone's own text-to-speech engine (on the device, no network). Plays like a navigation
- * prompt: music ducks under it, and it sits beside Uber's own voice. If the engine can't start,
- * it stays silent and says so once in the diagnostics log.
+ * Uses the phone's own text-to-speech engine (on the device, no network).
+ *
+ * It plays on the media volume, not the navigation one: Uber raises and lowers navigation volume
+ * around its own prompts, which made the verdict too quiet or too loud. Just for the verdict, media
+ * volume is set to the user's chosen level, then put back; music ducks under it meanwhile. If the
+ * engine can't start, it stays silent and says so once in the diagnostics log.
  */
 class Voice(context: Context) {
     private val audio = context.getSystemService(AudioManager::class.java)
     private val attributes = AudioAttributes.Builder()
-        .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
+        .setUsage(AudioAttributes.USAGE_MEDIA)
         .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
         .build()
     private val focus = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
@@ -27,6 +30,9 @@ class Voice(context: Context) {
     @Volatile private var ready = false
     private var failed = false
     private lateinit var tts: TextToSpeech
+
+    /** Media volume before the verdict raised or lowered it, to put back after; null when untouched. */
+    @Volatile private var savedVolume: Int? = null
 
     init {
         tts = TextToSpeech(context.applicationContext) { status ->
@@ -48,12 +54,14 @@ class Voice(context: Context) {
         }
     }
 
-    fun say(text: String) {
+    /** Says [text] at [volumePercent] of the phone's media volume range (1–100). */
+    fun say(text: String, volumePercent: Int) {
         if (!ready) return
         runCatching {
+            setVolume(volumePercent)
             audio?.requestAudioFocus(focus)
             tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "verdict")
-        }.onFailure { fail("${it.javaClass.simpleName}: ${it.message}") }
+        }.onFailure { release(); fail("${it.javaClass.simpleName}: ${it.message}") }
     }
 
     fun shutdown() {
@@ -62,7 +70,19 @@ class Voice(context: Context) {
         runCatching { tts.stop(); tts.shutdown() }
     }
 
+    private fun setVolume(percent: Int) {
+        val am = audio ?: return
+        val max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+        val wanted = (max * percent.coerceIn(1, 100) + 50) / 100
+        val current = am.getStreamVolume(AudioManager.STREAM_MUSIC)
+        if (savedVolume == null) savedVolume = current
+        if (wanted != current) runCatching { am.setStreamVolume(AudioManager.STREAM_MUSIC, wanted.coerceAtLeast(1), 0) }
+    }
+
+    /** After the verdict: media volume back to what it was, and music back up. */
     private fun release() {
+        savedVolume?.let { v -> runCatching { audio?.setStreamVolume(AudioManager.STREAM_MUSIC, v, 0) } }
+        savedVolume = null
         runCatching { audio?.abandonAudioFocusRequest(focus) }
     }
 
