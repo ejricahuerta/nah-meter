@@ -269,6 +269,27 @@ class OfferParserTest {
         assertEquals(75, read("$30.00", "1 hour 15 min (40 km) total").minutes)
     }
 
+    /**
+     * 2026-10-28 9:38: "$13.54 · Delivery (2) · 1 hr 3 min (38.3 km) total" got eh. at $270.80/hr:
+     * the hour was dropped and the trip scored as 3 minutes. Uber's "1" reads as l or I.
+     */
+    @Test fun hourWithALetterForTheOne() {
+        val card = arrayOf("Delivery (2)", "$13.54", "including estimated tip")
+        for (trip in listOf("1 hr 3 min (38.3 km) total", "l hr 3 min (38.3 km) total", "I hr 3 min (38.3 km) total", "|hr 3min (38.3km) total")) {
+            val o = read(*card, trip, "Ziyafet Kebab Modern Turkish", "Cuisine", "Church St & Dundas St E, Toronto", "Match")
+            assertEquals(trip, 63, o.minutes)
+            assertEquals(2, o.orders)
+            val e = Scorer.score(o, Thresholds())
+            assertEquals(Verdict.RED, e.verdict)
+            assertEquals("\$12.90/hr · \$0.35/km", e.ratesText)
+        }
+        // An hour that can't be read at all is can't read., never "3 min".
+        for (trip in listOf("? hr 3 min (38.3 km) total", "hr 3 min (38.3 km) total", "Q hr 3 min (38.3 km) total")) {
+            assertTrue(trip, OfferParser.parse(listOf(*card, trip)) is ReadResult.Unreadable)
+        }
+        assertEquals(13, read("$5.10", "13 min (3.5 km) total", "Kebab House (Church St)", "Accept").minutes)
+    }
+
     @Test fun tripWithoutATimeIsUnreadable() {
         assertTrue(OfferParser.parse(listOf("$6.07", "hr (11.5 km) total")) is ReadResult.Unreadable)
     }

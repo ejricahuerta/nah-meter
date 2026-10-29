@@ -112,8 +112,9 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
   it adds, flagged `Offer.addOn`; the minimum-pay rule skips add-ons (decided 2026-10-28), so
   they're judged on $/hr and $/km only. "Delivery (3)" sets `Offer.orders`.
 - OCR mangles text. The parser tolerates: `$1l.59` and `$1159` (look-alike letters, dropped decimal
-  point), stray symbols before `$`, `(` read as `C`, missing spaces or brackets. Uber always shows
-  cents.
+  point), stray symbols before `$`, `(` read as `C`, missing spaces or brackets, `l hr 3 min` (Uber's
+  "1" reads as l or I). Uber always shows cents. A trip line with an hours word but no readable
+  hours number is `can't read.`: the minutes alone once scored 63 min as 3 ($270.80/hr).
 - **Pay is the dollar amount in the tallest text** in the band above the trip line, never the
   largest value: pages behind the pop-up have their own dollar amounts.
 - The restaurant and drop-off area are the lines between the trip line and the card's button
