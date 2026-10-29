@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import dev.edmel.offerchecker.core.Offer
+import dev.edmel.offerchecker.core.Priority
 import dev.edmel.offerchecker.core.Scorer
 import dev.edmel.offerchecker.core.Thresholds
 import dev.edmel.offerchecker.core.Verdict
@@ -131,6 +132,7 @@ private fun SetupStepper(step: Int) {
 @Composable
 private fun WelcomeStep(thresholds: Thresholds) {
     val c = Nah.c
+    val perKmFirst = thresholds.priority == Priority.PER_KM
     Column(verticalArrangement = Arrangement.spacedBy(28.dp)) {
         Wordmark(30.sp)
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -149,12 +151,15 @@ private fun WelcomeStep(thresholds: Thresholds) {
         }
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Example(Verdict.GREEN, "pays your rate")
-            Example(Verdict.YELLOW, "pays the hour, long drive")
+            // eh. is the soft rate falling short, so it depends on which rate is strict.
+            Example(Verdict.YELLOW, if (perKmFirst) "pays the km, slow trip" else "pays the hour, long drive")
             Example(Verdict.RED, "not worth your time")
         }
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            val hourly = "${Scorer.money(thresholds.minHourly)}/hr"
+            val perKm = "${Scorer.money(thresholds.minPerKm)}/km"
             Point(
-                "Your rules: ${Scorer.money(thresholds.minPay)} min, ${Scorer.money(thresholds.minHourly)}/hr, ${Scorer.money(thresholds.minPerKm)}/km" +
+                "Your rules: ${Scorer.money(thresholds.minPay)} min, " + (if (perKmFirst) "$perKm, $hourly" else "$hourly, $perKm") +
                     (thresholds.maxKm?.let { ", ${Scorer.km(it)} km max" } ?: "") +
                     (if (thresholds.extraKmPercent > 0) ", +${thresholds.extraKmPercent}% km" + (if (thresholds.extraKmOverKm > 0) " over ${thresholds.extraKmOverKm} km" else "") else ""),
             )
@@ -253,10 +258,7 @@ private fun RulesStep(thresholds: Thresholds) {
         NahGroup { RuleSteppers(thresholds, showExtras = false) }
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             SectionLabel("Your rules on a real offer")
-            VerdictCard(
-                preview.verdict, preview.hourly?.let { "$${it.toPlainString()}" }, NahCopy.cardReason(preview, thresholds),
-                spoken = NahCopy.spoken(preview, thresholds), kmChip = NahCopy.kmChip(preview),
-            )
+            VerdictCard(preview, thresholds)
             Text(
                 "$${EXAMPLE_OFFER.pay.toPlainString()} · ${EXAMPLE_OFFER.minutes} min · ${EXAMPLE_OFFER.km.toPlainString()} km",
                 style = Nah.style(14.sp, 400, 20.sp, color = c.inkMuted),
@@ -299,20 +301,17 @@ private fun TestStep(settings: AppSettings) {
             Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(c.surface).padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            VerdictCard(
-                preview.verdict, preview.hourly?.let { "$${it.toPlainString()}" }, NahCopy.cardReason(preview, settings.thresholds),
-                spoken = NahCopy.spoken(preview, settings.thresholds), kmChip = NahCopy.kmChip(preview),
-            )
+            VerdictCard(preview, settings.thresholds)
             StandInOffer()
         }
         NahGroup {
-            NahRow("Read verdicts out loud", "\"${NahCopy.speech(preview, settings.voiceMode)}\"") {
+            NahRow("Read verdicts out loud", "\"${NahCopy.speech(preview, settings)}\"") {
                 NahSwitch(settings.voice, { v -> scope.launch { repo.setVoice(v) } }, "Read verdicts out loud")
             }
         }
         NahButton(
             "Play the test verdict",
-            { voice.say(NahCopy.speech(preview, settings.voiceMode), settings) },
+            { voice.say(NahCopy.speech(preview, settings), settings) },
             modifier = Modifier.fillMaxWidth(), kind = NahButtonKind.Secondary,
         )
     }

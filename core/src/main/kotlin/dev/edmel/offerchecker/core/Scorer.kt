@@ -7,8 +7,8 @@ import java.math.RoundingMode
  * The five decision rules, run in order; the first that fails sets the colour.
  *   1. pay ≥ min pay        else Red
  *   2. km ≤ max km          else Red (when a max is set)
- *   3. $/hr ≥ min hourly    else Red
- *   4. $/km ≥ min per km    else Yellow
+ *   3. the strict rate      else Red     ($/hr ≥ min hourly by default, or $/km ≥ min per km)
+ *   4. the other rate       else Yellow  ([Thresholds.priority] picks which is strict)
  *   5. otherwise            Green
  * The unpaid drive back ([Thresholds.extraKmPercent], on trips over [Thresholds.extraKmOverKm]) adds km
  * and minutes to the rates, not to the max.
@@ -42,14 +42,20 @@ object Scorer {
         val perKm = if (totalKm.signum() > 0) offer.pay.divide(totalKm, 2, RoundingMode.HALF_UP) else null
 
         // Exact checks: pay*60 ≥ minHourly*minutes  ⇔  pay/minutes*60 ≥ minHourly.
+        val shortHourly = offer.pay.multiply(SIXTY) < t.minHourly.multiply(m)
+        val shortPerKm = totalKm.signum() > 0 && offer.pay < t.minPerKm.multiply(totalKm)
+        val (strict, soft) = when (t.priority) {
+            Priority.HOURLY -> (shortHourly to Check.HOURLY) to (shortPerKm to Check.PER_KM)
+            Priority.PER_KM -> (shortPerKm to Check.PER_KM) to (shortHourly to Check.HOURLY)
+        }
         val (verdict, check) = when {
             // An add-on's pay is only what it adds to a trip already accepted, so the minimum
             // (meant for a whole trip) doesn't apply; it's judged on $/hr and $/km alone.
             !offer.addOn && offer.pay < t.minPay -> Verdict.RED to Check.MIN_PAY
             // The max is about how far Uber sends you: the card's km, without the drive back.
             t.maxKm != null && offer.km > t.maxKm -> Verdict.RED to Check.MAX_KM
-            offer.pay.multiply(SIXTY) < t.minHourly.multiply(m) -> Verdict.RED to Check.HOURLY
-            totalKm.signum() > 0 && offer.pay < t.minPerKm.multiply(totalKm) -> Verdict.YELLOW to Check.PER_KM
+            strict.first -> Verdict.RED to strict.second
+            soft.first -> Verdict.YELLOW to soft.second
             else -> Verdict.GREEN to null
         }
         val rule = when (check) {

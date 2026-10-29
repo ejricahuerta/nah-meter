@@ -36,9 +36,13 @@ The scoring rules and offer patterns in `core/` carry over to either route.
 | Order | Check                  | Default        | If it fails |
 |-------|------------------------|----------------|-------------|
 | 1     | Minimum pay            | pay ≥ $5.50    | nah.        |
-| 2     | Hourly floor (priority)| ≥ $20.00/hr    | nah.        |
-| 3     | Per-km floor           | ≥ $1.00/km     | eh.         |
+| 2     | Strict rate            | ≥ $20.00/hr    | nah.        |
+| 3     | The other rate         | ≥ $1.00/km     | eh.         |
 | 4     | All passed             | —              | bet.        |
+
+$/hr is the strict rate by default. **Strict on $/km** (Rules, or the "Strict on" tile in the
+notification shade) swaps them for busy times, when traffic stretches the minutes but not the km:
+then missing $1.00/km is nah. and missing $20.00/hr is eh.
 
 "Add a delivery" add-ons skip the minimum-pay check: their pay is only what they add to a trip
 you already have, so they're judged on $/hr and $/km. The first check that fails sets the colour. Exactly meeting a target passes. If a number
@@ -62,8 +66,8 @@ Example: $6.07, 23 min, 11.5 km → **nah.** `$15.83/hr`, with "Under your $20 �
 8. Allow notifications (for the "Offer checker on" notice).
 9. Open Uber Driver and wait for an offer, or tap **Show** next to "Show a test verdict" in Settings.
 
-**Using the verdict:** a black card docks 8dp above Uber's offer card: the word, the $/hr and
-the reason. Turn on **Compact verdict** in Thresholds for a small pill at the top instead (tap it
+**Using the verdict:** a black card docks 8dp above Uber's offer card: the word, the strict rate
+($/hr, or $/km when strict on $/km), the reason and the other rate. Turn on **Compact verdict** in Thresholds for a small pill at the top instead (tap it
 to expand). Tap the card to dismiss it; it also leaves when the offer closes or after 20 s. Haptics:
 bet. one short buzz, eh. two short, nah. one long. The **Read offers** switch on Status pauses
 everything.
@@ -79,7 +83,7 @@ long as the signing secrets below are set, because every build is then signed wi
   Uber's windows with on-device text recognition (Android 11+).
 - Floating badge (accessibility overlay: no "draw over apps" permission needed).
 - Four tabs: **Home** (a power button for reading on or off, today's offers, the delivery apps to
-  open, your rules in one line), **History** (the offer log), **Rules** (min pay, $/hr, $/km, max km,
+  open, your rules in one line), **History** (the offer log), **Rules** (which rate is strict, min pay, $/hr, $/km, max km,
   unpaid extra km for the drive back, wait buffer) and **Settings** (permissions, verdict card, voice, haptics, appearance, delivery apps).
 - Settings → Permissions: each setup step with a one-tap link, and Diagnostics with the **raw
   text** it saw (for diagnosing a grey badge).

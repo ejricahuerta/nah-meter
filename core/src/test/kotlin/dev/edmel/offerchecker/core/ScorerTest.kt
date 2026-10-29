@@ -136,6 +136,59 @@ class ScorerTest {
         assertEquals(null, Scorer.score(offer("40.00", 40, "11.5"), Thresholds(maxKm = BigDecimal("12"), extraKmPercent = 50)).failed)
     }
 
+    /** Strict on $/km (busy times): missing $/km is red and missing $/hr only yellow; the default is the reverse. */
+    @Test fun priorityPicksTheStrictRate() {
+        val perKm = defaults.copy(priority = Priority.PER_KM)
+
+        // Short on $/hr, plenty per km.
+        val slow = offer("6.00", 30, "1.0")
+        check(slow, Verdict.RED, "12.00", "6.00", "Under \$20/hr target")
+        check(slow, Verdict.YELLOW, "12.00", "6.00", "Under \$20/hr target", perKm)
+        assertEquals(Check.HOURLY, Scorer.score(slow, perKm).failed)
+
+        // Short on $/km, fine per hour.
+        val far = offer("10.00", 25, "12.0")
+        check(far, Verdict.YELLOW, "24.00", "0.83", "Under \$1/km target")
+        check(far, Verdict.RED, "24.00", "0.83", "Under \$1/km target", perKm)
+        assertEquals(Check.PER_KM, Scorer.score(far, perKm).failed)
+
+        // Short on both: red on either priority, named after the strict rate.
+        val both = offer("6.00", 30, "12.0")
+        assertEquals(Check.HOURLY, Scorer.score(both, defaults).failed)
+        assertEquals(Check.PER_KM, Scorer.score(both, perKm).failed)
+        assertEquals(Verdict.RED, Scorer.score(both, perKm).verdict)
+
+        // Exactly $20/hr and $1/km passes on both.
+        check(offer("8.00", 24, "8.0"), Verdict.GREEN, "20.00", "1.00", null)
+        check(offer("8.00", 24, "8.0"), Verdict.GREEN, "20.00", "1.00", null, perKm)
+
+        // The minimum and the max km still come first.
+        assertEquals(Check.MIN_PAY, Scorer.score(offer("5.00", 8, "20.0"), perKm).failed)
+        assertEquals(Check.MAX_KM, Scorer.score(offer("10.00", 25, "16"), perKm.copy(maxKm = BigDecimal("15"))).failed)
+    }
+
+    /** Strict on $/km with the other rules: add-ons still skip the minimum, and the drive back counts in the $/km. */
+    @Test fun priorityWithAddOnsAndDriveBack() {
+        val perKm = defaults.copy(priority = Priority.PER_KM)
+
+        // 2026-10-28 add-on, $5.10 for 13 min and 3.5 km: under the minimum, but add-ons skip it.
+        val addOn = Offer(BigDecimal("5.10"), 13, BigDecimal("3.5"), addOn = true)
+        assertEquals(Verdict.GREEN, Scorer.score(addOn, perKm).verdict)
+        // The same add-on stretched to 6 km is short per km: red when $/km is strict.
+        val longer = Scorer.score(addOn.copy(km = BigDecimal("6")), perKm)
+        assertEquals(Verdict.RED to Check.PER_KM, longer.verdict to longer.failed)
+
+        // $30, 30 min, 25 km clears $1/km alone, but with half the km again for the drive back
+        // (37.5 km, $0.80/km) it's short: eh. by default, nah. with $/km strict.
+        val far = offer("30.00", 30, "25")
+        val back = Thresholds(extraKmPercent = 50)
+        assertEquals(Verdict.GREEN, Scorer.score(far, perKm).verdict)
+        assertEquals(Verdict.YELLOW, Scorer.score(far, back).verdict)
+        val strict = Scorer.score(far, back.copy(priority = Priority.PER_KM))
+        assertEquals(Verdict.RED to Check.PER_KM, strict.verdict to strict.failed)
+        assertEquals(BigDecimal("0.80"), strict.perKm)
+    }
+
     /** The drive back only counts on trips over 10 km by default; exactly 10 km doesn't. */
     @Test fun extraKmOnlyOverSetKm() {
         val t = Thresholds(extraKmPercent = 50)
