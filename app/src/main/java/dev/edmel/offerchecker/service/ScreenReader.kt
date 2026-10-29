@@ -73,6 +73,7 @@ object ScreenReader {
                                 done(lines, height)
                             }
                     } catch (e: Throwable) {
+                        logError(LogEntry.error("Screenshot error", e, frames = 3))
                         runCatching { result.hardwareBuffer.close() }
                         if (image != null && image !== screen) image.recycle()
                         screen?.recycle()
@@ -80,9 +81,21 @@ object ScreenReader {
                     }
                 }
 
-                override fun onFailure(errorCode: Int) = done(null, 0)
+                override fun onFailure(errorCode: Int) {
+                    logError(LogEntry(System.currentTimeMillis(), "Screenshot refused", listOf("Android error code $errorCode")))
+                    done(null, 0)
+                }
             },
         )
+    }
+
+    private var lastError: LogEntry? = null
+
+    /** Logs a screenshot error once, not once a second while it keeps happening. */
+    private fun logError(entry: LogEntry) {
+        if (lastError?.sameAs(entry) == true) return
+        lastError = entry
+        ServiceState.log(entry)
     }
 
     fun close() {
