@@ -8,25 +8,31 @@ These terms are an agreement between you and edmel.dev, who makes nah.meter. By 
 
 You must be 18 or older and able to make this agreement. nah.meter is for people who deliver with apps like Uber Eats.
 
-## Your licence
+## A community app
 
-nah.meter is licensed to you, not sold. You get a personal, non-exclusive right to install and use it on your own phone while you have a valid licence. Your licence key is for you: don't share it or resell it, and don't pass off a changed copy as nah.meter. We may end your licence if you break these terms, for example by sharing your key.
+nah.meter is run at cost, not for profit. What people pay covers hosting and upkeep. If you can't pay right now, ask and you'll get free months.
 
-## Price and free trial
+## Your account
 
-- **Free trial.** The first 14 days after you agree to these terms are free. One trial per person.
-- **Price.** After the trial, a licence costs $5 CAD a month, plus GST/HST and any other taxes that apply.
-- **How you pay.** You pay on edmel.dev, not in the app, and you get a licence key to enter in the app. The app checks the key on your phone, so it still never needs the internet.
-- **Billing.** Each payment covers one month. Your subscription renews every month at the same price until you cancel.
-- **If your licence ends.** When your trial is over and you haven't paid, or you stop paying, nah.meter stops giving verdicts. Your settings and offer log stay on your phone, and it starts working again when you renew.
-- **Price changes.** We'll email you at least 30 days before a price change. It applies from your next renewal, and you can cancel before then.
+You need an account to use nah.meter: your email, which you sign in with by a link we send you. Keep your email account secure. One account per person; don't share it. We may close an account that breaks these terms.
 
-## Cancelling and refunds
+nah.meter is licensed to you, not sold. You get a personal, non-exclusive right to install and use it on your own phone while your account has time on it. Don't pass off a changed copy as nah.meter.
 
-- Cancel any time by emailing contact@edmel.dev, or from your payment receipt. Cancelling stops the next renewal, and your licence runs to the end of the month you paid for.
-- If nah.meter doesn't work on your phone, email us within 7 days of your first payment for a full refund.
-- Otherwise payments aren't refunded for the rest of a month, unless the law says they must be.
-- If we end your licence for any reason other than you breaking these terms, or stop offering nah.meter, we refund the unused part of the month.
+## Price, trial and paying
+
+- **Free trial.** The first 14 days after you first sign in are free. One trial per person.
+- **Price.** After the trial, $5 CAD a month. If we ever have to charge GST/HST, we'll tell you at least 30 days before.
+- **Free months.** If you can't pay right now, tap Ask for free months in the app or email contact@edmel.dev, and we'll add free months.
+- **How you pay.** By Interac e-Transfer to the address shown in the app, with your pay code in the message. Each $5 adds a month, starting when your trial or paid time ends, whichever is later. We add it when the e-Transfer arrives, usually within a day.
+- **Nothing renews by itself.** There's no card on file and no automatic charge. You pay for the months you want, when you want.
+- **When your time runs out,** nah.meter stops giving verdicts until you pay or get free months. Your settings and offer log stay on your phone.
+- **Price changes.** We'll tell you in the app at least 30 days before. The new price applies to payments after that.
+
+## Refunds
+
+- If nah.meter doesn't work on your phone, email contact@edmel.dev within 7 days of a payment and we'll send it back by e-Transfer.
+- If we close your account for any reason other than you breaking these terms, or stop offering nah.meter, we refund the unused full months.
+- Otherwise payments aren't refunded, unless the law says they must be.
 
 ## Advice only
 
@@ -40,7 +46,7 @@ nah.meter is an independent app. It isn't made, endorsed or supported by Uber, D
 
 ## Your agreement with Uber
 
-You are responsible for following your agreement with Uber and any other delivery company. Uber's courier agreement limits tools that read, copy or scrape its app. Uber could see nah.meter that way, even though it only reads your screen and never taps. If Uber limits or deactivates your account, nah.meter and edmel.dev are not responsible. Use nah.meter at your own risk, and stop using it if you're unsure. Paying for a licence doesn't change that.
+You are responsible for following your agreement with Uber and any other delivery company. Uber's courier agreement limits tools that read, copy or scrape its app. Uber could see nah.meter that way, even though it only reads your screen and never taps. If Uber limits or deactivates your account, nah.meter and edmel.dev are not responsible. Use nah.meter at your own risk, and stop using it if you're unsure. Paying for nah.meter doesn't change that.
 
 ## Verdicts can be wrong
 

@@ -48,6 +48,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import dev.edmel.offerchecker.core.Scorer
 import dev.edmel.offerchecker.core.Verdict
+import dev.edmel.offerchecker.data.AccountState
 import dev.edmel.offerchecker.data.AppSettings
 import dev.edmel.offerchecker.data.OfferDatabase
 import dev.edmel.offerchecker.data.OfferEntry
@@ -66,6 +67,8 @@ fun HomeScreen(
     settings: AppSettings,
     onEditRules: () -> Unit,
     onOpenPermissions: () -> Unit,
+    account: AccountState,
+    onOpenAccount: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val ctx = LocalContext.current
@@ -77,7 +80,8 @@ fun HomeScreen(
     val running by ServiceState.running.collectAsState()
     val a11y = remember(refresh, running) { SystemSetup.isAccessibilityEnabled(ctx) }
     val reading = a11y && running
-    val on = reading && settings.readingEnabled
+    val licensed = account.canRead()
+    val on = reading && settings.readingEnabled && licensed
 
     val offers by remember { OfferDatabase.get(ctx).offers().observeAll() }.collectAsState(initial = emptyList())
     val startOfDay = remember(offers) { startOfToday() }
@@ -92,6 +96,7 @@ fun HomeScreen(
 
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
             when {
+                !licensed -> StatusPill(false, "Licence ended · no verdicts")
                 !a11y -> StatusPill(false, "Accessibility is off · not reading")
                 !running -> StatusPill(false, "Not running · turn Accessibility off and on")
                 !settings.readingEnabled -> StatusPill(false, "Paused · no verdicts")
@@ -107,7 +112,8 @@ fun HomeScreen(
                 active = on,
                 onChange = { v -> scope.launch { repo.setReadingEnabled(v) } },
             )
-            if (!a11y || !running) NahButton("Fix in Settings", onOpenPermissions, kind = NahButtonKind.Secondary, small = true)
+            if (!licensed) NahButton("Renew", onOpenAccount, kind = NahButtonKind.Secondary, small = true)
+            else if (!a11y || !running) NahButton("Fix in Settings", onOpenPermissions, kind = NahButtonKind.Secondary, small = true)
         }
 
         Column {

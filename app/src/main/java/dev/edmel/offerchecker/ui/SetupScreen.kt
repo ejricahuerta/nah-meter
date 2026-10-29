@@ -21,6 +21,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -49,6 +50,8 @@ import dev.edmel.offerchecker.core.Offer
 import dev.edmel.offerchecker.core.Scorer
 import dev.edmel.offerchecker.core.Thresholds
 import dev.edmel.offerchecker.core.Verdict
+import dev.edmel.offerchecker.data.AccountRepository
+import dev.edmel.offerchecker.data.AccountState
 import dev.edmel.offerchecker.data.AppSettings
 import dev.edmel.offerchecker.data.LEGAL_VERSION
 import dev.edmel.offerchecker.data.SettingsRepository
@@ -57,10 +60,10 @@ import dev.edmel.offerchecker.service.Voice
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
 
-private val STEP_TITLES = listOf("Welcome", "Your apps", "Your rules", "Permissions", "Test it")
+private val STEP_TITLES = listOf("Welcome", "Your account", "Your apps", "Your rules", "Permissions", "Test it")
 
 /**
- * Setup: five steps with a progress bar: Welcome, Your apps, Your rules, Permissions, Test it.
+ * Setup: six steps with a progress bar: Welcome, Your account, Your apps, Your rules, Permissions, Test it.
  * Shown on first launch and again from Settings → Run setup again. [onFinish] ends it.
  */
 @Composable
@@ -74,6 +77,7 @@ fun SetupScreen(settings: AppSettings, onFinish: () -> Unit, modifier: Modifier 
     val scope = rememberCoroutineScope()
     var agreed by rememberSaveable { mutableStateOf(settings.termsAccepted >= LEGAL_VERSION) }
     var doc by rememberSaveable { mutableStateOf<LegalDoc?>(null) }
+    val account by remember { AccountRepository(ctx) }.state.collectAsState(initial = AccountState())
     doc?.let {
         LegalScreen(it, onBack = { doc = null }, modifier = modifier)
         return
@@ -88,9 +92,10 @@ fun SetupScreen(settings: AppSettings, onFinish: () -> Unit, modifier: Modifier 
             SetupStepper(step)
             when (step) {
                 0 -> WelcomeStep(settings.thresholds, agreed, { agreed = it }, { doc = it })
-                1 -> AppsStep(settings)
-                2 -> RulesStep(settings.thresholds)
-                3 -> PermissionsStep()
+                1 -> AccountStep(account)
+                2 -> AppsStep(settings)
+                3 -> RulesStep(settings.thresholds)
+                4 -> PermissionsStep()
                 else -> TestStep(settings)
             }
         }
@@ -114,7 +119,11 @@ fun SetupScreen(settings: AppSettings, onFinish: () -> Unit, modifier: Modifier 
                     }
                 },
                 modifier = Modifier.weight(1f),
-                enabled = step != 0 || agreed,
+                enabled = when (step) {
+                    0 -> agreed
+                    1 -> account.signedIn
+                    else -> true
+                },
             )
         }
     }
@@ -176,7 +185,7 @@ private fun WelcomeStep(thresholds: Thresholds, agreed: Boolean, onAgreed: (Bool
                     (thresholds.maxKm?.let { ", ${Scorer.km(it)} km max" } ?: "") +
                     (if (thresholds.extraKmPercent > 0) ", +${thresholds.extraKmPercent}% km" + (if (thresholds.extraKmOverKm > 0) " over ${thresholds.extraKmOverKm} km" else "") else ""),
             )
-            Point("It never taps Match for you, and it has no internet access. You decide.")
+            Point("It never taps Match for you, and what it reads stays on your phone. You decide.")
             Point("Not affiliated with Uber.")
         }
         NahGroup {
@@ -214,7 +223,22 @@ private fun Point(text: String) {
     }
 }
 
-// ---------- 2 · Your apps ----------
+// ---------- 2 · Your account ----------
+
+@Composable
+private fun AccountStep(account: AccountState) {
+    val c = Nah.c
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Text("Your account", style = Nah.title.copy(color = c.ink), modifier = Modifier.semantics { heading() })
+        Text(
+            "Sign in with your email. Your 14-day free trial starts now. After that it's $5 a month, or free if you can't pay right now.",
+            style = Nah.style(15.sp, 400, 22.sp, color = c.inkMuted),
+        )
+        SignInPanel(account)
+    }
+}
+
+// ---------- 3 · Your apps ----------
 
 @Composable
 private fun AppsStep(settings: AppSettings) {
@@ -267,7 +291,7 @@ private fun NahCheck(checked: Boolean, enabled: Boolean, label: String, onChange
     }
 }
 
-// ---------- 3 · Your rules ----------
+// ---------- 4 · Your rules ----------
 
 /** The PRD's example offer, shown wherever the card needs something to be scored on. */
 internal val EXAMPLE_OFFER = Offer(BigDecimal("6.07"), 23, BigDecimal("11.5"))
@@ -293,7 +317,7 @@ private fun RulesStep(thresholds: Thresholds) {
     }
 }
 
-// ---------- 4 · Permissions ----------
+// ---------- 5 · Permissions ----------
 
 @Composable
 private fun PermissionsStep() {
@@ -304,7 +328,7 @@ private fun PermissionsStep() {
     }
 }
 
-// ---------- 5 · Test it ----------
+// ---------- 6 · Test it ----------
 
 @Composable
 private fun TestStep(settings: AppSettings) {

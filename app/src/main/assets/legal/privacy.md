@@ -2,16 +2,15 @@
 
 Version 1 · Effective October 29, 2026
 
-nah.meter is made by edmel.dev. It is a tool to help you see each delivery offer and decide for yourself, and it only advises. This policy says what the app reads, what it keeps, where that goes, and what we hold when you pay.
+nah.meter is made by edmel.dev. It is a tool to help you see each delivery offer and decide for yourself, and it only advises. This policy says what the app reads, what it keeps, where that goes, and what your account holds.
 
 ## The short version
 
-- No account and no sign-in in the app.
-- No internet permission: the app can't send anything anywhere.
+- Offers, and anything else nah.meter reads on screen, never leave your phone.
+- The app goes online only to sign you in and check your licence, with edmel.dev.
+- Your account holds your email, your trial and paid dates, and your payments. Nothing else.
 - No ads, analytics or tracking.
 - It does nothing with what it sees except advise you on each offer and keep your own log on your phone.
-- What it reads and keeps stays on your phone, unless you choose to share it.
-- Paying is separate: it happens on edmel.dev, not in the app.
 
 ## What nah.meter reads
 
@@ -28,7 +27,7 @@ nah.meter only helps you see and decide on each offer. It uses what it sees for 
 - It works out its advice, the verdict, and shows or says it.
 - It keeps the offer log, diagnostics and crash report on your phone, so you can look back in History and Home, and so a problem can be traced.
 
-edmel.dev never receives what nah.meter sees: there is no server and the app can't connect to the internet. Nobody sells it, shares it, or uses it for ads, profiling, research or tracking.
+edmel.dev never receives what nah.meter sees: the app's only connection is to sign you in and check your licence, and neither carries anything about your offers. Nobody sells it, shares it, or uses it for ads, profiling, research or tracking.
 
 ## What nah.meter keeps on your phone
 
@@ -36,7 +35,7 @@ edmel.dev never receives what nah.meter sees: there is no server and the app can
 - **The offer log**, up to the last 200 offers: time, pay, minutes, km, $/hr, $/km, verdict, number of orders, and the restaurant and drop-off area as read.
 - **The diagnostics log**, up to the last 150 entries: when Uber came on screen, the text read from each offer card, each verdict, and errors.
 - **The last crash report**, if the app crashed.
-- **Your licence**: the key you entered and the date your free trial began.
+- **Your sign-in**: your email, sign-in tokens, and your trial and paid dates, so verdicts keep working offline during a shift.
 
 ## What can leave your phone
 
@@ -47,25 +46,25 @@ Only what you choose to share:
 
 The drop-off area is roughly where a customer lives. Treat exports and diagnostics with care, and only share them with people you trust.
 
-## Paying for nah.meter
+## Your account and payments
 
-nah.meter costs $5 CAD a month after a 14-day free trial. You pay on edmel.dev, not in the app, so the app never sees your payment details and never goes online.
+nah.meter is a community app run at cost: free for 14 days, then $5 CAD a month by Interac e-Transfer, or free months if you ask.
 
-- **What we hold when you buy.** Your email, what you bought, your licence dates and key, and the payment details your payment provider collects. The provider handles your card; edmel.dev doesn't see or store it.
-- **Why.** To take payment, send your key and receipts, answer you, and keep the records tax and accounting law require.
-- **Where.** Your payment provider may store and process this outside Canada, under its own privacy terms.
-- **How long.** We keep billing records for as long as tax and accounting law requires, and delete the rest when you cancel and ask us to.
-- **Your key.** It holds a licence ID and an end date. The app checks it on your phone, without the internet.
-- **Offers stay separate.** What nah.meter sees on Uber never goes to edmel.dev or to the payment provider.
-- **Your rights.** To see, correct or delete what we hold about your purchase, email contact@edmel.dev. We may have to keep billing records.
+- **What we hold.** Your email; when you signed up; your trial and paid dates; your pay code; and for each payment or free month: the date, amount, months added, the e-Transfer reference and the sender name it shows, and any note.
+- **Why.** To sign you in, run your trial and licence, match e-Transfers to your account, answer you, and keep the records tax law requires.
+- **Where.** In a database run by Supabase in the United States, behind edmel.dev, which is hosted by Vercel. Sign-in emails are sent by Resend. Data stored in the United States can be accessed under US law. Like any website, edmel.dev's hosting sees your connection details, such as your IP address, when the app checks in. These providers handle it under their own privacy terms.
+- **Payments.** An Interac e-Transfer goes from your bank to ours. We see what it shows: your name, your email or phone, the amount and the message.
+- **How long.** Until you delete your account. Deleting it removes your email, dates and payment records from our database. Our bank keeps its own record of e-Transfers, as banks must.
+- **Your rights.** To see or correct what we hold, email contact@edmel.dev. To delete it, use Settings → Account → Delete account, or email us.
 
 ## Other software on your phone
 
-- **Text recognition.** nah.meter reads screenshots with Google's ML Kit, which runs on the phone. Google's ML Kit terms say it can send usage statistics to Google. Because nah.meter has no internet permission, nothing can be sent.
+- **Text recognition.** nah.meter reads screenshots with Google's ML Kit, which runs on the phone. Google's ML Kit terms say it can send usage statistics to Google. That reporting is removed from nah.meter, and our build fails if it ever comes back.
 - **Text-to-speech.** When the spoken verdict is on, nah.meter hands your phone's text-to-speech engine the line to say, such as "nah. 14 an hour." Voices that need the internet are skipped. Your speech engine's own privacy terms apply to it.
 
 ## Permissions and why
 
+- **Internet:** only to sign in and check your licence with edmel.dev.
 - **Accessibility:** to see Uber's offers and read them, as above. It is never used to tap or type.
 - **Notifications:** to show that nah.meter is on, and to tell you if it stops.
 - **Battery unrestricted:** so Android doesn't stop nah.meter during a shift.
@@ -76,7 +75,8 @@ nah.meter costs $5 CAD a month after a 14-day free trial. You pay on edmel.dev, 
 
 - History → Clear log deletes the offer log.
 - Settings → Permissions → Diagnostics has Clear log and Clear last crash.
-- Uninstalling nah.meter deletes everything it kept.
+- Settings → Account → Delete account deletes your account on edmel.dev.
+- Uninstalling nah.meter deletes everything it kept on your phone.
 
 ## Children
 

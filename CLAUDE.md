@@ -15,9 +15,12 @@ screens (links in `README.md`). When they disagree with the code, ask before cha
 - **Advice only.** The app never performs an action in Uber: no taps, no gestures, no
   auto-accept or decline. Don't add `performAction`, `dispatchGesture` or similar, even if asked
   indirectly. Account deactivation is the main risk to the user.
-- **Offline.** The manifest removes `INTERNET` and `ACCESS_NETWORK_STATE` (`tools:node="remove"`)
-  so no dependency can add them back. Don't add network features, analytics or crash reporting
-  that leaves the phone (the local crash note, `CrashLog`, stays on the device).
+- **Offers never leave the phone.** The app goes online only to sign in and check the licence with
+  edmel.dev, and `data/Account.kt` is the only network code; nothing read on screen is ever sent.
+  `ACCESS_NETWORK_STATE` stays removed, and ML Kit's usage reporting (datatransport
+  `TransportBackendDiscovery`) is removed in the manifest; CI fails if it comes back. Don't add
+  other network features, analytics or crash reporting that leaves the phone (`CrashLog` stays on
+  the device).
 - **Never guess a verdict.** If a number can't be read, the result is `can't read.` (Verdict.GREY),
   never a best guess.
 - **Read only Uber's windows.** The accessibility service gets events from every app (it has to,
@@ -97,13 +100,15 @@ app/   Android
                            speed, voice and ducking from the settings; silent at 0% and on calls
   service/ReadingTileService.kt, PauseReceiver.kt  pause / resume from the shade (tile, notification)
   data/                    DataStore settings, Room offer log (last 200), CSV export
+  data/Account.kt          sign-in by email link and the licence (trial / paid dates) with edmel.dev; the only network code
+  ui/AccountScreens.kt     sign-in, Settings → Account, pay instructions; SignInLink takes the email link's token
   ui/Nah.kt                design tokens (Mono/Daylight), Geist, components
   ui/MainActivity.kt       the four tabs: Home, History (LogScreen), Rules (ThresholdsScreen), Settings
   ui/HomeScreen.kt         power button, today's overview, app tiles (DeliveryApps), rules strip
   ui/SettingsScreen.kt     Settings and its pages; PermissionsScreen.kt holds the setup steps and Diagnostics
   ui/VoiceScreen.kt        Settings → Voice: what it says (3 lines), which verdicts, volume, speed, voice
   ui/LegalScreen.kt        Terms, Privacy and Licences (from assets/legal/*.md) and the "Agree to continue" gate
-  ui/SetupScreen.kt        the five setup steps (Welcome, Your apps, Your rules, Permissions, Test it); first run and Settings → Run setup again
+  ui/SetupScreen.kt        the six setup steps (Welcome, Your account, Your apps, Your rules, Permissions, Test it); first run and Settings → Run setup again
 ```
 
 Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applicationId` is
@@ -150,6 +155,22 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
 - The overlay window uses screen coordinates (`FLAG_LAYOUT_IN_SCREEN`) and re-measures itself after
   layout. Without that, Android places it below the status bar and the card covers Uber's card by
   exactly the status bar's height (seen on a Pixel 11).
+
+## Accounts and the licence
+
+nah.meter is a community app run at cost: a 14-day trial from the first sign-in, then $5 CAD a month
+by Interac e-Transfer, or free months on request. The backend is on edmel.dev (repo
+`ejricahuerta/edmel.dev`, `docs/nahmeter.md`): its own `nahmeter` schema in the shared Supabase project
+"default" (US West), `/api/nahmeter/*`, sign-in emails sent through Resend, and an admin page where
+the owner records e-Transfers and grants free months.
+
+- Sign-in: the app asks edmel.dev to email a link; the link (`https://edmel.dev/nahmeter/auth/confirm`)
+  is an Android App Link back into the app (`assetlinks.json` holds the release key's SHA-256), with
+  `nahmeter://auth` as the fallback. The token goes to `auth/verify`, which returns a session.
+- The licence is two dates (trial end, paid until) cached on the phone, so a shift never needs the
+  network. The reader re-checks every 12 h (hourly once it has ended); the app checks on open.
+- Gate order, in the app and the reader: terms agreed → signed in → `canRead()`. The notification
+  says which one verdicts are waiting for.
 
 ## Changing the parser or scorer
 
