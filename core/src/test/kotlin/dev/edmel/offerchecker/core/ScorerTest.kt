@@ -167,6 +167,28 @@ class ScorerTest {
         assertEquals(Check.MAX_KM, Scorer.score(offer("10.00", 25, "16"), perKm.copy(maxKm = BigDecimal("15"))).failed)
     }
 
+    /** Strict on $/km with the other rules: add-ons still skip the minimum, and the drive back counts in the $/km. */
+    @Test fun priorityWithAddOnsAndDriveBack() {
+        val perKm = defaults.copy(priority = Priority.PER_KM)
+
+        // 2026-10-28 add-on, $5.10 for 13 min and 3.5 km: under the minimum, but add-ons skip it.
+        val addOn = Offer(BigDecimal("5.10"), 13, BigDecimal("3.5"), addOn = true)
+        assertEquals(Verdict.GREEN, Scorer.score(addOn, perKm).verdict)
+        // The same add-on stretched to 6 km is short per km: red when $/km is strict.
+        val longer = Scorer.score(addOn.copy(km = BigDecimal("6")), perKm)
+        assertEquals(Verdict.RED to Check.PER_KM, longer.verdict to longer.failed)
+
+        // $30, 30 min, 25 km clears $1/km alone, but with half the km again for the drive back
+        // (37.5 km, $0.80/km) it's short: eh. by default, nah. with $/km strict.
+        val far = offer("30.00", 30, "25")
+        val back = Thresholds(extraKmPercent = 50)
+        assertEquals(Verdict.GREEN, Scorer.score(far, perKm).verdict)
+        assertEquals(Verdict.YELLOW, Scorer.score(far, back).verdict)
+        val strict = Scorer.score(far, back.copy(priority = Priority.PER_KM))
+        assertEquals(Verdict.RED to Check.PER_KM, strict.verdict to strict.failed)
+        assertEquals(BigDecimal("0.80"), strict.perKm)
+    }
+
     /** The drive back only counts on trips over 10 km by default; exactly 10 km doesn't. */
     @Test fun extraKmOnlyOverSetKm() {
         val t = Thresholds(extraKmPercent = 50)

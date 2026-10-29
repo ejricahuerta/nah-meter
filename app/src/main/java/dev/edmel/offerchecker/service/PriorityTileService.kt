@@ -27,9 +27,7 @@ class PriorityTileService : TileService() {
 
     override fun onClick() {
         scope.launch {
-            val repo = SettingsRepository(this@PriorityTileService)
-            val next = if (repo.settings.first().thresholds.priority == Priority.PER_KM) Priority.HOURLY else Priority.PER_KM
-            repo.setPriority(next)
+            val next = SettingsRepository(this@PriorityTileService).togglePriority()
             ServiceState.log(label(next), "from the quick-settings tile")
             show(next)
         }

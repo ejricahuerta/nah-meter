@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import dev.edmel.offerchecker.core.Offer
+import dev.edmel.offerchecker.core.Priority
 import dev.edmel.offerchecker.core.Scorer
 import dev.edmel.offerchecker.core.Thresholds
 import dev.edmel.offerchecker.core.Verdict
@@ -131,6 +132,7 @@ private fun SetupStepper(step: Int) {
 @Composable
 private fun WelcomeStep(thresholds: Thresholds) {
     val c = Nah.c
+    val perKmFirst = thresholds.priority == Priority.PER_KM
     Column(verticalArrangement = Arrangement.spacedBy(28.dp)) {
         Wordmark(30.sp)
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -149,12 +151,15 @@ private fun WelcomeStep(thresholds: Thresholds) {
         }
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Example(Verdict.GREEN, "pays your rate")
-            Example(Verdict.YELLOW, "pays the hour, long drive")
+            // eh. is the soft rate falling short, so it depends on which rate is strict.
+            Example(Verdict.YELLOW, if (perKmFirst) "pays the km, slow trip" else "pays the hour, long drive")
             Example(Verdict.RED, "not worth your time")
         }
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            val hourly = "${Scorer.money(thresholds.minHourly)}/hr"
+            val perKm = "${Scorer.money(thresholds.minPerKm)}/km"
             Point(
-                "Your rules: ${Scorer.money(thresholds.minPay)} min, ${Scorer.money(thresholds.minHourly)}/hr, ${Scorer.money(thresholds.minPerKm)}/km" +
+                "Your rules: ${Scorer.money(thresholds.minPay)} min, " + (if (perKmFirst) "$perKm, $hourly" else "$hourly, $perKm") +
                     (thresholds.maxKm?.let { ", ${Scorer.km(it)} km max" } ?: "") +
                     (if (thresholds.extraKmPercent > 0) ", +${thresholds.extraKmPercent}% km" + (if (thresholds.extraKmOverKm > 0) " over ${thresholds.extraKmOverKm} km" else "") else ""),
             )

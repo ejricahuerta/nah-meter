@@ -96,7 +96,7 @@ class SettingsRepository(context: Context) {
                 maxKm = this[Keys.maxKm]?.toBigDecimalOrNull(),
                 extraKmPercent = (this[Keys.extraKmPercent] ?: d.thresholds.extraKmPercent).coerceIn(0, 100),
                 extraKmOverKm = (this[Keys.extraKmOverKm] ?: d.thresholds.extraKmOverKm).coerceIn(0, 50),
-                priority = this[Keys.priority]?.let { v -> Priority.entries.firstOrNull { it.name == v } } ?: d.thresholds.priority,
+                priority = priority(),
             ),
             readingEnabled = this[Keys.readingEnabled] ?: d.readingEnabled,
             vibration = this[Keys.vibration] ?: d.vibration,
@@ -114,6 +114,9 @@ class SettingsRepository(context: Context) {
         )
     }
 
+    private fun Preferences.priority() =
+        this[Keys.priority]?.let { v -> Priority.entries.firstOrNull { it.name == v } } ?: Thresholds().priority
+
     suspend fun setMinPay(v: BigDecimal) = store.edit { it[Keys.minPay] = v.toPlainString() }
     suspend fun setMinHourly(v: BigDecimal) = store.edit { it[Keys.minHourly] = v.toPlainString() }
     suspend fun setMinPerKm(v: BigDecimal) = store.edit { it[Keys.minPerKm] = v.toPlainString() }
@@ -123,6 +126,10 @@ class SettingsRepository(context: Context) {
     suspend fun setExtraKmOverKm(v: Int) = store.edit { it[Keys.extraKmOverKm] = v.coerceIn(0, 50) }
     suspend fun setWaitBuffer(v: Int) = store.edit { it[Keys.waitBuffer] = v }
     suspend fun setPriority(v: Priority) = store.edit { it[Keys.priority] = v.name }
+    /** Flips the strict rate in one edit (two quick taps flip it twice, not once) and returns the new one. */
+    suspend fun togglePriority(): Priority = store.edit { prefs ->
+        prefs[Keys.priority] = (if (prefs.priority() == Priority.PER_KM) Priority.HOURLY else Priority.PER_KM).name
+    }.priority()
     suspend fun setReadingEnabled(v: Boolean) = store.edit { it[Keys.readingEnabled] = v }
     suspend fun setVibration(v: Boolean) = store.edit { it[Keys.vibration] = v }
     suspend fun setVoice(v: Boolean) = store.edit { it[Keys.voice] = v }
