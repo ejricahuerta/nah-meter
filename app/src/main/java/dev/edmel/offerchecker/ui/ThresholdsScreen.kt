@@ -28,12 +28,12 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.edmel.offerchecker.core.Offer
+import dev.edmel.offerchecker.core.Priority
 import dev.edmel.offerchecker.core.Scorer
 import dev.edmel.offerchecker.core.Thresholds
 import dev.edmel.offerchecker.data.AppSettings
 import dev.edmel.offerchecker.data.OfferDatabase
 import dev.edmel.offerchecker.data.SettingsRepository
-import dev.edmel.offerchecker.service.NahCopy
 import dev.edmel.offerchecker.service.ServiceState
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
@@ -60,18 +60,11 @@ fun ThresholdsScreen(settings: AppSettings, modifier: Modifier = Modifier) {
         modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(ScreenPadding),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("Rules", style = Nah.title.copy(color = c.ink))
-            Text("Pay first, then $/hr, then $/km.", style = Nah.style(14.sp, 400, 20.sp, color = c.inkMuted))
-        }
+        Text("Rules", style = Nah.title.copy(color = c.ink))
 
         // The real verdict card, scored with the rules below as they change.
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            SectionLabel("Live preview")
-            VerdictCard(
-                preview.verdict, preview.hourly?.let { "$${it.toPlainString()}" }, NahCopy.cardReason(preview, t),
-                spoken = NahCopy.spoken(preview, t), kmChip = NahCopy.kmChip(preview),
-            )
+            VerdictCard(preview, t)
             Text(
                 (if (isExample) "An example offer" else "Your last offer") +
                     " · $${sample.pay.toPlainString()} · ${sample.minutes} min · ${sample.km.toPlainString()} km",
@@ -79,14 +72,16 @@ fun ThresholdsScreen(settings: AppSettings, modifier: Modifier = Modifier) {
             )
         }
 
-        NahGroup { RuleSteppers(t, showBuffer = true) }
+        NahGroup { RuleSteppers(t, showExtras = true) }
 
         Column {
             SectionLabel("Per app (optional)")
             NahGroup {
-                NahRow("Uber Eats", "Uses your rules above")
+                NahRow("Uber Eats") {
+                    Text("Default", style = Nah.style(14.sp, 600, 20.sp, color = c.inkMuted))
+                }
                 NahDivider()
-                NahRow("DoorDash", "When verdicts arrive") {
+                NahRow("DoorDash") {
                     Text("Soon", style = Nah.style(14.sp, 600, 20.sp, color = c.inkMuted))
                 }
             }
@@ -97,12 +92,20 @@ fun ThresholdsScreen(settings: AppSettings, modifier: Modifier = Modifier) {
 private fun step(v: BigDecimal, delta: String, lo: String, hi: String) =
     (v + BigDecimal(delta)).max(BigDecimal(lo)).min(BigDecimal(hi)).setScale(2, RoundingMode.HALF_UP)
 
-/** The rule steppers, as rows to put in a [NahGroup]: minimum pay, per hour, per km and (optionally) the wait buffer. */
+/**
+ * The rule steppers, as rows to put in a [NahGroup]: which rate is strict, minimum pay, per hour,
+ * per km and, with [showExtras], max km, the unpaid extra km and the wait buffer.
+ */
 @Composable
-fun RuleSteppers(t: Thresholds, showBuffer: Boolean) {
+fun RuleSteppers(t: Thresholds, showExtras: Boolean) {
     val ctx = LocalContext.current
     val repo = remember { SettingsRepository(ctx) }
     val scope = rememberCoroutineScope()
+    val perKmFirst = t.priority == Priority.PER_KM
+    SegmentedRow(
+        "Strict on", "The other one only gives meh.", listOf("$/hr", "$/km"), if (perKmFirst) 1 else 0,
+    ) { i -> scope.launch { repo.setPriority(if (i == 1) Priority.PER_KM else Priority.HOURLY) } }
+    NahDivider()
     ThresholdField(
         "Minimum pay", money(t.minPay), null, "Below this is always nah.",
         "Decrease minimum pay by $0.25", "Increase minimum pay by $0.25",
@@ -111,19 +114,51 @@ fun RuleSteppers(t: Thresholds, showBuffer: Boolean) {
     )
     NahDivider()
     ThresholdField(
-        "Per hour", money(t.minHourly), "/hr", "Under this is nah.",
+        "Per hour", money(t.minHourly), "/hr", if (perKmFirst) "Under this is meh." else "Under this is nah.",
         "Decrease per hour by $0.50", "Increase per hour by $0.50",
         { scope.launch { repo.setMinHourly(step(t.minHourly, "-0.50", "5", "80")) } },
         { scope.launch { repo.setMinHourly(step(t.minHourly, "0.50", "5", "80")) } },
     )
     NahDivider()
     ThresholdField(
-        "Per km", money(t.minPerKm), "/km", "Under this is eh.",
+        "Per km", money(t.minPerKm), "/km", if (perKmFirst) "Under this is nah." else "Under this is meh.",
         "Decrease per km by $0.05", "Increase per km by $0.05",
         { scope.launch { repo.setMinPerKm(step(t.minPerKm, "-0.05", "0", "5")) } },
         { scope.launch { repo.setMinPerKm(step(t.minPerKm, "0.05", "0", "5")) } },
     )
-    if (showBuffer) {
+    if (showExtras) {
+        // Max km: Off, then 5 to 100 km in 1 km steps.
+        fun setMax(km: Int?) {
+            scope.launch { repo.setMaxKm(km?.takeIf { it >= 5 }?.coerceAtMost(100)?.let { BigDecimal(it) }) }
+        }
+        val max = t.maxKm?.setScale(0, RoundingMode.HALF_UP)?.toInt()
+        NahDivider()
+        ThresholdField(
+            "Max km", max?.toString() ?: "Off", if (max == null) null else " km", "Over this is nah.",
+            "Decrease max km by 1 km", "Increase max km by 1 km",
+            { setMax(max?.minus(1)) },
+            { setMax(if (max == null) 5 else max + 1) },
+        )
+        NahDivider()
+        val pct = t.extraKmPercent
+        ThresholdField(
+            "Extra km (unpaid)", if (pct == 0) "Off" else "$pct", if (pct == 0) null else "%",
+            "The drive back. Lowers $/km and $/hr.",
+            "Decrease extra km by 10%", "Increase extra km by 10%",
+            { scope.launch { repo.setExtraKmPercent(pct - 10) } },
+            { scope.launch { repo.setExtraKmPercent(pct + 10) } },
+        )
+        if (pct > 0) {
+            NahDivider()
+            val over = t.extraKmOverKm
+            ThresholdField(
+                "Only on trips over", if (over == 0) "Any trip" else "$over", if (over == 0) null else " km",
+                "Shorter trips stay in your area.",
+                "Decrease by 1 km", "Increase by 1 km",
+                { scope.launch { repo.setExtraKmOverKm(over - 1) } },
+                { scope.launch { repo.setExtraKmOverKm(over + 1) } },
+            )
+        }
         NahDivider()
         ThresholdField(
             "Restaurant wait buffer", "${t.waitBufferMin}", " min", "Added to Uber's time",

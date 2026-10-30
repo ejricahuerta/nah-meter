@@ -1,8 +1,8 @@
 # CLAUDE.md
 
 nah.meter ("nah." for short) is a sideloaded Android app for Uber Eats couriers. It reads each
-offer the Uber Driver app shows and docks a one-word verdict above the offer card: **bet.**,
-**eh.**, **nah.** or **can't read.** Kotlin, Jetpack Compose, min API 26, target API 35.
+offer the Uber Driver app shows and docks a one-word verdict above the offer card: **bet!**,
+**meh.**, **nah.** or **can't read.** Kotlin, Jetpack Compose, min API 26, target API 35.
 
 Android only: iPhone is out of scope until the project is funded (see README, "iPhone: not
 supported yet"); don't start iOS work unless asked.
@@ -81,8 +81,9 @@ never a push to `main`.
 ```
 core/  pure Kotlin, no Android: what to read and how to score it (unit-tested)
   OfferParser.kt  all text patterns; card texts -> ReadResult; OCR lines -> card texts
-  Scorer.kt       the four rules, exact BigDecimal maths -> Evaluation
-  Model.kt        Offer, ReadResult, Thresholds, Evaluation, Verdict, Check, OcrLine
+  Scorer.kt       the five rules (max km off by default; Thresholds.priority picks the strict rate, $/hr
+                  or $/km, the other gives meh.) and the unpaid extra km, exact BigDecimal maths -> Evaluation
+  Model.kt        Offer, ReadResult, Thresholds, Priority, Evaluation, Verdict, Check, OcrLine
 app/   Android
   service/OfferAccessibilityService.kt  event loop: find Uber windows, read, score, show, log
   service/CardReader.kt    accessibility tree -> the offer card's texts and its top edge
@@ -96,6 +97,7 @@ app/   Android
                            volume at the user's level (Uber moves navigation volume), then restores it;
                            speed, voice and ducking from the settings; silent at 0% and on calls
   service/ReadingTileService.kt, PauseReceiver.kt  pause / resume from the shade (tile, notification)
+  service/PriorityTileService.kt  "Strict on $/hr / $/km" tile: flips the strict rate from the shade
   data/                    DataStore settings, Room offer log (last 200), CSV export
   ui/Nah.kt                design tokens (Mono/Daylight), Geist, components
   ui/MainActivity.kt       the four tabs: Home, History (LogScreen), Rules (ThresholdsScreen), Settings
@@ -123,9 +125,11 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
   adds 2 min per order for waiting on food (`Thresholds.perOrderWaitMin`, decided 2026-10-29), so
   2 orders score 4 min longer than Uber's time. The verdict card doesn't show "×2".
 - OCR mangles text. The parser tolerates: `$1l.59` and `$1159` (look-alike letters, dropped decimal
-  point), stray symbols before `$`, `(` read as `C`, missing spaces or brackets, `l hr 3 min` (Uber's
-  "1" reads as l or I). Uber always shows cents. A trip line with an hours word but no readable
-  hours number is `can't read.`: the minutes alone once scored 63 min as 3 ($270.80/hr).
+  point), stray symbols before `$`, `(` read as `C`, missing spaces or brackets (`1 hr12 min`),
+  `l hr 3 min` (Uber's "1" reads as l or I). Uber always shows cents. A trip line with an hours word
+  but no readable hours number is `can't read.`: the minutes alone once scored 63 min as 3
+  ($270.80/hr), and "1 hr12 min" as 2 ($190.40/hr). A trip faster than 100 km/h is a misread
+  time, also `can't read.`
 - **Pay is the dollar amount in the tallest text** in the band above the trip line, never the
   largest value: pages behind the pop-up have their own dollar amounts.
 - The restaurant and drop-off area are the lines between the trip line and the card's button
@@ -135,10 +139,15 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
 - The log holds each offer once: a card equal (pay, minutes, km, ×2) to the last logged offer, or
   to one logged in the last 30 min, still gets its verdict but isn't logged again
   (`OfferDao.addIfNew`). Uber re-shows the same card after you leave and come back.
-- One verdict per card: re-reads of the same card (same minutes and km) are ignored until the
-  card has been gone for 600 ms. This stops flip-flopping between noisy OCR reads.
+- One verdict per card (decided 2026-10-29): a screenshot read counts only when the next read
+  agrees (a grey read in between doesn't break the pair), so a one-off misread ($19.04 read as
+  $9.04) never shows or replaces a verdict. The verdict comes about 1 s after the card. Re-reads of
+  the same card (same minutes and km) are ignored until the card has been gone for 600 ms.
+  Accessibility text is exact and counts at once.
 - The verdict stays up as long as Uber's card does (no timer, decided 2026-10-29): it goes when
-  the card has been gone for 600 ms (closed or accepted), or when tapped.
+  the card has been gone for 600 ms (closed or accepted), or when tapped. While a card is up the
+  reader looks every second even without Uber events (a still screen sends none), or the verdict
+  could outlive the card.
 - Accepted vs passed isn't known yet (nah.meter sees the screen, never the tap). To learn it from
   real text, the log has "After the card (4 s / 12 s)" entries: Uber's text after each read card
   goes. Build accepted/passed tracking from those pastes, not from guesses.
@@ -165,12 +174,18 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
   `nahmeter` stays only in package, file and CSV names (`app.nahmeter`, `nahmeter.apk`).
 - Tokens live in `ui/Nah.kt` and come from the design system's `tokens.json`. The verdict card
   and pill are black in both themes; colour only ever means a verdict.
-- The verdict card: the word and $/hr on top; under them the reason (17sp semibold, `cardSoft`:
-  "Under your $20", "Under $5.50 minimum", "Short on $/km", "Clears your $20") and the $/km in its
-  own chip (`cardChip`, `NahCopy.kmChip`). Nothing under 15sp.
-- Verdict words are lowercase and end in a full stop (`bet.`); in chips the stop becomes a dot
-  before the word. Use `NahCopy` for every verdict string, never inline text.
-- Voice: short, plain, sentence case, no emoji or exclamation marks. Never "Accept" or "Decline".
+- The verdict card: the word and the strict rate on top ($/hr, or $/km when strict on $/km; the
+  pill shows the same); under them the reason (17sp semibold, `cardSoft`: "Under your $20",
+  "Under $5.50 minimum", "Short on $/km", "Clears your $20"; strict on $/km: "Under your $1/km",
+  "Short on $/hr", "Clears your $1/km") and the other rate in its own chip (`cardChip`). Which
+  rate goes where comes only from `NahCopy.rates`. Nothing under 15sp.
+- Verdict words are lowercase: **nah.**, **meh.**, **bet!** and **can't read.** (bet! is the only
+  exclamation mark). In chips the stop or mark becomes a dot before the word; in running text the
+  words drop it ("bet, meh or nah"). Use `NahCopy` for every verdict string, never inline text.
+- Voice: short, plain, sentence case, no emoji or exclamation marks (the bet! verdict aside). Never
+  "Accept" or "Decline".
+- No helper text that restates a label or a visible state ("Tap to pause" under a power button). Add a
+  line only for a reason, a warning, a step or a number.
 - The overlay is classic Views (not Compose); `TypefaceSpan(Typeface)` needs API 28, so use the
   local `FontSpan`.
 - Accessibility: verdicts are polite live regions with a spoken description (`NahCopy.spoken`);

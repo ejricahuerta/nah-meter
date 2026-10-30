@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import dev.edmel.offerchecker.core.Priority
 import dev.edmel.offerchecker.core.Thresholds
 import dev.edmel.offerchecker.core.Verdict
 import kotlinx.coroutines.flow.Flow
@@ -18,7 +19,10 @@ import java.math.BigDecimal
 /** Which theme to draw: Mono (dark, the default), Daylight (light), or whichever the phone is in. */
 enum class Appearance { MONO, DAYLIGHT, PHONE }
 
-/** What the spoken verdict says: the word, the word and $/hr, or the word, $/hr and $/km. */
+/**
+ * What the spoken verdict says: the word, the word and $/hr, or the word, $/hr and $/km. When $/km
+ * is the strict rate ([Thresholds.priority]) it's said in place of, or before, the $/hr.
+ */
 enum class VoiceMode { WORD, WORD_HOURLY, WORD_HOURLY_KM }
 
 data class AppSettings(
@@ -57,7 +61,11 @@ class SettingsRepository(context: Context) {
         val minPay = stringPreferencesKey("min_pay")
         val minHourly = stringPreferencesKey("min_hourly")
         val minPerKm = stringPreferencesKey("min_per_km")
+        val maxKm = stringPreferencesKey("max_km")
+        val extraKmPercent = intPreferencesKey("extra_km_pct")
+        val extraKmOverKm = intPreferencesKey("extra_km_over")
         val waitBuffer = intPreferencesKey("wait_buffer_min")
+        val priority = stringPreferencesKey("priority")
         val readingEnabled = booleanPreferencesKey("reading_enabled")
         val vibration = booleanPreferencesKey("vibration")
         val voice = booleanPreferencesKey("voice")
@@ -85,6 +93,10 @@ class SettingsRepository(context: Context) {
                 minHourly = dec(Keys.minHourly, d.thresholds.minHourly),
                 minPerKm = dec(Keys.minPerKm, d.thresholds.minPerKm),
                 waitBufferMin = this[Keys.waitBuffer] ?: d.thresholds.waitBufferMin,
+                maxKm = this[Keys.maxKm]?.toBigDecimalOrNull(),
+                extraKmPercent = (this[Keys.extraKmPercent] ?: d.thresholds.extraKmPercent).coerceIn(0, 100),
+                extraKmOverKm = (this[Keys.extraKmOverKm] ?: d.thresholds.extraKmOverKm).coerceIn(0, 50),
+                priority = priority(),
             ),
             readingEnabled = this[Keys.readingEnabled] ?: d.readingEnabled,
             vibration = this[Keys.vibration] ?: d.vibration,
@@ -102,10 +114,22 @@ class SettingsRepository(context: Context) {
         )
     }
 
+    private fun Preferences.priority() =
+        this[Keys.priority]?.let { v -> Priority.entries.firstOrNull { it.name == v } } ?: Thresholds().priority
+
     suspend fun setMinPay(v: BigDecimal) = store.edit { it[Keys.minPay] = v.toPlainString() }
     suspend fun setMinHourly(v: BigDecimal) = store.edit { it[Keys.minHourly] = v.toPlainString() }
     suspend fun setMinPerKm(v: BigDecimal) = store.edit { it[Keys.minPerKm] = v.toPlainString() }
+    /** null turns the limit off. */
+    suspend fun setMaxKm(v: BigDecimal?) = store.edit { prefs -> if (v == null) prefs.remove(Keys.maxKm) else prefs[Keys.maxKm] = v.toPlainString() }
+    suspend fun setExtraKmPercent(v: Int) = store.edit { it[Keys.extraKmPercent] = v.coerceIn(0, 100) }
+    suspend fun setExtraKmOverKm(v: Int) = store.edit { it[Keys.extraKmOverKm] = v.coerceIn(0, 50) }
     suspend fun setWaitBuffer(v: Int) = store.edit { it[Keys.waitBuffer] = v }
+    suspend fun setPriority(v: Priority) = store.edit { it[Keys.priority] = v.name }
+    /** Flips the strict rate in one edit (two quick taps flip it twice, not once) and returns the new one. */
+    suspend fun togglePriority(): Priority = store.edit { prefs ->
+        prefs[Keys.priority] = (if (prefs.priority() == Priority.PER_KM) Priority.HOURLY else Priority.PER_KM).name
+    }.priority()
     suspend fun setReadingEnabled(v: Boolean) = store.edit { it[Keys.readingEnabled] = v }
     suspend fun setVibration(v: Boolean) = store.edit { it[Keys.vibration] = v }
     suspend fun setVoice(v: Boolean) = store.edit { it[Keys.voice] = v }

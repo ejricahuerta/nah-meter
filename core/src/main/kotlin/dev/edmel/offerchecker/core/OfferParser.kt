@@ -20,16 +20,20 @@ object OfferParser {
 
     /**
      * "23 min (11.5 km) total". Also accepts what text recognition makes of it:
-     * "(" read as "C", "[" or "{", missing brackets or spaces ("43min (13.6km)total"), and
-     * letters for digits in the time ("l hr 3 min": Uber's "1" has no foot and reads as l or I).
+     * "(" read as "C", "[" or "{", missing brackets or spaces ("43min (13.6km)total", "1 hr12 min"),
+     * and letters for digits in the time ("l hr 3 min": Uber's "1" has no foot and reads as l or I).
+     * Groups: 1 hours, 2 minutes after the hours, 3 minutes alone, 4 km.
      */
     private val TRIP = Regex(
-        """(?:(?<![a-z])([0-9lIi|O]{1,2})\s*h(?:r|rs|our|ours)?\.?\s*)?(?:(?<![a-z])([0-9lIi|O]{1,3})\s*min\.?)?\s*[(\[{C]?\s*\+?\s*(\d+(?:[.,]\d+)?)\s*km\s*[)\]}]?\s*total""",
+        """(?:(?<![a-z])([0-9lIi|O]{1,2})\s*h(?:r|rs|our|ours)?\.?\s*(?:([0-9lIi|O]{1,3})\s*min\.?)?|(?<![a-z])([0-9lIi|O]{1,3})\s*min\.?)?\s*[(\[{C]?\s*\+?\s*(\d+(?:[.,]\d+)?)\s*km\s*[)\]}]?\s*total""",
         RegexOption.IGNORE_CASE,
     )
 
-    /** An hours word in the trip line: if its number wasn't read, the minutes alone are wrong. */
-    private val HOURS_WORD = Regex("""(?<![a-z])h(?:r|rs|our|ours)\b""", RegexOption.IGNORE_CASE)
+    /** An hours word in the trip line ("hr", or "hr12"): if its number wasn't read, the minutes alone are wrong. */
+    private val HOURS_WORD = Regex("""(?<![a-z])h(?:r|rs|our|ours)(?![a-z])""", RegexOption.IGNORE_CASE)
+
+    /** Faster than this (km/h, over the whole trip) is a misread time, not a real offer. */
+    private val MAX_KMH = BigDecimal(100)
 
     /** "l" → 1, "O" → 0: a time number as text recognition may have read it. */
     private fun timeNumber(s: String): Int? =
@@ -106,14 +110,18 @@ object OfferParser {
             ?: return ReadResult.Unreadable(lines)
         // "1 hr 1 min" = 61; "1 hr" = 60; "23 min" = 23.
         val hours = timeNumber(trip.groupValues[1])
-        val mins = timeNumber(trip.groupValues[2])
+        val mins = timeNumber(trip.groupValues[2].ifEmpty { trip.groupValues[3] })
         // "? hr 3 min" with the hours unreadable: 3 minutes would be a guess, and a wildly good one.
         if (hours == null && HOURS_WORD.containsMatchIn(tripLine.substringBefore("km"))) {
             return ReadResult.Unreadable(lines)
         }
         val minutes = if (hours == null && mins == null) null else (hours ?: 0) * 60 + (mins ?: 0)
-        val km = trip.groupValues[3].replace(',', '.').toBigDecimalOrNull()
+        val km = trip.groupValues[4].replace(',', '.').toBigDecimalOrNull()
         if (minutes == null || minutes <= 0 || km == null || km < BigDecimal.ZERO) {
+            return ReadResult.Unreadable(lines)
+        }
+        // 25 km in 2 min: a digit of the time was lost, so any verdict would be a guess.
+        if (km.multiply(BigDecimal(60)) > MAX_KMH.multiply(BigDecimal(minutes))) {
             return ReadResult.Unreadable(lines)
         }
         val orders = lines.firstNotNullOfOrNull { ORDER_COUNT.find(it) }?.let { m ->
@@ -136,11 +144,11 @@ object OfferParser {
 
     /**
      * Card furniture that isn't a place, and nahmeter's own verdict card if a screenshot caught it
-     * ("can't read.", "Check this offer yourself", "Under your $20 ·").
+     * ("can't read.", "meh.", "Check this offer yourself", "Under your $20 ·").
      */
     private val NOT_A_PLACE = Regex(
         """customer verification|including estimated tip|exclusive|add a delivery|^\W*(delivery|package)\b|\$\s?\d|""" +
-            """^\W*(bet|eh|nah|can'?t read)\W*$|check this offer|under your|clears your|pays the hour|short on \$/km|add-on ·""",
+            """^\W*(bet|meh|nah|can'?t read)\W*$|check this offer|under your|clears your|pays the hour|short on \$/km|add-on ·""",
         RegexOption.IGNORE_CASE,
     )
 

@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import dev.edmel.offerchecker.core.Offer
+import dev.edmel.offerchecker.core.Priority
 import dev.edmel.offerchecker.core.Scorer
 import dev.edmel.offerchecker.core.Thresholds
 import dev.edmel.offerchecker.core.Verdict
@@ -131,6 +132,7 @@ private fun SetupStepper(step: Int) {
 @Composable
 private fun WelcomeStep(thresholds: Thresholds) {
     val c = Nah.c
+    val perKmFirst = thresholds.priority == Priority.PER_KM
     Column(verticalArrangement = Arrangement.spacedBy(28.dp)) {
         Wordmark(30.sp)
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -149,13 +151,19 @@ private fun WelcomeStep(thresholds: Thresholds) {
         }
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Example(Verdict.GREEN, "pays your rate")
-            Example(Verdict.YELLOW, "pays the hour, long drive")
+            // meh. is the soft rate falling short, so it depends on which rate is strict.
+            Example(Verdict.YELLOW, if (perKmFirst) "pays the km, slow trip" else "pays the hour, long drive")
             Example(Verdict.RED, "not worth your time")
         }
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Point("Your rules: ${Scorer.money(thresholds.minPay)} min, ${Scorer.money(thresholds.minHourly)}/hr, ${Scorer.money(thresholds.minPerKm)}/km")
+            val hourly = "${Scorer.money(thresholds.minHourly)}/hr"
+            val perKm = "${Scorer.money(thresholds.minPerKm)}/km"
+            Point(
+                "Your rules: ${Scorer.money(thresholds.minPay)} min, " + (if (perKmFirst) "$perKm, $hourly" else "$hourly, $perKm") +
+                    (thresholds.maxKm?.let { ", ${Scorer.km(it)} km max" } ?: "") +
+                    (if (thresholds.extraKmPercent > 0) ", +${thresholds.extraKmPercent}% km" + (if (thresholds.extraKmOverKm > 0) " over ${thresholds.extraKmOverKm} km" else "") else ""),
+            )
             Point("It never taps Match for you, and it has no internet access. You decide.")
-            Point("No account. Nothing leaves your phone.")
         }
     }
 }
@@ -194,14 +202,14 @@ private fun AppsStep(settings: AppSettings) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text("Which apps do you drive for?", style = Nah.title.copy(color = c.ink), modifier = Modifier.semantics { heading() })
         Text(
-            "They show on Home so you can open them in one tap. nah.meter gives verdicts for Uber Eats today.",
+            "nah.meter gives verdicts for Uber Eats today.",
             style = Nah.style(15.sp, 400, 22.sp, color = c.inkMuted),
         )
         NahGroup {
             DeliveryApps.ALL.forEachIndexed { i, app ->
                 if (i > 0) NahDivider()
                 val picked = app.verdicts || app.id in settings.apps
-                NahRow(app.name, if (app.verdicts) "Verdicts on" else "Opens from Home · verdicts coming soon") {
+                NahRow(app.name, if (app.verdicts) "Verdicts on" else "Verdicts soon") {
                     NahCheck(picked, enabled = !app.verdicts, label = app.name) { on ->
                         scope.launch { repo.setApps(if (on) settings.apps + app.id else settings.apps - app.id) }
                     }
@@ -247,17 +255,10 @@ private fun RulesStep(thresholds: Thresholds) {
     val preview = Scorer.score(EXAMPLE_OFFER, thresholds)
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text("Set your rules", style = Nah.title.copy(color = c.ink), modifier = Modifier.semantics { heading() })
-        Text(
-            "Pay first, then $/hr, then $/km. You can change these any time under Rules.",
-            style = Nah.style(15.sp, 400, 22.sp, color = c.inkMuted),
-        )
-        NahGroup { RuleSteppers(thresholds, showBuffer = false) }
+        NahGroup { RuleSteppers(thresholds, showExtras = false) }
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             SectionLabel("Your rules on a real offer")
-            VerdictCard(
-                preview.verdict, preview.hourly?.let { "$${it.toPlainString()}" }, NahCopy.cardReason(preview, thresholds),
-                spoken = NahCopy.spoken(preview, thresholds), kmChip = NahCopy.kmChip(preview),
-            )
+            VerdictCard(preview, thresholds)
             Text(
                 "$${EXAMPLE_OFFER.pay.toPlainString()} · ${EXAMPLE_OFFER.minutes} min · ${EXAMPLE_OFFER.km.toPlainString()} km",
                 style = Nah.style(14.sp, 400, 20.sp, color = c.inkMuted),
@@ -273,15 +274,7 @@ private fun PermissionsStep() {
     val c = Nah.c
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text("Let it read offers", style = Nah.title.copy(color = c.ink), modifier = Modifier.semantics { heading() })
-        Text(
-            "Go down the list. Each one has a button that opens the right page; come back here when it's on.",
-            style = Nah.style(15.sp, 400, 22.sp, color = c.inkMuted),
-        )
         PermissionSteps()
-        Text(
-            "No internet permission. Offers stay on your phone and nothing is ever tapped for you.",
-            style = Nah.style(13.sp, 400, 18.sp, color = c.inkMuted),
-        )
     }
 }
 
@@ -301,27 +294,24 @@ private fun TestStep(settings: AppSettings) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text("Test it", style = Nah.title.copy(color = c.ink), modifier = Modifier.semantics { heading() })
         Text(
-            "This is how a verdict sits above an offer. The offer below is a stand-in, not the real app.",
+            "The offer below is a stand-in.",
             style = Nah.style(15.sp, 400, 22.sp, color = c.inkMuted),
         )
         Column(
             Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(c.surface).padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            VerdictCard(
-                preview.verdict, preview.hourly?.let { "$${it.toPlainString()}" }, NahCopy.cardReason(preview, settings.thresholds),
-                spoken = NahCopy.spoken(preview, settings.thresholds), kmChip = NahCopy.kmChip(preview),
-            )
+            VerdictCard(preview, settings.thresholds)
             StandInOffer()
         }
         NahGroup {
-            NahRow("Read verdicts out loud", "\"${NahCopy.speech(preview, settings.voiceMode)}\"") {
+            NahRow("Read verdicts out loud", "\"${NahCopy.speech(preview, settings)}\"") {
                 NahSwitch(settings.voice, { v -> scope.launch { repo.setVoice(v) } }, "Read verdicts out loud")
             }
         }
         NahButton(
             "Play the test verdict",
-            { voice.say(NahCopy.speech(preview, settings.voiceMode), settings) },
+            { voice.say(NahCopy.speech(preview, settings), settings) },
             modifier = Modifier.fillMaxWidth(), kind = NahButtonKind.Secondary,
         )
     }

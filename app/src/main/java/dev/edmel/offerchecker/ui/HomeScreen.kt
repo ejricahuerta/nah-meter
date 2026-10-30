@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import dev.edmel.offerchecker.core.Priority
 import dev.edmel.offerchecker.core.Scorer
 import dev.edmel.offerchecker.core.Verdict
 import dev.edmel.offerchecker.data.AppSettings
@@ -107,19 +108,11 @@ fun HomeScreen(
                 active = on,
                 onChange = { v -> scope.launch { repo.setReadingEnabled(v) } },
             )
-            Text(
-                when {
-                    !reading -> "nah.meter can't read offers until Accessibility is on"
-                    settings.readingEnabled -> "Tap to pause verdicts"
-                    else -> "No verdicts until you turn it back on"
-                },
-                style = Nah.style(14.sp, 400, 20.sp, color = c.inkMuted),
-            )
             if (!a11y || !running) NahButton("Fix in Settings", onOpenPermissions, kind = NahButtonKind.Secondary, small = true)
         }
 
         Column {
-            SectionLabel("Today · offers, not earnings")
+            SectionLabel("Today")
             Overview(today, Modifier.alpha(if (settings.readingEnabled) 1f else 0.5f))
         }
 
@@ -134,10 +127,16 @@ fun HomeScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             val t = settings.thresholds
+            // The strict rate first, so the busy-time $/km mode shows at a glance.
+            val hourly = "${Scorer.money(t.minHourly)}/hr"
+            val perKm = "${Scorer.money(t.minPerKm)}/km"
+            val rates = if (t.priority == Priority.PER_KM) "$perKm · $hourly" else "$hourly · $perKm"
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text("Your rules", style = Nah.style(13.sp, 500, 18.sp, color = c.inkMuted))
                 Text(
-                    "${Scorer.money(t.minPay)} min · ${Scorer.money(t.minHourly)}/hr · ${Scorer.money(t.minPerKm)}/km",
+                    "${Scorer.money(t.minPay)} min · $rates" +
+                        (t.maxKm?.let { " · ${Scorer.km(it)} km max" } ?: "") +
+                        (if (t.extraKmPercent > 0) " · +${t.extraKmPercent}% km" + (if (t.extraKmOverKm > 0) " over ${t.extraKmOverKm} km" else "") else ""),
                     style = Nah.style(16.sp, 600, 22.sp, color = c.ink),
                 )
             }
@@ -168,13 +167,13 @@ private fun PowerButton(on: Boolean, label: String, active: Boolean, onChange: (
     }
 }
 
-/** Today's numbers: offers read, average $/hr, the bet · eh · nah split, and the best offer. */
+/** Today's numbers: offers read, average $/hr, the bet · meh · nah split, and the best offer. */
 @Composable
 private fun Overview(today: List<OfferEntry>, modifier: Modifier = Modifier) {
     val c = Nah.c
     NahGroup(modifier) {
         if (today.isEmpty()) {
-            NahRow("No offers yet today", "Every offer nah.meter reads lands here.")
+            NahRow("No offers yet today")
             return@NahGroup
         }
         fun count(v: Verdict) = today.count { it.verdict == v.name }
@@ -195,7 +194,7 @@ private fun Overview(today: List<OfferEntry>, modifier: Modifier = Modifier) {
         }
         NahDivider()
         Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Stat("bet · eh · nah", split, Modifier.weight(1f))
+            Stat("bet · meh · nah", split, Modifier.weight(1f))
             Stat("Best offer", perHour(today.maxOf { it.hourly }), Modifier.weight(1f))
         }
     }

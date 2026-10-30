@@ -61,7 +61,8 @@ object CardReader {
 
         /** Returns the node's joined text (capped), and records the trip node on the way back up. */
         fun visit(n: AccessibilityNodeInfo, depth: Int): String {
-            if (trip != null || visited++ >= MAX_NODES) return ""
+            // A card Uber has closed but left in its view tree is off screen: it isn't an offer.
+            if (trip != null || visited++ >= MAX_NODES || !n.isVisibleToUser) return ""
             val parts = nodeTexts(n).toMutableList()
             if (depth < MAX_DEPTH) {
                 for (i in 0 until n.childCount) {

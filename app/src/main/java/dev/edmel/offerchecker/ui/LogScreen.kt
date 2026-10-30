@@ -64,6 +64,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.math.BigDecimal
+import java.math.RoundingMode
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -77,7 +78,7 @@ fun LogScreen(thresholds: Thresholds, modifier: Modifier = Modifier) {
     val offers by dao.observeAll().collectAsState(initial = emptyList())
     var confirmClear by remember { mutableStateOf(false) }
     var open by remember { mutableStateOf<OfferEntry?>(null) }
-    // 0 = all, then bet, eh, nah.
+    // 0 = all, then bet, meh, nah.
     var filter by rememberSaveable { mutableIntStateOf(0) }
 
     val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
@@ -111,11 +112,11 @@ fun LogScreen(thresholds: Thresholds, modifier: Modifier = Modifier) {
                 }, kind = NahButtonKind.Secondary, small = true, enabled = offers.isNotEmpty())
             }
         }
-        item { NahSegmented(listOf("All", "bet", "eh", "nah"), filter, { filter = it }) }
+        item { NahSegmented(verdicts.map { it?.let(NahCopy::chipWord) ?: "All" }, filter, { filter = it }) }
         if (shown.isEmpty()) {
             item {
                 NahGroup {
-                    if (offers.isEmpty()) NahRow("No offers yet", "Every offer nah.meter reads lands here.")
+                    if (offers.isEmpty()) NahRow("No offers yet")
                     else NahRow("No offers match these filters.")
                 }
             }
@@ -228,8 +229,15 @@ private fun OfferDetails(e: OfferEntry, thresholds: Thresholds, onDismiss: () ->
         thresholds.copy(waitBufferMin = 0),
     )
     val sameVerdict = rescored.verdict == verdict
-    val reason = if (sameVerdict) NahCopy.cardReason(rescored, thresholds) else perKmText(e)
-    val kmChip = if (sameVerdict) NahCopy.kmChip(rescored) else null
+    // The logged rates, the strict one big as on the card. The reason comes from today's rules, so
+    // it only shows while they still give the logged verdict; otherwise the other rate stands in.
+    val (big, other) = NahCopy.rates(
+        BigDecimal.valueOf(e.hourly).setScale(2, RoundingMode.HALF_UP),
+        e.perKm?.let { BigDecimal.valueOf(it).setScale(2, RoundingMode.HALF_UP) },
+        thresholds.priority,
+    )!!
+    val reason = if (sameVerdict) NahCopy.cardReason(rescored, thresholds) else other?.toString() ?: perKmText(e)
+    val chip = if (sameVerdict) other?.toString() else null
     val hourly = "$" + "%.2f".format(Locale.US, e.hourly)
     val whenText = SimpleDateFormat("EEE, MMM d · h:mm a", Locale.getDefault()).format(Date(e.time))
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = c.ground, contentColor = c.ink) {
@@ -238,7 +246,7 @@ private fun OfferDetails(e: OfferEntry, thresholds: Thresholds, onDismiss: () ->
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text(whenText, style = Nah.style(14.sp, 600, 20.sp, color = c.inkMuted))
-            VerdictCard(verdict, hourly, reason, spoken = "${NahCopy.word(verdict)} $hourly per hour. $reason", kmChip = kmChip)
+            VerdictCard(verdict, big, reason, spoken = "${NahCopy.word(verdict)} ${NahCopy.spokenRate(big)}. $reason", chip = chip)
             NahGroup {
                 Detail("Pay", "$" + "%.2f".format(Locale.US, e.pay))
                 NahDivider()
@@ -262,12 +270,6 @@ private fun OfferDetails(e: OfferEntry, thresholds: Thresholds, onDismiss: () ->
                 Detail("Restaurant", e.pickup ?: "Not read")
                 NahDivider()
                 Detail("Drop-off", e.dropoff ?: "Not read")
-            }
-            if (e.pickup == null && e.dropoff == null) {
-                Text(
-                    "Places are read from offers logged since this update.",
-                    style = Nah.style(13.sp, 400, 18.sp, color = c.inkMuted),
-                )
             }
         }
     }
