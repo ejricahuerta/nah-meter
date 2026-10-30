@@ -7,6 +7,7 @@ import android.media.AudioManager
 import android.media.MediaPlayer
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import dev.edmel.offerchecker.R
@@ -32,12 +33,15 @@ import android.speech.tts.Voice as TtsVoice
 class Voice(context: Context, private val onReady: () -> Unit = {}) {
     private val app = context.applicationContext
     private val audio = context.getSystemService(AudioManager::class.java)
+    private val main = Handler(Looper.getMainLooper())
     private val attributes = AudioAttributes.Builder()
         .setUsage(AudioAttributes.USAGE_MEDIA)
         .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
         .build()
+    // Another app taking the audio (Uber's offer sound) only goes in the log, for now.
     private val focus = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
         .setAudioAttributes(attributes)
+        .setOnAudioFocusChangeListener({ change -> note("audio focus: ${focusChange(change)}") }, main)
         .build()
 
     @Volatile private var ready = false
@@ -51,13 +55,18 @@ class Voice(context: Context, private val onReady: () -> Unit = {}) {
     private var appliedVoice: String? = NOTHING
 
     // The verdict being said, part by part. Touched only on the main thread.
-    private val main = Handler(Looper.getMainLooper())
     private val queue = ArrayDeque<NahCopy.SpeechPart>()
     private var player: MediaPlayer? = null
     private var clipSpeed = 1f
     /** Bumped for each verdict, so a late callback from the one before can't move this one on. */
     private var generation = 0
-    private var clipErrorLogged = false
+
+    /** The verdict being said (null when quiet), when it started, and what got in its way. */
+    private var saying: List<NahCopy.SpeechPart>? = null
+    private var startedAt = 0L
+    private val events = mutableListOf<String>()
+    /** The media volume this verdict set, to notice another app changing it. */
+    private var volumeSet: Int? = null
 
     init {
         tts = TextToSpeech(app) { status ->
@@ -69,7 +78,9 @@ class Voice(context: Context, private val onReady: () -> Unit = {}) {
                         override fun onStart(id: String?) = Unit
                         override fun onDone(id: String?) { main.post { if (id == utterance()) next() } }
                         @Deprecated("Deprecated in Java")
-                        override fun onError(id: String?) { main.post { if (id == utterance()) next() } }
+                        override fun onError(id: String?) {
+                            main.post { if (id == utterance()) { note("phone voice error"); next() } }
+                        }
                     })
                     ready = true
                 }.onFailure { fail("${it.javaClass.simpleName}: ${it.message}") }
@@ -83,7 +94,8 @@ class Voice(context: Context, private val onReady: () -> Unit = {}) {
     /**
      * Says [parts] ([NahCopy.speechParts]) with the voice settings in [s]: at
      * [AppSettings.voiceVolume] percent of the phone's media volume range (0 says nothing), at
-     * [AppSettings.voiceSpeed], in the picked voice. A new verdict cuts off the one being said.
+     * [AppSettings.voiceSpeed], in the picked voice. A new verdict cuts off the one being said; the
+     * same verdict again while it's still being said (the card read again) lets it finish.
      */
     fun say(parts: List<NahCopy.SpeechPart>, s: AppSettings) {
         if (!ready || s.voiceVolume <= 0 || parts.isEmpty()) return
@@ -92,13 +104,24 @@ class Voice(context: Context, private val onReady: () -> Unit = {}) {
             return
         }
         main.post {
+            if (parts == saying) {
+                note("same verdict again, not restarted")
+                return@post
+            }
             runCatching {
+                if (saying != null) logSpoken("cut off by the next verdict")
                 stopSpeaking()
+                saying = parts
+                startedAt = SystemClock.elapsedRealtime()
+                events.clear()
                 applyVoice(s.voiceName)
                 tts.setSpeechRate(s.voiceSpeed)
                 clipSpeed = s.voiceSpeed
                 setVolume(s.voiceVolume)
-                if (s.voiceDuck) audio?.requestAudioFocus(focus)
+                if (s.voiceDuck) {
+                    val granted = audio?.requestAudioFocus(focus)
+                    if (granted != null && granted != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) note("audio focus not granted ($granted)")
+                }
                 queue.addAll(parts)
                 next()
             }.onFailure { stopSpeaking(); release(); fail("${it.javaClass.simpleName}: ${it.message}") }
@@ -126,6 +149,7 @@ class Voice(context: Context, private val onReady: () -> Unit = {}) {
     fun shutdown() {
         ready = false
         main.removeCallbacksAndMessages(null)
+        if (saying != null) logSpoken("stopped: the voice shut down")
         stopSpeaking()
         release()
         runCatching { tts.shutdown() }
@@ -138,7 +162,8 @@ class Voice(context: Context, private val onReady: () -> Unit = {}) {
      * left, media volume and music go back.
      */
     private fun next() {
-        val part = queue.removeFirstOrNull() ?: return release()
+        checkVolume()
+        val part = queue.removeFirstOrNull() ?: return finish("finished")
         val clip = part.clip
         if (clip != null && playClip(clip, part.text)) return
         // Parts without a recording go to the engine as one line, so they sound as they always have.
@@ -146,8 +171,13 @@ class Voice(context: Context, private val onReady: () -> Unit = {}) {
         while (queue.isNotEmpty() && queue.first().clip == null) line.append(' ').append(queue.removeFirst().text)
         if (tts.speak(line, TextToSpeech.QUEUE_FLUSH, null, utterance()) != TextToSpeech.SUCCESS) {
             queue.clear()
-            release()
+            finish("the phone voice didn't start")
         }
+    }
+
+    private fun finish(outcome: String) {
+        logSpoken(outcome)
+        release()
     }
 
     /** Plays [v]'s recorded line; false if it can't start, so the engine says [text] instead. */
@@ -155,13 +185,13 @@ class Voice(context: Context, private val onReady: () -> Unit = {}) {
         val am = audio ?: return false
         val p = runCatching { MediaPlayer.create(app, clipRes(v), attributes, am.generateAudioSessionId()) }.getOrNull()
         if (p == null) {
-            clipError("$v: couldn't open the recording")
+            note("recording didn't open, phone voice instead")
             return false
         }
         return runCatching {
             p.setOnCompletionListener { finished(it) }
             p.setOnErrorListener { mp, what, extra ->
-                clipError("$v: playback error $what/$extra")
+                note("recording stopped with error $what/$extra, phone voice instead")
                 queue.addFirst(NahCopy.SpeechPart(text))
                 finished(mp)
                 true
@@ -174,7 +204,7 @@ class Voice(context: Context, private val onReady: () -> Unit = {}) {
         }.getOrElse {
             player = null
             p.release()
-            clipError("$v: ${it.javaClass.simpleName}: ${it.message}")
+            note("recording didn't play (${it.javaClass.simpleName}), phone voice instead")
             false
         }
     }
@@ -197,15 +227,47 @@ class Voice(context: Context, private val onReady: () -> Unit = {}) {
     private fun stopSpeaking() {
         generation++
         queue.clear()
+        saying = null
         player?.let { p -> runCatching { p.stop() }; p.release() }
         player = null
         runCatching { tts.stop() }
     }
 
-    private fun clipError(why: String) {
-        if (clipErrorLogged) return
-        clipErrorLogged = true
-        ServiceState.log("Voice clip didn't play", why)
+    /** Something that got in the way of the verdict being said, for its "Spoke" log entry. */
+    private fun note(event: String) {
+        if (saying == null) return
+        val at = (SystemClock.elapsedRealtime() - startedAt) / 100 / 10.0
+        events += "at $at s: $event"
+    }
+
+    /** One diagnostics entry per spoken verdict: what was said, how, how long it took, and what got in the way. */
+    private fun logSpoken(outcome: String) {
+        val parts = saying ?: return
+        val seconds = (SystemClock.elapsedRealtime() - startedAt) / 100 / 10.0
+        ServiceState.log(
+            "Spoke: ${parts.joinToString(" ") { it.text }}",
+            parts.joinToString(" + ") { if (it.clip != null) "recording" else "phone voice" } + " · $outcome after $seconds s",
+            *events.toTypedArray(),
+        )
+        events.clear()
+        saying = null
+    }
+
+    /** Notes another app changing the media volume while the verdict is said (Uber does its own volume). */
+    private fun checkVolume() {
+        val set = volumeSet ?: return
+        val now = audio?.getStreamVolume(AudioManager.STREAM_MUSIC) ?: return
+        if (now == set) return
+        note("media volume changed by another app: $set → $now")
+        volumeSet = now
+    }
+
+    private fun focusChange(change: Int) = when (change) {
+        AudioManager.AUDIOFOCUS_GAIN -> "back"
+        AudioManager.AUDIOFOCUS_LOSS -> "taken by another app"
+        AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> "taken by another app for a moment"
+        AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> "another app is playing over it"
+        else -> "change $change"
     }
 
     /** Hands the engine the picked voice; with none picked, English (Canada) if installed, else the phone's own. */
@@ -236,12 +298,14 @@ class Voice(context: Context, private val onReady: () -> Unit = {}) {
         val current = am.getStreamVolume(AudioManager.STREAM_MUSIC)
         if (savedVolume == null) savedVolume = current
         if (wanted != current) runCatching { am.setStreamVolume(AudioManager.STREAM_MUSIC, wanted.coerceAtLeast(1), 0) }
+        volumeSet = am.getStreamVolume(AudioManager.STREAM_MUSIC)
     }
 
     /** After the verdict: media volume back to what it was, and music back up. */
     private fun release() {
         savedVolume?.let { v -> runCatching { audio?.setStreamVolume(AudioManager.STREAM_MUSIC, v, 0) } }
         savedVolume = null
+        volumeSet = null
         runCatching { audio?.abandonAudioFocusRequest(focus) }
     }
 
