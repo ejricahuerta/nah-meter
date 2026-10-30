@@ -5,7 +5,7 @@ import { Easing, interpolate, spring, useCurrentFrame, useVideoConfig } from "re
 import timeline from "./timeline.json";
 import { Mono, nahText } from "./tokens";
 import { CANT_READ, DEFAULT_RULES, EXAMPLE, Evaluation, OFFERS, Offer, Rules, cents, score } from "./nah";
-import { Divider, StandInOffer, StatusBar, ThresholdField, VerdictCard } from "./ui";
+import { Divider, SegmentedRow, StandInOffer, StatusBar, ThresholdField, VerdictCard } from "./ui";
 
 export const SCREEN_W = 412;
 export const SCREEN_H = 892;
@@ -21,7 +21,7 @@ const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 export const OFFER_SCENES: { scene: [number, number]; offer: Offer | null; e: Evaluation }[] = [
   { scene: S.nah as [number, number], offer: OFFERS.nah, e: score(OFFERS.nah, DEFAULT_RULES) },
   { scene: S.bet as [number, number], offer: OFFERS.bet, e: score(OFFERS.bet, DEFAULT_RULES) },
-  { scene: S.eh as [number, number], offer: OFFERS.eh, e: score(OFFERS.eh, DEFAULT_RULES) },
+  { scene: S.meh as [number, number], offer: OFFERS.meh, e: score(OFFERS.meh, DEFAULT_RULES) },
   { scene: S.grey as [number, number], offer: null, e: CANT_READ },
 ];
 
@@ -124,44 +124,57 @@ const Offers: React.FC<{ t: number }> = ({ t }) => {
   );
 };
 
-/** The Rules tab: the live preview card scored on the example offer, and the steppers. */
+/**
+ * The Rules tab (ThresholdsScreen.kt): the live preview card scored on the example offer, then
+ * "Strict on" and the steppers. Per hour steps up twice, then strict flips to $/km.
+ */
 const RulesScreen: React.FC<{ t: number }> = ({ t }) => {
   const { fps } = useVideoConfig();
   const steps = timeline.rulesStepsSec;
+  const flip = timeline.rulesFlipSec;
   const done = steps.filter((s) => t >= s).length;
-  const rules: Rules = { ...DEFAULT_RULES, minHourlyCents: DEFAULT_RULES.minHourlyCents + done * 50 };
+  const rules: Rules = {
+    ...DEFAULT_RULES,
+    minHourlyCents: DEFAULT_RULES.minHourlyCents + done * 50,
+    priority: t >= flip ? "PER_KM" : "HOURLY",
+  };
+  const perKmFirst = rules.priority === "PER_KM";
   const preview = score(EXAMPLE, rules);
   // The press on + lights just before each step lands.
   const pressed = Math.max(0, ...steps.map((s) => interpolate(t, [s - 0.12, s, s + 0.2], [0, 1, 0], clamp)));
   const pop = Math.max(0, ...steps.map((s) => spring({ frame: Math.max(0, (t - s) * fps), fps, config: { damping: 9 }, durationInFrames: 10 }) * interpolate(t, [s, s + 0.35], [1, 0], clamp)));
+  const segPos = spring({ frame: Math.max(0, (t - flip) * fps), fps, config: { damping: 14, stiffness: 180 } });
+  const segPress = interpolate(t, [flip - 0.12, flip, flip + 0.25], [0, 1, 0], clamp);
+  // The card pops when its verdict or big rate changes.
+  const cardPop = interpolate(t - flip, [0, 0.1, 0.35], [1, 1.06, 1], clamp);
   return (
     <div style={{ position: "absolute", inset: 0, background: Mono.ground }}>
       <StatusBar />
       <div style={{ padding: "20px 16px 16px", display: "flex", flexDirection: "column", gap: 20 }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <div style={nahText(28, 800, 32, -0.035, Mono.ink)}>Rules</div>
-          <div style={nahText(14, 400, 20, 0, Mono.inkMuted)}>Pay first, then $/hr, then $/km.</div>
-        </div>
+        <div style={nahText(28, 800, 32, -0.035, Mono.ink)}>Rules</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <div style={nahText(14, 600, 20, 0, Mono.inkMuted)}>Live preview</div>
-          <VerdictCard e={preview} rules={rules} />
+          <VerdictCard e={preview} rules={rules} style={{ scale: String(cardPop) }} />
           <div style={nahText(14, 400, 20, 0, Mono.inkMuted)}>
             An example offer · {cents(EXAMPLE.payCents)} · {EXAMPLE.minutes} min · 11.5 km
           </div>
         </div>
         <div style={{ background: Mono.surface, borderRadius: 14, overflow: "hidden" }}>
+          <SegmentedRow title="Strict on" desc="The other one only gives meh." options={["$/hr", "$/km"]} pos={segPos} pressed={segPress} />
+          <Divider />
           <ThresholdField label="Minimum pay" value={cents(rules.minPayCents)} unit={null} hint="Below this is always nah." />
           <Divider />
           <ThresholdField
             label="Per hour"
             value={cents(rules.minHourlyCents)}
             unit="/hr"
-            hint="Under this is nah."
+            hint={perKmFirst ? "Under this is meh." : "Under this is nah."}
             plusPressed={pressed}
             valuePop={pop}
           />
           <Divider />
-          <ThresholdField label="Per km" value={cents(rules.minPerKmCents)} unit="/km" hint="Under this is eh." />
+          <ThresholdField label="Per km" value={cents(rules.minPerKmCents)} unit="/km" hint={perKmFirst ? "Under this is nah." : "Under this is meh."} />
+          <Divider />
+          <ThresholdField label="Max km" value="Off" unit={null} hint="Over this is nah." />
         </div>
       </div>
       <TabBar selected={2} />

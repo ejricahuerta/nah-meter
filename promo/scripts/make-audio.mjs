@@ -1,13 +1,13 @@
-// Builds public/audio/mix.wav: music, sound effects and the spoken verdicts, all made here.
+// Builds public/audio/mix.wav: music, sound effects and the spoken verdicts.
 //   - Music and SFX: synthesised sample by sample below (no samples, no downloads).
-//   - Voice: ffmpeg's built-in flite text-to-speech (offline, on this machine), saying the app's
-//     own lines from NahCopy.speech (ported in src/nah.ts).
+//   - Voice: the project's own verdict clips in audio/voice/ (supplied by the project owner),
+//     trimmed and levelled here. Their loudness envelopes go to src/voice.json for the speech chip.
 // Times come from src/timeline.json, the same file the picture uses.
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { CANT_READ, DEFAULT_RULES, OFFERS, score, speech } from "../src/nah.ts";
+import { CANT_READ, DEFAULT_RULES, OFFERS, score } from "../src/nah.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const T = JSON.parse(readFileSync(join(root, "src", "timeline.json"), "utf8"));
@@ -190,7 +190,7 @@ const nahSting = (big = false) => {
   return out;
 };
 
-/** "bet.": a bright two-note pop going up. */
+/** "bet!": a bright two-note pop going up. */
 const betPop = () => {
   const s = buf(0.5);
   for (const [at, m] of [[0, 84], [0.075, 91]]) {
@@ -206,8 +206,8 @@ const betPop = () => {
   return s;
 };
 
-/** "eh.": a neutral wood-block double tick. */
-const ehTick = () => {
+/** "meh.": a neutral wood-block double tick. */
+const mehTick = () => {
   const s = buf(0.4);
   for (const [at, f] of [[0, 880], [0.13, 740]]) {
     const st = Math.round(at * SR);
@@ -237,25 +237,42 @@ const riser = (sec) => {
   return biquad(n, "bp", (i) => 300 + 5000 * (i / len) ** 2, 2).map((v, i) => v * (i / len) ** 2 * 1.6);
 };
 
-// ---------- the voice (flite, offline) ----------
+// ---------- the voice (the project's verdict clips) ----------
 
-const voice = (text) => {
+const CLIPS = { RED: "verdict_nah.mp3", GREEN: "verdict_bet.mp3", YELLOW: "verdict_meh.mp3", GREY: "verdict_cant_read.mp3" };
+
+/** A clip as 48 kHz mono, silence trimmed from both ends, peak-normalised. */
+const voice = (verdict) => {
   const raw = execFileSync(
     "ffmpeg",
-    ["-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", `flite=text='${text.replace(/'/g, "")}':voice=slt`,
-      "-af", "aresample=48000,atempo=0.94,highpass=f=110,equalizer=f=3000:t=q:w=1:g=3,acompressor=threshold=-18dB:ratio=3:attack=5:release=80",
+    ["-hide_banner", "-loglevel", "error", "-i", join(root, "audio", "voice", CLIPS[verdict]),
+      "-af", "silenceremove=start_periods=1:start_threshold=-40dB:start_silence=0.02,areverse,silenceremove=start_periods=1:start_threshold=-40dB:start_silence=0.05,areverse,highpass=f=80",
       "-f", "f32le", "-ac", "1", "-ar", String(SR), "pipe:1"],
     { maxBuffer: 64 * 1024 * 1024 },
   );
   const v = new Float32Array(raw.buffer, raw.byteOffset, raw.byteLength / 4);
   const peak = v.reduce((m, x) => Math.max(m, Math.abs(x)), 0) || 1;
-  return v.map((x) => x / peak);
+  return v.map((x) => (x / peak) * 0.95);
 };
+
+/** Loudness per video frame (0…1), for the speech chip's waveform. */
+const envelope = (v) => {
+  const step = SR / T.fps;
+  const out = [];
+  for (let i = 0; i < v.length; i += step) {
+    let sum = 0;
+    const end = Math.min(v.length, i + step);
+    for (let j = Math.floor(i); j < end; j++) sum += v[j] * v[j];
+    out.push(Math.sqrt(sum / Math.max(1, end - i)));
+  }
+  const max = Math.max(...out) || 1;
+  return out.map((x) => Math.round((x / max) * 100) / 100);
+};
+const voiceMeta = {};
 
 // ---------- the score ----------
 
 const S = T.scenes;
-const at = (sec) => sec;
 
 // Scene 1: clock ticks, a slam per line, a low drone and a riser into the drop.
 for (let k = 0; k < 6; k++) add("sfx", k * 0.5, tick(k % 2 ? 1400 : 1800), 0.35, k % 2 ? 0.3 : -0.3);
@@ -326,7 +343,7 @@ add("sfx", S.rules[1] - 0.15, whoosh(0.55, 250, 2200), 0.3, -0.3, 0.2);
 const offerScenes = [
   [S.nah, score(OFFERS.nah, DEFAULT_RULES), nahSting],
   [S.bet, score(OFFERS.bet, DEFAULT_RULES), betPop],
-  [S.eh, score(OFFERS.eh, DEFAULT_RULES), ehTick],
+  [S.meh, score(OFFERS.meh, DEFAULT_RULES), mehTick],
   [S.grey, CANT_READ, greyBlip],
 ];
 const speechTimes = [];
@@ -338,10 +355,13 @@ for (const [[s, e], ev, sound] of offerScenes) {
   add("sfx", s + T.offerCue.verdictInSec, kick(true), sound === nahSting ? 0.75 : 0.45);
   add("sfx", s + T.offerCue.verdictInSec, biquad(noise(0.25), "lp", 2500).map((v, i) => v * Math.exp(-(i / SR) * 18)), 0.25, 0, 0.3);
   add("sfx", e - 0.4, whoosh(0.4, 500, 4500), 0.35, 0.3, 0.15);
-  const v = voice(speech(ev));
-  add("vo", s + T.offerCue.speechInSec, v, 0.85, 0, 0.12);
-  speechTimes.push([s + T.offerCue.speechInSec, s + T.offerCue.speechInSec + v.length / SR]);
-  console.log(`voice: "${speech(ev)}" at ${(s + T.offerCue.speechInSec).toFixed(2)} s`);
+  const v = voice(ev.verdict);
+  const at = s + T.offerCue.speechInSec;
+  add("vo", at, v, 0.9, 0, 0.1);
+  speechTimes.push([at, at + v.length / SR]);
+  voiceMeta[ev.verdict] = { durationSec: Math.round((v.length / SR) * 100) / 100, envelope: envelope(v) };
+  if (at + v.length / SR > e) console.warn(`warning: the ${CLIPS[ev.verdict]} clip runs past its scene`);
+  console.log(`voice: ${CLIPS[ev.verdict]} at ${at.toFixed(2)} s, ${(v.length / SR).toFixed(2)} s`);
 }
 
 // Rules: a UI tick per step, a touch higher each time.
@@ -349,6 +369,11 @@ T.rulesStepsSec.forEach((s, i) => {
   add("sfx", s - 0.02, tick(1500 + i * 150, 0.03), 0.45, 0.2);
   add("sfx", s, thump(0.12, 300, 160), 0.2);
 });
+
+// Strict flips to $/km: a switch click and a small whoosh.
+add("sfx", T.rulesFlipSec - 0.02, tick(2600, 0.025), 0.5, 0.2);
+add("sfx", T.rulesFlipSec, whoosh(0.3, 800, 5000), 0.25, 0.3);
+add("sfx", T.rulesFlipSec, thump(0.2, 220, 90), 0.35);
 
 // Promises: a soft tick and thump per line.
 T.promiseLinesSec.forEach((s, i) => {
@@ -431,3 +456,5 @@ writeWav(rawPath, out);
 // Loudness for social video: about -14 LUFS, peaks under -1.5 dBTP.
 execFileSync("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-i", rawPath, "-af", "loudnorm=I=-14:TP=-1.5:LRA=11", "-ar", String(SR), "-c:a", "pcm_s16le", join(pubDir, "mix.wav")]);
 console.log(`wrote ${join(pubDir, "mix.wav")} (${T.durationSec} s)`);
+writeFileSync(join(root, "src", "voice.json"), JSON.stringify(voiceMeta) + "\n");
+console.log("wrote src/voice.json");

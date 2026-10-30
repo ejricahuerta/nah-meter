@@ -100,7 +100,7 @@ export const shakeAt = (t: number) => {
     const u = t - scene[0] - cue.verdictInSec;
     if (u >= 0 && u < 0.5) a = Math.max(a, (e.verdict === "RED" ? 26 : 10) * Math.exp(-u * 9));
   }
-  for (const s of timeline.rulesStepsSec) {
+  for (const s of [...timeline.rulesStepsSec, timeline.rulesFlipSec]) {
     const u = t - s;
     if (u >= 0 && u < 0.25) a = Math.max(a, 6 * Math.exp(-u * 14));
   }
@@ -116,7 +116,7 @@ export const shakeAt = (t: number) => {
 const poseAt = (L: CamLayout, t: number, fps: number) => {
   const p = run(cameraKeys(L), t, identity(L), fps);
   // A small extra punch on each rule step.
-  const bump = timeline.rulesStepsSec.reduce((b, s) => b + (t >= s ? 0.07 * Math.exp(-(t - s) * 9) : 0), 0);
+  const bump = [...timeline.rulesStepsSec, timeline.rulesFlipSec].reduce((b, s) => b + (t >= s ? 0.07 * Math.exp(-(t - s) * 9) : 0), 0);
   return { ...p, z: p.z + bump };
 };
 

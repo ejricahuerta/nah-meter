@@ -1,6 +1,6 @@
 {
   "fps": 30,
-  "durationSec": 37,
+  "durationSec": 41,
   "bpm": 120,
   "musicInSec": 3.0,
   "scenes": {
@@ -8,15 +8,16 @@
     "shift": [3, 5],
     "nah": [5, 10],
     "bet": [10, 14],
-    "eh": [14, 18],
-    "grey": [18, 21],
-    "rules": [21, 27.5],
-    "promise": [27.5, 32.5],
-    "end": [32.5, 37]
+    "meh": [14, 18.5],
+    "grey": [18.5, 24],
+    "rules": [24, 31.5],
+    "promise": [31.5, 36.5],
+    "end": [36.5, 41]
   },
   "hookLinesSec": [0.25, 1.0, 2.0],
-  "offerCue": { "offerInSec": 0.3, "verdictInSec": 1.0, "speechInSec": 1.4 },
-  "rulesStepsSec": [23.0, 24.0, 25.0, 26.0],
-  "promiseLinesSec": [28.0, 29.0, 30.0, 31.0],
-  "endCue": { "wordSec": 32.6, "stopSec": 33.0, "taglineSec": 33.6, "fadeOutSec": [35.0, 37.0] }
+  "offerCue": { "offerInSec": 0.3, "verdictInSec": 1.0, "speechInSec": 1.2 },
+  "rulesStepsSec": [25.5, 26.5],
+  "rulesFlipSec": 28.0,
+  "promiseLinesSec": [32.0, 33.0, 34.0, 35.0],
+  "endCue": { "wordSec": 36.6, "stopSec": 37.0, "taglineSec": 37.6, "fadeOutSec": [39.0, 41.0] }
 }

@@ -1,16 +1,16 @@
 # Credits and licences
 
-Everything you hear in the promo is made by this project's own scripts. No samples, loops or
-stock audio are used, and nothing is downloaded at build time.
+Music and sound effects are made by this project's own scripts; the spoken verdicts are clips the
+project owner supplied. No stock samples or loops are used, and nothing is downloaded at build time.
 
 ## Audio
 
 | What | Source | Licence |
 | --- | --- | --- |
 | Music: 120 bpm A-minor loop (kick, clap, hats, sub bass, pad, plucked arpeggio), intro drone, risers, final chord | Synthesised sample by sample in `scripts/make-audio.mjs` | Original work of this project, same licence as the repo |
-| Sound effects: whooshes, clock and UI ticks, thumps, the "nah" sting, the bet. pop, the eh. double tick, the can't read. blip | Synthesised in `scripts/make-audio.mjs` | Original work of this project |
+| Sound effects: whooshes, clock and UI ticks, thumps, the "nah" sting, the bet! pop, the meh. double tick, the can't read. blip | Synthesised in `scripts/make-audio.mjs` | Original work of this project |
 | Reverb | A small Freeverb-style room written in `scripts/make-audio.mjs` (algorithm only, no code copied) | Original work of this project |
-| Spoken verdicts ("nah. 15 an hour." and so on) | ffmpeg's `flite` filter, voice `slt`, run locally at build time. The lines are the app's own `NahCopy.speech` output. | Flite (CMU / Edinburgh) and its voices: BSD-style free licence. Generated audio has no usage restrictions. |
+| Spoken verdicts (`audio/voice/verdict_nah.mp3`, `verdict_bet.mp3`, `verdict_meh.mp3`, `verdict_cant_read.mp3`) | Supplied by the project owner for this video; trimmed and levelled by `scripts/make-audio.mjs` | Owned by the project owner |
 | Loudness (about -14 LUFS, peaks under -1.5 dBTP) | ffmpeg `loudnorm` | ffmpeg (LGPL/GPL); the output is ours |
 
 ## Picture

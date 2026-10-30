@@ -5,7 +5,8 @@ import { AbsoluteFill, Easing, interpolate, spring, staticFile, useCurrentFrame,
 import { Audio } from "@remotion/media";
 import timeline from "./timeline.json";
 import { Mono, VerdictColor, nahText } from "./tokens";
-import { MEANING, speech, word } from "./nah";
+import { MEANING, word } from "./nah";
+import voice from "./voice.json";
 import { OFFER_SCENES, PHONE_H, PHONE_W, Phone } from "./Phone";
 import { StatusPill, Stop, Wordmark } from "./ui";
 import { CamLayout, Grain, VerdictGlow, VerdictSlam, Vignette, camera, shakeAt } from "./fx";
@@ -119,7 +120,10 @@ const Hook: React.FC<{ t: number; L: Layout }> = ({ t, L }) => {
   );
 };
 
-/** The spoken line: a speaker, a moving waveform while it speaks, and the words in quotes. */
+/**
+ * The spoken verdict: a waveform drawn from the real clip's loudness (src/voice.json, written by
+ * scripts/make-audio.mjs) scrolling while it plays, and the verdict word.
+ */
 const SpeechChip: React.FC<{ t: number; L: Layout }> = ({ t, L }) => {
   const { fps } = useVideoConfig();
   const active = OFFER_SCENES.find(({ scene }) => t >= scene[0] + cue.speechInSec - 0.1 && t < scene[1]);
@@ -127,7 +131,8 @@ const SpeechChip: React.FC<{ t: number; L: Layout }> = ({ t, L }) => {
   const local = t - active.scene[0] - cue.speechInSec;
   const inP = spring({ frame: Math.max(0, (local + 0.1) * fps), fps, config: { damping: 11, stiffness: 160 } });
   const out = interpolate(t, [active.scene[1] - 0.25, active.scene[1]], [0, 1], clamp);
-  const speaking = local > 0 && local < 1.5;
+  const clip = (voice as Record<string, { durationSec: number; envelope: number[] }>)[active.e.verdict];
+  const level = (k: number) => clip?.envelope[Math.floor(local * fps) - k] ?? 0;
   const s = L.chip.scale;
   return (
     <div
@@ -151,15 +156,13 @@ const SpeechChip: React.FC<{ t: number; L: Layout }> = ({ t, L }) => {
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 4 * s, height: 30 * s }}>
-        {[0, 1, 2, 3, 4].map((i) => {
-          const h = speaking ? 0.35 + 0.65 * Math.abs(Math.sin(t * 13 + i * 1.7) * Math.cos(t * 7.3 + i)) : 0.25;
-          return <div key={i} style={{ width: 5 * s, height: `${h * 100}%`, borderRadius: 3 * s, background: Mono.ink }} />;
+        {Array.from({ length: 16 }, (_, i) => {
+          // Newest on the right; each bar is one frame of the clip's loudness.
+          const h = 0.14 + 0.86 * level(15 - i);
+          return <div key={i} style={{ width: 4 * s, height: `${h * 100}%`, borderRadius: 2 * s, background: i > 11 ? VerdictColor[active.e.verdict] : Mono.ink }} />;
         })}
       </div>
-      <div style={nahText(28 * s, 600, 34 * s, -0.01, Mono.ink)}>
-        “<span style={{ color: VerdictColor[active.e.verdict], fontWeight: 900 }}>{word(active.e.verdict)}</span>
-        {speech(active.e).slice(word(active.e.verdict).length)}”
-      </div>
+      <div style={nahText(30 * s, 900, 34 * s, -0.04, VerdictColor[active.e.verdict])}>“{word(active.e.verdict)}”</div>
     </div>
   );
 };
@@ -174,7 +177,9 @@ const Captions: React.FC<{ t: number; L: Layout }> = ({ t, L }) => {
       to: scene[1],
       lines: MEANING[e.verdict].split(/(?<=[?,]) /), // "Can't read it?" / "It won't guess."
     })),
-    { from: S.rules[0] + 0.4, to: S.rules[1], lines: ["Your rules.", "Your call."] },
+    { from: S.rules[0] + 0.4, to: timeline.rulesFlipSec - 0.15, lines: ["Your rules.", "Your call."] },
+    // Strict on $/km suits busy times, when traffic stretches the minutes but not the distance.
+    { from: timeline.rulesFlipSec + 0.15, to: S.rules[1], lines: ["Traffic?", "Go strict on $/km."] },
   ];
   return (
     <>

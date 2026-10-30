@@ -2,7 +2,7 @@
 // screen is laid out at 1 css px = 1 dp and scaled up as a whole.
 import React from "react";
 import { Card, Mono, StandIn, VerdictColor, nahText } from "./tokens";
-import { Evaluation, Offer, Rules, cardReason, cents, hourly, km, kmChip, word } from "./nah";
+import { Evaluation, Offer, Rules, cardReason, cents, km, rates, word } from "./nah";
 
 /** The square full stop: the brand. */
 export const Stop: React.FC<{ size: number; color?: string; style?: React.CSSProperties }> = ({
@@ -46,7 +46,7 @@ const Rate: React.FC<{ amount: string; unit: string; unitSize: number; unitColor
   </>
 );
 
-/** VerdictCard: black, the word left in its colour, $/hr right, the reason and $/km chip underneath. */
+/** VerdictCard: black, the word left in its colour, the strict rate right, the reason and the other rate underneath. */
 export const VerdictCard: React.FC<{ e: Evaluation; rules: Rules; wordScale?: number; style?: React.CSSProperties }> = ({
   e,
   rules,
@@ -54,8 +54,10 @@ export const VerdictCard: React.FC<{ e: Evaluation; rules: Rules; wordScale?: nu
   style,
 }) => {
   const unknown = e.verdict === "GREY";
-  const rate = hourly(e);
-  const chip = kmChip(e);
+  // NahCopy.rates: the strict rate big beside the word, the other one in the chip.
+  const r = rates(e, rules);
+  const big = r?.[0];
+  const chip = r?.[1] ? r[1].amount + r[1].unit : null;
   return (
     <div
       style={{
@@ -83,9 +85,9 @@ export const VerdictCard: React.FC<{ e: Evaluation; rules: Rules; wordScale?: nu
         >
           {word(e.verdict)}
         </div>
-        {rate && (
+        {big && (
           <div style={{ ...nahText(36, 800, 38, -0.04, "#FFFFFF"), whiteSpace: "nowrap" }}>
-            <Rate amount={rate} unit="/hr" unitSize={15} unitColor={Card.cardMuted} />
+            <Rate amount={big.amount} unit={big.unit} unitSize={15} unitColor={Card.cardMuted} />
           </div>
         )}
       </div>
@@ -279,4 +281,43 @@ export const StopLine: React.FC<{ text: string; size: number; weight?: number; c
       }}
     />
   </span>
+);
+
+/** SegmentedRow (SettingsScreen.kt): title, description, and a segmented control; `pos` 0…1 slides the ink pill. */
+export const SegmentedRow: React.FC<{ title: string; desc: string; options: string[]; pos: number; pressed?: number }> = ({
+  title,
+  desc,
+  options,
+  pos,
+  pressed = 0,
+}) => (
+  <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+      <div style={nahText(16, 600, 22, 0, Mono.ink)}>{title}</div>
+      <div style={nahText(14, 400, 20, 0, Mono.inkMuted)}>{desc}</div>
+    </div>
+    <div style={{ position: "relative", borderRadius: 26, background: Mono.surfaceRaised, padding: 4, display: "flex", gap: 4 }}>
+      <div
+        style={{
+          position: "absolute",
+          top: 4,
+          bottom: 4,
+          left: `calc(4px + ${pos} * (50% - 2px))`,
+          width: "calc(50% - 6px)",
+          borderRadius: 22,
+          background: Mono.ink,
+          scale: String(1 - pressed * 0.05),
+          boxShadow: pressed > 0 ? `0 0 0 ${pressed * 6}px rgba(255,255,255,${pressed * 0.2})` : undefined,
+        }}
+      />
+      {options.map((o, i) => {
+        const on = Math.abs(pos - i) < 0.5;
+        return (
+          <div key={o} style={{ position: "relative", flex: 1, minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center", ...nahText(15, 700, 20, 0, on ? Mono.onInk : Mono.ink) }}>
+            {o}
+          </div>
+        );
+      })}
+    </div>
+  </div>
 );
