@@ -353,4 +353,13 @@ class OfferParserTest {
         assertEquals("Booster Juice (5937 Leslie St)", o.pickup)
         assertEquals(null, o.dropoff)
     }
+
+    /** The verdict words as the card shows them ("Nah. Meh. Bet!") must never read back as a place. */
+    @Test fun verdictWordsAreNotAPlace() {
+        for (word in listOf("Bet!", "Meh.", "Nah.", "Can't read.")) {
+            val o = read("\$9.40", "22 min (6.8 km) total", word, "Kakuya (Yonge St)", "Accept")
+            assertEquals(word, "Kakuya (Yonge St)", o.pickup)
+            assertEquals(word, null, o.dropoff)
+        }
+    }
 }

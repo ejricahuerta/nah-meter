@@ -30,7 +30,7 @@ data class AppSettings(
     /** Home's power button (and the tile and notification): when off, no offers are read and no badge shows. */
     val readingEnabled: Boolean = true,
     val vibration: Boolean = true,
-    /** Say the verdict out loud ("nah. 14 an hour"), for couriers who are driving. */
+    /** Say the verdict out loud ("Nah. 14 an hour"), for couriers who are driving. */
     val voice: Boolean = true,
     /** How loud the spoken verdict is, as a share of the phone's media volume (0–100; 0 is silent). */
     val voiceVolume: Int = 80,

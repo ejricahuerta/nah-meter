@@ -1,13 +1,13 @@
 # nah.meter
 
 An Android app that reads each Uber Eats delivery offer as it appears and answers in one word,
-docked just above the offer card within about a second: **bet.**, **eh.** or **nah.** So you can
+docked just above the offer card within about a second: **Bet!**, **Meh.** or **Nah.** So you can
 decide without doing math under the 15-second timer. "nah." for short.
 
 - **Advice only.** It never taps anything in Uber: no auto-accept, no auto-decline.
 - **Offline.** No internet permission at all; nothing leaves the phone.
 - **Android 8.0+**, sideloaded APK (not on Google Play).
-- The look follows the nah.meter design system: black and white, Geist, heavy lowercase type, and
+- The look follows the nah.meter design system: black and white, Geist, heavy type, and
   colour only on the verdict word. Mono (dark) by default, Daylight when the phone is in light mode.
 
 ## Download
@@ -35,21 +35,21 @@ The scoring rules and offer patterns in `core/` carry over to either route.
 
 | Order | Check                  | Default        | If it fails |
 |-------|------------------------|----------------|-------------|
-| 1     | Minimum pay            | pay ≥ $5.50    | nah.        |
-| 2     | Strict rate            | ≥ $20.00/hr    | nah.        |
-| 3     | The other rate         | ≥ $1.00/km     | eh.         |
-| 4     | All passed             | —              | bet.        |
+| 1     | Minimum pay            | pay ≥ $5.50    | Nah.        |
+| 2     | Strict rate            | ≥ $20.00/hr    | Nah.        |
+| 3     | The other rate         | ≥ $1.00/km     | Meh.        |
+| 4     | All passed             | —              | Bet!        |
 
 $/hr is the strict rate by default. **Strict on $/km** (Rules, or the "Strict on" tile in the
 notification shade) swaps them for busy times, when traffic stretches the minutes but not the km:
-then missing $1.00/km is nah. and missing $20.00/hr is eh.
+then missing $1.00/km is Nah. and missing $20.00/hr is Meh.
 
 "Add a delivery" add-ons skip the minimum-pay check: their pay is only what they add to a trip
 you already have, so they're judged on $/hr and $/km. The first check that fails sets the colour. Exactly meeting a target passes. If a number
-can't be read, the card says **can't read.**, never a guess. Every threshold is editable
+can't be read, the card says **Can't read.**, never a guess. Every threshold is editable
 in Settings.
 
-Example: $6.07, 23 min, 11.5 km → **nah.** `$15.83/hr`, with "Under your $20 · $0.53/km" underneath.
+Example: $6.07, 23 min, 11.5 km → **Nah.** `$15.83/hr`, with "Under your $20 · $0.53/km" underneath.
 
 ## First-time setup on the phone (about 5 minutes)
 
@@ -69,7 +69,7 @@ Example: $6.07, 23 min, 11.5 km → **nah.** `$15.83/hr`, with "Under your $20 �
 **Using the verdict:** a black card docks 8dp above Uber's offer card: the word, the strict rate
 ($/hr, or $/km when strict on $/km), the reason and the other rate. Turn on **Compact verdict** in Thresholds for a small pill at the top instead (tap it
 to expand). Tap the card to dismiss it; it also leaves when the offer closes or after 20 s. Haptics:
-bet. one short buzz, eh. two short, nah. one long. The **Read offers** switch on Status pauses
+Bet! one short buzz, Meh. two short, Nah. one long. The **Read offers** switch on Status pauses
 everything.
 
 **Updates:** install the new APK over the old one. Settings and the offer log are kept as
@@ -87,7 +87,7 @@ long as the signing secrets below are set, because every build is then signed wi
   unpaid extra km for the drive back, wait buffer) and **Settings** (permissions, verdict card, voice, haptics, appearance, delivery apps).
 - Settings → Permissions: each setup step with a one-tap link, and Diagnostics with the **raw
   text** it saw (for diagnosing a grey badge).
-- History: the last 200 offers by day (offers and average $/hr per day), filtered by bet, eh or nah,
+- History: the last 200 offers by day (offers and average $/hr per day), filtered by Bet, Meh or Nah,
   with CSV export. Tap an offer for its restaurant, drop-off and rates.
 - Stacked offers are scored on the combined numbers and marked `×2`.
 

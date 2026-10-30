@@ -1,8 +1,8 @@
 # CLAUDE.md
 
 nah.meter ("nah." for short) is a sideloaded Android app for Uber Eats couriers. It reads each
-offer the Uber Driver app shows and docks a one-word verdict above the offer card: **bet.**,
-**eh.**, **nah.** or **can't read.** Kotlin, Jetpack Compose, min API 26, target API 35.
+offer the Uber Driver app shows and docks a one-word verdict above the offer card: **Bet!**,
+**Meh.**, **Nah.** or **Can't read.** Kotlin, Jetpack Compose, min API 26, target API 35.
 
 Android only: iPhone is out of scope until the project is funded (see README, "iPhone: not
 supported yet"); don't start iOS work unless asked.
@@ -18,7 +18,7 @@ screens (links in `README.md`). When they disagree with the code, ask before cha
 - **Offline.** The manifest removes `INTERNET` and `ACCESS_NETWORK_STATE` (`tools:node="remove"`)
   so no dependency can add them back. Don't add network features, analytics or crash reporting
   that leaves the phone (the local crash note, `CrashLog`, stays on the device).
-- **Never guess a verdict.** If a number can't be read, the result is `can't read.` (Verdict.GREY),
+- **Never guess a verdict.** If a number can't be read, the result is `Can't read.` (Verdict.GREY),
   never a best guess.
 - **Read only Uber's windows.** The accessibility service gets events from every app (it has to,
   see below) but must only read text from `com.ubercab.*` windows (`isUberPackage`).
@@ -82,7 +82,7 @@ never a push to `main`.
 core/  pure Kotlin, no Android: what to read and how to score it (unit-tested)
   OfferParser.kt  all text patterns; card texts -> ReadResult; OCR lines -> card texts
   Scorer.kt       the five rules (max km off by default; Thresholds.priority picks the strict rate, $/hr
-                  or $/km, the other gives eh.) and the unpaid extra km, exact BigDecimal maths -> Evaluation
+                  or $/km, the other gives Meh.) and the unpaid extra km, exact BigDecimal maths -> Evaluation
   Model.kt        Offer, ReadResult, Thresholds, Priority, Evaluation, Verdict, Check, OcrLine
 app/   Android
   service/OfferAccessibilityService.kt  event loop: find Uber windows, read, score, show, log
@@ -93,7 +93,7 @@ app/   Android
   service/ServiceState.kt  in-process state shared with the UI, including the diagnostics log
   service/CrashLog.kt      the last crash's stack trace, saved on the phone, shown in Diagnostics
   service/ReaderWatch.kt   "nah.meter stopped reading" notification if the reader stops mid-shift
-  service/Voice.kt         says the verdict out loud ("nah. 14 an hour"), on-device TTS, on media
+  service/Voice.kt         says the verdict out loud ("Nah. 14 an hour"), on-device TTS, on media
                            volume at the user's level (Uber moves navigation volume), then restores it;
                            speed, voice and ducking from the settings; silent at 0% and on calls
   service/ReadingTileService.kt, PauseReceiver.kt  pause / resume from the shade (tile, notification)
@@ -127,9 +127,9 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
 - OCR mangles text. The parser tolerates: `$1l.59` and `$1159` (look-alike letters, dropped decimal
   point), stray symbols before `$`, `(` read as `C`, missing spaces or brackets (`1 hr12 min`),
   `l hr 3 min` (Uber's "1" reads as l or I). Uber always shows cents. A trip line with an hours word
-  but no readable hours number is `can't read.`: the minutes alone once scored 63 min as 3
+  but no readable hours number is `Can't read.`: the minutes alone once scored 63 min as 3
   ($270.80/hr), and "1 hr12 min" as 2 ($190.40/hr). A trip faster than 100 km/h is a misread
-  time, also `can't read.`
+  time, also `Can't read.`
 - **Pay is the dollar amount in the tallest text** in the band above the trip line, never the
   largest value: pages behind the pop-up have their own dollar amounts.
 - The restaurant and drop-off area are the lines between the trip line and the card's button
@@ -179,9 +179,11 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
   "Under $5.50 minimum", "Short on $/km", "Clears your $20"; strict on $/km: "Under your $1/km",
   "Short on $/hr", "Clears your $1/km") and the other rate in its own chip (`cardChip`). Which
   rate goes where comes only from `NahCopy.rates`. Nothing under 15sp.
-- Verdict words are lowercase and end in a full stop (`bet.`); in chips the stop becomes a dot
-  before the word. Use `NahCopy` for every verdict string, never inline text.
-- Voice: short, plain, sentence case, no emoji or exclamation marks. Never "Accept" or "Decline".
+- Verdict words are **Nah.**, **Meh.**, **Bet!** and **Can't read.** (capitalised; Bet! is the only
+  exclamation mark). In chips the stop or mark becomes a dot before the word; in running text the
+  words drop it ("Bet, Meh or Nah"). Use `NahCopy` for every verdict string, never inline text.
+- Voice: short, plain, sentence case, no emoji or exclamation marks (the Bet! verdict aside). Never
+  "Accept" or "Decline".
 - No helper text that restates a label or a visible state ("Tap to pause" under a power button). Add a
   line only for a reason, a warning, a step or a number.
 - The overlay is classic Views (not Compose); `TypefaceSpan(Typeface)` needs API 28, so use the

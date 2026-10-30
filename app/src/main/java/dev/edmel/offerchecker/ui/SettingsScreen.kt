@@ -109,7 +109,7 @@ private fun SettingsMain(settings: AppSettings, onPage: (SettingsPage) -> Unit, 
                     onPage(SettingsPage.VOICE)
                 }
                 NahDivider()
-                NahRow("Haptics", "bet short · eh double · nah long") {
+                NahRow("Haptics", "Bet short · Meh double · Nah long") {
                     NahSwitch(settings.vibration, { v -> scope.launch { repo.setVibration(v) } }, "Haptics")
                 }
                 NahDivider()

@@ -103,7 +103,7 @@ fun RuleSteppers(t: Thresholds, showExtras: Boolean) {
     val scope = rememberCoroutineScope()
     val perKmFirst = t.priority == Priority.PER_KM
     SegmentedRow(
-        "Strict on", "The other one only gives eh.", listOf("$/hr", "$/km"), if (perKmFirst) 1 else 0,
+        "Strict on", "The other one only gives Meh.", listOf("$/hr", "$/km"), if (perKmFirst) 1 else 0,
     ) { i -> scope.launch { repo.setPriority(if (i == 1) Priority.PER_KM else Priority.HOURLY) } }
     NahDivider()
     ThresholdField(
@@ -114,14 +114,14 @@ fun RuleSteppers(t: Thresholds, showExtras: Boolean) {
     )
     NahDivider()
     ThresholdField(
-        "Per hour", money(t.minHourly), "/hr", if (perKmFirst) "Under this is eh." else "Under this is nah.",
+        "Per hour", money(t.minHourly), "/hr", if (perKmFirst) "Under this is Meh." else "Under this is Nah.",
         "Decrease per hour by $0.50", "Increase per hour by $0.50",
         { scope.launch { repo.setMinHourly(step(t.minHourly, "-0.50", "5", "80")) } },
         { scope.launch { repo.setMinHourly(step(t.minHourly, "0.50", "5", "80")) } },
     )
     NahDivider()
     ThresholdField(
-        "Per km", money(t.minPerKm), "/km", if (perKmFirst) "Under this is nah." else "Under this is eh.",
+        "Per km", money(t.minPerKm), "/km", if (perKmFirst) "Under this is Nah." else "Under this is Meh.",
         "Decrease per km by $0.05", "Increase per km by $0.05",
         { scope.launch { repo.setMinPerKm(step(t.minPerKm, "-0.05", "0", "5")) } },
         { scope.launch { repo.setMinPerKm(step(t.minPerKm, "0.05", "0", "5")) } },

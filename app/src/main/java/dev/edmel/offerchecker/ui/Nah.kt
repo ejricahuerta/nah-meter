@@ -98,7 +98,7 @@ object Nah {
     val cardSoft = Color(0xFFDEDEDE)
     val cardChip = Color(0xFF262626)
     val bet = Color(0xFF30D158)
-    val eh = Color(0xFFFFD60A)
+    val meh = Color(0xFFFFD60A)
     val nah = Color(0xFFFF3B30)
     val unknown = Color(0xFF8E8E93)
 
@@ -127,7 +127,7 @@ object Nah {
     /** The verdict word's colour on the black card, and its dot in chips. */
     fun verdictColor(v: Verdict) = when (v) {
         Verdict.GREEN -> bet
-        Verdict.YELLOW -> eh
+        Verdict.YELLOW -> meh
         Verdict.RED -> nah
         Verdict.GREY -> unknown
     }

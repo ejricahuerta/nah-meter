@@ -35,7 +35,7 @@ object StatusNotification {
         return Notification.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_check)
             .setContentTitle(if (reading) "nah.meter is on" else "nah.meter is paused")
-            .setContentText(if (reading) "bet., eh. or nah. above every Uber offer. Read-only." else "No verdicts until you resume.")
+            .setContentText(if (reading) "Bet, Meh or Nah above every Uber offer. Read-only." else "No verdicts until you resume.")
             .setContentIntent(open)
             .addAction(
                 Notification.Action.Builder(

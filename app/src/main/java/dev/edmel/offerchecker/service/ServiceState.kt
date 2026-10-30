@@ -16,7 +16,7 @@ fun isUberPackage(pkg: CharSequence?): Boolean = pkg != null && pkg.startsWith("
 /**
  * One diagnostics log entry: a title and its details, copied as
  * ```
- * [2026-10-29 20:27:37] - Offer: nah. (screenshot)
+ * [2026-10-29 20:27:37] - Offer: Nah. (screenshot)
  * - pay $13.54 · 63 min · 38.3 km · 2 orders
  * ```
  */
