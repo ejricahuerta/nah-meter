@@ -22,11 +22,13 @@ import android.speech.tts.Voice as TtsVoice
  * on, the word is a recorded line from res/raw ("nah fam.", [NahCopy.clipLine]) and the engine says
  * the rest; if a recording won't play, the engine says its line instead.
  *
- * It plays on the media volume, not the navigation one: Uber raises and lowers navigation volume
- * around its own prompts, which made the verdict too quiet or too loud. Just for the verdict, media
- * volume is set to the user's chosen level, then put back; music ducks under it meanwhile (unless
- * turned off). It stays silent at 0%, and during a phone call. If the engine can't start, it stays
- * silent and says so once in the diagnostics log.
+ * It plays on the accessibility volume, the one screen readers use, which nah.meter controls as an
+ * accessibility service (flagEnableAccessibilityVolume). Uber changes the navigation volume around
+ * its own prompts, and the media volume during its offer sound (20 → 0 in the middle of a verdict,
+ * Pixel 11, 2026-10-30), which cut the verdict off; it doesn't touch this one. Just for the verdict,
+ * that volume is set to the user's chosen level, then put back; music ducks under it meanwhile
+ * (unless turned off). It stays silent at 0%, and during a phone call. If the engine can't start,
+ * it stays silent and says so once in the diagnostics log.
  *
  * [onReady] is called once the engine has started, when [englishVoices] has something to list.
  */
@@ -35,7 +37,7 @@ class Voice(context: Context, private val onReady: () -> Unit = {}) {
     private val audio = context.getSystemService(AudioManager::class.java)
     private val main = Handler(Looper.getMainLooper())
     private val attributes = AudioAttributes.Builder()
-        .setUsage(AudioAttributes.USAGE_MEDIA)
+        .setUsage(AudioAttributes.USAGE_ASSISTANCE_ACCESSIBILITY)
         .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
         .build()
     // Another app taking the audio (Uber's offer sound) only goes in the log, for now.
@@ -48,7 +50,7 @@ class Voice(context: Context, private val onReady: () -> Unit = {}) {
     private var failed = false
     private lateinit var tts: TextToSpeech
 
-    /** Media volume before the verdict raised or lowered it, to put back after; null when untouched. */
+    /** The volume before the verdict raised or lowered it, to put back after; null when untouched. */
     @Volatile private var savedVolume: Int? = null
 
     /** The voice name last handed to the engine ([NOTHING] until the first verdict). */
@@ -65,7 +67,7 @@ class Voice(context: Context, private val onReady: () -> Unit = {}) {
     private var saying: List<NahCopy.SpeechPart>? = null
     private var startedAt = 0L
     private val events = mutableListOf<String>()
-    /** The media volume this verdict set, to notice another app changing it. */
+    /** The volume this verdict set, to notice another app changing it. */
     private var volumeSet: Int? = null
 
     init {
@@ -93,7 +95,7 @@ class Voice(context: Context, private val onReady: () -> Unit = {}) {
 
     /**
      * Says [parts] ([NahCopy.speechParts]) with the voice settings in [s]: at
-     * [AppSettings.voiceVolume] percent of the phone's media volume range (0 says nothing), at
+     * [AppSettings.voiceVolume] percent of the accessibility volume range (0 says nothing), at
      * [AppSettings.voiceSpeed], in the picked voice. A new verdict cuts off the one being said; the
      * same verdict again while it's still being said (the card read again) lets it finish.
      */
@@ -159,7 +161,7 @@ class Voice(context: Context, private val onReady: () -> Unit = {}) {
 
     /**
      * Says the next part: its recorded line if it has one, else through the engine. When nothing is
-     * left, media volume and music go back.
+     * left, the volume and music go back.
      */
     private fun next() {
         checkVolume()
@@ -253,12 +255,12 @@ class Voice(context: Context, private val onReady: () -> Unit = {}) {
         saying = null
     }
 
-    /** Notes another app changing the media volume while the verdict is said (Uber does its own volume). */
+    /** Notes another app changing the volume while the verdict is said (Uber does its own volume). */
     private fun checkVolume() {
         val set = volumeSet ?: return
-        val now = audio?.getStreamVolume(AudioManager.STREAM_MUSIC) ?: return
+        val now = audio?.getStreamVolume(STREAM) ?: return
         if (now == set) return
-        note("media volume changed by another app: $set → $now")
+        note("volume changed by another app: $set → $now")
         volumeSet = now
     }
 
@@ -293,17 +295,17 @@ class Voice(context: Context, private val onReady: () -> Unit = {}) {
 
     private fun setVolume(percent: Int) {
         val am = audio ?: return
-        val max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+        val max = am.getStreamMaxVolume(STREAM)
         val wanted = (max * percent.coerceIn(1, 100) + 50) / 100
-        val current = am.getStreamVolume(AudioManager.STREAM_MUSIC)
+        val current = am.getStreamVolume(STREAM)
         if (savedVolume == null) savedVolume = current
-        if (wanted != current) runCatching { am.setStreamVolume(AudioManager.STREAM_MUSIC, wanted.coerceAtLeast(1), 0) }
-        volumeSet = am.getStreamVolume(AudioManager.STREAM_MUSIC)
+        if (wanted != current) runCatching { am.setStreamVolume(STREAM, wanted.coerceAtLeast(1), 0) }
+        volumeSet = am.getStreamVolume(STREAM)
     }
 
-    /** After the verdict: media volume back to what it was, and music back up. */
+    /** After the verdict: the volume back to what it was, and music back up. */
     private fun release() {
-        savedVolume?.let { v -> runCatching { audio?.setStreamVolume(AudioManager.STREAM_MUSIC, v, 0) } }
+        savedVolume?.let { v -> runCatching { audio?.setStreamVolume(STREAM, v, 0) } }
         savedVolume = null
         volumeSet = null
         runCatching { audio?.abandonAudioFocusRequest(focus) }
@@ -319,5 +321,8 @@ class Voice(context: Context, private val onReady: () -> Unit = {}) {
     private companion object {
         /** A name no voice has, so the first verdict always applies the picked voice. */
         const val NOTHING = "\u0000"
+
+        /** The accessibility volume: what [attributes] plays on, and the volume nah.meter sets. */
+        const val STREAM = AudioManager.STREAM_ACCESSIBILITY
     }
 }

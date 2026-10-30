@@ -32,7 +32,7 @@ data class AppSettings(
     val vibration: Boolean = true,
     /** Say the verdict out loud ("nah. 14 an hour"), for couriers who are driving. */
     val voice: Boolean = true,
-    /** How loud the spoken verdict is, as a share of the phone's media volume (0–100; 0 is silent). */
+    /** How loud the spoken verdict is, as a share of the accessibility volume range (0–100; 0 is silent). */
     val voiceVolume: Int = 80,
     val voiceMode: VoiceMode = VoiceMode.WORD_HOURLY,
     /** Which verdicts are spoken; the rest only show. */
