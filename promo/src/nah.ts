@@ -78,7 +78,7 @@ export const cardReason = (e: Evaluation, t: Rules) => {
 /** WelcomeStep's meaning for each verdict, as a caption. */
 export const MEANING: Record<Verdict, string> = {
   GREEN: "Pays your rate.",
-  YELLOW: "Pays the hour, long drive.",
+  YELLOW: "Pays the hour, but a long drive.",
   RED: "Not worth your time.",
   GREY: "Can't read it? It won't guess.",
 };
@@ -88,8 +88,10 @@ export const MEANING: Record<Verdict, string> = {
 /** The PRD's worked example (EXAMPLE_OFFER in SetupScreen.kt): $6.07, 23 min, 11.5 km. */
 export const EXAMPLE: Offer = { payCents: 607, minutes: 23, kmTenths: 115 };
 
-export const OFFERS: Record<"nah" | "bet" | "meh", Offer> = {
-  nah: EXAMPLE,
+export const OFFERS: Record<string, Offer> = {
+  hero: EXAMPLE,
   bet: { payCents: 1420, minutes: 28, kmTenths: 98 },
   meh: { payCents: 940, minutes: 26, kmTenths: 124 },
+  nah: { payCents: 725, minutes: 31, kmTenths: 90 },
+  voice: { payCents: 1180, minutes: 19, kmTenths: 64 },
 };

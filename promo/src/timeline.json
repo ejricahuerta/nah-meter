@@ -1,23 +1,27 @@
 {
   "fps": 30,
-  "durationSec": 39.5,
+  "durationSec": 33,
   "bpm": 120,
-  "musicInSec": 4.0,
+  "musicInSec": 6.0,
   "scenes": {
-    "hook": [0, 4],
-    "shift": [4, 6],
-    "nah": [6, 11],
-    "bet": [11, 14],
-    "meh": [14, 18.5],
-    "grey": [18.5, 24],
-    "rules": [24, 30],
-    "promise": [30, 35],
-    "end": [35, 39.5]
+    "hook": [0, 3],
+    "pain": [3, 6],
+    "answer": [6, 10],
+    "answers": [10, 17.5],
+    "voice": [17.5, 20.5],
+    "rules": [20.5, 24.5],
+    "trust": [24.5, 28.5],
+    "end": [28.5, 33]
   },
-  "hookLinesSec": [0.3, 0.8, 1.3, 2.1, 3.0],
-  "offerCue": { "offerInSec": 0.3, "verdictInSec": 1.0, "speechInSec": 1.2 },
-  "rulesStepsSec": [25.5, 26.5],
-  "rulesFlipSec": 28.0,
-  "promiseLinesSec": [30.2, 31.2, 32.1, 33.0, 33.9],
-  "endCue": { "wordSec": 35.1, "stopSec": 35.5, "taglineSec": 36.1, "fadeOutSec": [37.5, 39.5] }
+  "offers": [
+    { "id": "hero", "offer": "hero", "until": 10, "offerInSec": 0.25, "verdictInSec": 6.0, "speechInSec": 6.3, "speech": "full", "timer": true },
+    { "id": "bet", "offer": "bet", "until": 12.5, "offerInSec": 10.05, "verdictInSec": 10.5, "speechInSec": 10.6, "speech": "word" },
+    { "id": "meh", "offer": "meh", "until": 15, "offerInSec": 12.55, "verdictInSec": 13.0, "speechInSec": 13.1, "speech": "word" },
+    { "id": "nah", "offer": "nah", "until": 17.5, "offerInSec": 15.05, "verdictInSec": 15.5, "speechInSec": 15.6, "speech": "word" },
+    { "id": "voice", "offer": "voice", "until": 20.5, "offerInSec": 17.6, "verdictInSec": 18.0, "speechInSec": 18.2, "speech": "full" }
+  ],
+  "hookLinesSec": [0.4, 1.0, 1.8],
+  "rulesStepsSec": [21.8, 22.8],
+  "trustLinesSec": [24.7, 26.0, 27.2],
+  "endCue": { "wordSec": 28.6, "stopSec": 29.0, "taglineSec": 29.6, "fadeOutSec": [31.2, 33.0] }
 }

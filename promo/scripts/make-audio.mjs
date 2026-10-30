@@ -139,8 +139,11 @@ const greyHit = () =>
 
 const CLIPS = { RED: "verdict_nah.mp3", GREEN: "verdict_bet.mp3", YELLOW: "verdict_meh.mp3", GREY: "verdict_cant_read.mp3" };
 
-/** A clip as 48 kHz mono, silence trimmed from both ends, peak-normalised. */
-const voice = (verdict) => {
+/**
+ * A clip as 48 kHz mono, silence trimmed from both ends, peak-normalised. With `wordOnly`, just
+ * the verdict word: up to the first pause (the clips are the word, a pause, then the rest).
+ */
+const voice = (verdict, wordOnly = false) => {
   const raw = execFileSync(
     "ffmpeg",
     ["-hide_banner", "-loglevel", "error", "-i", join(root, "audio", "voice", CLIPS[verdict]),
@@ -150,7 +153,23 @@ const voice = (verdict) => {
   );
   const v = new Float32Array(raw.buffer, raw.byteOffset, raw.byteLength / 4);
   const peak = v.reduce((m, x) => Math.max(m, Math.abs(x)), 0) || 1;
-  return v.map((x) => (x / peak) * 0.95);
+  const out = v.map((x) => (x / peak) * 0.95);
+  if (!wordOnly) return out;
+  // The first stretch of 150 ms quieter than -35 dB, after at least 150 ms of speech.
+  const win = Math.round(SR * 0.01);
+  let quiet = 0;
+  for (let i = Math.round(SR * 0.15); i + win < out.length; i += win) {
+    let sum = 0;
+    for (let j = i; j < i + win; j++) sum += out[j] * out[j];
+    quiet = Math.sqrt(sum / win) < 0.018 ? quiet + 1 : 0;
+    if (quiet >= 15) {
+      const cut = i - 14 * win + Math.round(SR * 0.04);
+      const w = out.slice(0, cut);
+      for (let k = 0; k < SR * 0.03 && k < w.length; k++) w[w.length - 1 - k] *= k / (SR * 0.03);
+      return w;
+    }
+  }
+  return out;
 };
 
 /** Loudness per video frame (0…1), for the speech chip's waveform. */
@@ -166,19 +185,9 @@ const envelope = (v) => {
   const max = Math.max(...out) || 1;
   return out.map((x) => Math.round((x / max) * 100) / 100);
 };
-const voiceMeta = {};
-
 // ---------- the score ----------
 
 const S = T.scenes;
-
-// Scene 1: clock ticks, a slam per line and a swell into the drop.
-for (let k = 0; k < S.hook[1] * 2; k++) add("sfx", k * 0.5, tick(k), 0.45, k % 2 ? 0.3 : -0.3, 0.1);
-for (const s of T.hookLinesSec) {
-  add("sfx", s, thump(), 0.8, 0, 0.15);
-  add("sfx", s, boom(), 0.25);
-}
-add("sfx", S.shift[0] - 1.5, riser(1.5), 0.35, 0, 0.3);
 
 // Music: played by scripts/make-music.mjs (recorded instruments, rendered by FluidSynth), stereo.
 {
@@ -196,60 +205,54 @@ add("sfx", S.shift[0] - 1.5, riser(1.5), 0.35, 0, 0.3);
     R[j] = m[2 * j + 1] / (peak || 1);
   }
 }
-const breakdown = [S.promise[0], S.promise[1] - 1.0];
-add("sfx", breakdown[1], riser(S.promise[1] - breakdown[1]), 0.3, 0, 0.3);
+
+// The hook and the pain: the offer's timer ticking, every 0.5 s, then every 0.25 s while the
+// courier tries to do the maths; a swell into the answer.
+for (let t = 0, k = 0; t < S.pain[1] - 0.05; k++) {
+  add("sfx", t, tick(k), t < S.pain[0] ? 0.45 : 0.55, k % 2 ? 0.3 : -0.3, 0.1);
+  t += t < S.pain[0] ? 0.5 : 0.25;
+}
+for (const s of T.hookLinesSec) add("sfx", s, thump(), 0.55, 0, 0.15);
+for (let i = 0; i < 4; i++) add("sfx", S.pain[0] + 0.2 + i * 0.4, click(i), 0.45, 0.2); // each maths term
+add("sfx", S.answer[0] - 1.2, riser(1.2), 0.45, 0, 0.3);
+
+// Offers: a ping and a swish as the card comes up, the verdict's sound, then its clip.
+const HITS = { RED: nahHit, GREEN: betHit, YELLOW: mehHit, GREY: greyHit };
+const speechTimes = [];
+const voiceMeta = {};
+for (const o of T.offers) {
+  const offer = OFFERS[o.offer];
+  const ev = offer ? score(offer, DEFAULT_RULES) : CANT_READ;
+  add("sfx", o.offerInSec - 0.1, whoosh(0.45), 0.55, -0.2, 0.15);
+  add("sfx", o.offerInSec, sample("drop_002.ogg", { rate: 1.2 }), 0.35, 0.1, 0.2);
+  add("sfx", o.verdictInSec - 0.3, riser(0.3), 0.35, 0, 0.1);
+  add("sfx", o.verdictInSec, HITS[ev.verdict](o.timer), 0.85, 0, 0.2);
+  if (ev.verdict === "GREEN" || ev.verdict === "YELLOW") add("sfx", o.verdictInSec, boom(), 0.3);
+  add("sfx", o.until - 0.35, whoosh(0.8), 0.45, 0.3, 0.15);
+  const v = voice(ev.verdict, o.speech === "word");
+  add("vo", o.speechInSec, v, 0.9, 0, 0.1);
+  speechTimes.push([o.speechInSec, o.speechInSec + v.length / SR]);
+  voiceMeta[o.id] = { durationSec: Math.round((v.length / SR) * 100) / 100, envelope: envelope(v) };
+  if (o.speechInSec + v.length / SR > o.until) console.warn(`warning: the ${o.id} clip runs past its offer`);
+  console.log(`voice: ${o.id} (${CLIPS[ev.verdict]}, ${o.speech}) at ${o.speechInSec.toFixed(2)} s, ${(v.length / SR).toFixed(2)} s`);
+}
+
+// Rules: a whoosh in and out, a click per step.
+add("sfx", S.rules[0] - 0.1, whoosh(0.45), 0.5, 0.4, 0.2);
+add("sfx", S.rules[1] - 0.15, whoosh(0.8), 0.55, -0.3, 0.2);
+T.rulesStepsSec.forEach((s, i) => add("sfx", s - 0.02, click(i), 0.6, 0.2));
+
+// Trust: a drop and a punch per line, a swell into the end.
+T.trustLinesSec.forEach((s, i) => {
+  add("sfx", s, sample(i % 2 ? "drop_002.ogg" : "drop_001.ogg"), 0.5, 0, 0.15);
+  add("sfx", s, thump(), 0.55, 0, 0.15);
+});
+add("sfx", S.end[0] - 1.0, riser(1.0), 0.3, 0, 0.3);
 
 // Ending.
 add("sfx", T.endCue.wordSec - 0.05, whoosh(0.8), 0.45, 0, 0.2);
 add("sfx", T.endCue.stopSec, nahHit(true), 0.9, 0, 0.3);
-add("sfx", T.endCue.wordSec - 0.5, riser(0.5), 0.45, 0, 0.2);
 add("sfx", T.endCue.taglineSec, click(), 0.4);
-
-// Transitions.
-add("sfx", S.shift[0] - 0.1, whoosh(0.8), 0.55, 0, 0.2);
-add("sfx", S.rules[0] - 0.1, whoosh(0.45), 0.5, 0.4, 0.2);
-add("sfx", S.rules[1] - 0.15, whoosh(0.8), 0.55, -0.3, 0.2);
-
-// Offers: a whoosh as the card comes up, a sound per verdict, then the spoken line.
-const offerScenes = [
-  [S.nah, score(OFFERS.nah, DEFAULT_RULES), nahHit],
-  [S.bet, score(OFFERS.bet, DEFAULT_RULES), betHit],
-  [S.meh, score(OFFERS.meh, DEFAULT_RULES), mehHit],
-  [S.grey, CANT_READ, greyHit],
-];
-const speechTimes = [];
-for (const [[s, e], ev, sound] of offerScenes) {
-  add("sfx", s + T.offerCue.offerInSec - 0.1, whoosh(0.45), 0.6, -0.2, 0.15);
-  add("sfx", s + T.offerCue.verdictInSec, sound(), 0.85, 0, 0.2);
-  // The camera punch: a swell into the hit, a boom under it (nah. has its own), a whoosh out.
-  add("sfx", s + T.offerCue.verdictInSec - 0.35, riser(0.35), 0.4, 0, 0.1);
-  if (sound === betHit || sound === mehHit) add("sfx", s + T.offerCue.verdictInSec, boom(), 0.35);
-  add("sfx", e - 0.4, whoosh(0.8), 0.5, 0.3, 0.15);
-  const v = voice(ev.verdict);
-  const at = s + T.offerCue.speechInSec;
-  add("vo", at, v, 0.9, 0, 0.1);
-  speechTimes.push([at, at + v.length / SR]);
-  voiceMeta[ev.verdict] = { durationSec: Math.round((v.length / SR) * 100) / 100, envelope: envelope(v) };
-  if (at + v.length / SR > e) console.warn(`warning: the ${CLIPS[ev.verdict]} clip runs past its scene`);
-  console.log(`voice: ${CLIPS[ev.verdict]} at ${at.toFixed(2)} s, ${(v.length / SR).toFixed(2)} s`);
-}
-
-// Rules: a UI tick per step, a touch higher each time.
-T.rulesStepsSec.forEach((s, i) => {
-  add("sfx", s - 0.02, click(i), 0.6, 0.2);
-});
-
-// Strict flips to $/km: a switch click and a small whoosh.
-add("sfx", T.rulesFlipSec - 0.03, sample("switch_001.ogg"), 0.7, 0.2);
-add("sfx", T.rulesFlipSec, whoosh(0.45), 0.35, 0.3);
-
-// Promises: a soft tick and thump per line.
-T.promiseLinesSec.forEach((s, i) => {
-  add("sfx", s, sample(i % 2 ? "drop_002.ogg" : "drop_001.ogg"), 0.5, 0, 0.15);
-  const last = i === T.promiseLinesSec.length - 1;
-  add("sfx", s, thump(last), last ? 0.8 : 0.5, 0, 0.15);
-  if (last) add("sfx", s, boom(), 0.5);
-});
 
 // ---------- mix ----------
 

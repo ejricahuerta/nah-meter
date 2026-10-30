@@ -45,7 +45,7 @@ export const Drive: React.FC<{ t: number; W: number; H: number; zoom?: number }>
 
   // The verdict's colour spills onto the glass and the dash.
   const hit = impactAt(t);
-  const spill = hit && hit.u >= 0 ? interpolate(t, [hit.scene[0] + 1.0, hit.scene[0] + 1.25, hit.scene[1] - 0.35, hit.scene[1]], [0, 1, 1, 0], clamp) : 0;
+  const spill = hit && hit.u >= 0 ? interpolate(t, [hit.verdictIn, hit.verdictIn + 0.25, hit.scene[1] - 0.35, hit.scene[1]], [0, 1, 1, 0], clamp) : 0;
   const spillC = hit ? VerdictColor[hit.e.verdict] : "#fff";
 
   const roadW = W * 1.6;

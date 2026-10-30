@@ -101,14 +101,16 @@ const CHORDS = [
 ];
 
 const start = T.musicInSec;
-const breakdown = [S.promise[0], S.promise[1] - 1.0];
+const breakdown = [S.trust[0], S.trust[1] - 1.0];
 const end = S.end[0];
 const bar = 4 * BEAT;
 
-// Intro: strings swell on Am under the hook, a piano low A on each line, a snare roll into the drop.
+// Intro (the hook and the pain): strings swell on Am, a piano low A on each line, a snare roll into the drop.
 for (const n of [45, 52, 57]) strings.note(STR, 0, start + 0.1, n, 70, true);
 for (let i = 0; i <= 24; i++) strings.cc(STR, (i / 24) * start, 11, 40 + (87 * i) / 24);
 T.hookLinesSec.forEach((s, i) => piano.note(PNO, s, 1.2, i === 2 ? 45 : 33, vary(88), true));
+// The pain: the piano's low A pulses with the ticking, building towards the answer.
+for (let t = S.pain[0], i = 0; t < S.pain[1] - 0.1; t += 0.25, i++) piano.note(PNO, t, 0.2, i % 2 ? 45 : 33, vary(50 + i * 2.5), true);
 for (let t = start - 1.0, i = 0; t < start - 0.02; i++) {
   const step = t < start - 0.5 ? BEAT / 4 : BEAT / 8;
   drums.note(DR, t, 0.05, SN, vary(40 + (i * 80) / 24), true);
@@ -152,10 +154,9 @@ for (let b0 = start, k = 0; b0 < end - 0.01; b0 += bar, k++) {
   if (k % 4 === 3) [TOM_H, TOM_H, TOM_L, TOM_L].forEach((n, i) => drums.note(DR, b0 + (3 + i / 4) * BEAT, 0.1, n, vary(90 + i * 6)));
 }
 
-// Crashes on the drop, each verdict landing and the strict flip.
+// Crashes on the drop and on each verdict landing.
 drums.note(DR, start, 1, CRASH, 118, true);
-for (const name of ["nah", "bet", "meh", "grey"]) drums.note(DR, S[name][0] + T.offerCue.verdictInSec, 1, CRASH, 100, true);
-drums.note(DR, T.rulesFlipSec, 1, CRASH, 96, true);
+for (const o of T.offers) drums.note(DR, o.verdictInSec, 1, CRASH, o.timer ? 124 : 100, true);
 
 // Out of the breakdown: a snare roll into the end hit.
 for (let t = breakdown[1], i = 0; t < end - 0.02; i++) {

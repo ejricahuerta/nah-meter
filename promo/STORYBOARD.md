@@ -1,51 +1,67 @@
-# nah.meter promo: storyboard
+# nah.meter promo: storyboard (v3, story first)
 
-**Concept: the world is black and white; only the verdict has colour.** The courier's world is a
-night drive seen from the driver's seat, in greyscale. When a verdict lands, the screen bursts open
-in the verdict's colour with the word stamped huge in black, then closes back into the card.
+Approved and built: 33 s, vertical and wide. Times below are approximate; the exact ones are in
+`src/timeline.json`.
 
-39.5 s at 30 fps. Vertical 1080×1920 (Reels, TikTok, Shorts) and wide 1920×1080 from the same
-scenes. All times are in `src/timeline.json`, which the picture, the music and the sound read.
+## Who is watching
 
-Look: Geist 800–900; colour only on verdicts (bet! #30D158, meh. #FFD60A, nah. #FF3B30, can't read.
-#8E8E93) and the red square full stop. A plain Android phone in a dash mount (no brand). The offer
-is the app's neutral stand-in (`StandInOffer`): "Delivery", the pay, "23 min (11.5 km) total",
-a grey "Match" button. No Uber name, logo, colours or screens.
+A food-delivery courier scrolling Reels or TikTok between orders. Android phone in a dash mount.
+They live this every shift:
 
-| # | Time | Picture | On-screen text | Sound |
-| --- | --- | --- | --- | --- |
-| 1 | 0.0–4.0 | Black. A 15 s ring drains; the offer's numbers slam in one by one; "Worth it?" stamps over them; then a wall of churning digits and maths signs behind "Don't do the math." | "$6.07" / "23 min" / "11.5 km" / "Worth it?" / "Don't do the math." | Clock tick every 0.5 s, a punch per line; strings swell, snare roll into the drop |
-| 2 | 4.0–6.0 | Hard cut to the night drive, wide: rain on the windshield, city bokeh, streetlights passing overhead, the road rushing in, the phone in its mount tilted in 3D. The camera pushes in. | "On shift." · "Reading offers" | Music drops with a crash; whoosh |
-| 3 | 6.0–11.0 | The offer slides up; the verdict lands: the screen bursts red with a huge black **nah.**, then closes into the docked card ($15.83/hr, "Under your $20", $0.53/km). Red spills onto the glass and the dash. | "Not worth your time." · chip "nah." | Swell, punch + metal + boom, crash; the nah clip |
-| 4 | 11.0–14.0 | Next offer, $14.20 · 28 min (9.8 km): green burst, **bet!** ($30.43/hr, "Clears your $20", $1.45/km). | "Pays your rate." | Chips and a chime; the bet clip |
-| 5 | 14.0–18.5 | $9.40 · 26 min (12.4 km): yellow burst, **meh.** ($21.69/hr, "Short on $/km", $0.76/km). | "Pays the hour," / "long drive." | Two wood knocks; the meh clip |
-| 6 | 18.5–24.0 | A blurred, unreadable offer: grey burst, **can't read.** ("Check this offer yourself"). | "Can't read it?" / "It won't guess." | Glitch stutter; the can't-read clip |
-| 7 | 24.0–30.0 | The Rules tab as in the app. + on Per hour twice ($20 → $21), then Strict flips to $/km: the card shows $0.53/km big, "Under your $1/km". | "Your rules." / "Your call.", then "Traffic?" / "Go strict on $/km." | Clicks, a switch, a crash on the flip |
-| 8 | 30.0–35.0 | One promise at a time, full screen, each knocking the last up and away, the red square spinning in. | "It never taps anything for you." / "No internet permission." / "Nothing leaves your phone." / "No account." / "You decide." | A drop and a punch per line, a boom on "You decide."; drums out, then a snare roll |
-| 9 | 35.0–39.5 | The wordmark zooms in; the square lands with a shockwave; the tagline word by word. | "Bad offer? Just say nah." · "For Android" | Crash and a big Am; punch and boom on the square; fade |
+- An offer pops up with **15 seconds** to decide.
+- It shows pay, minutes and km: "$6.07 · 23 min (11.5 km)". It doesn't show whether that's a good
+  deal per hour.
+- Working out "$6.07 for 23 minutes is $15.83 an hour" in 15 seconds, while driving, is hard
+  and unsafe, so they guess. Bad guesses drag their hourly down.
 
-## Motion (second pass: flashier)
+## The one thing they must get in 3 seconds
 
-- Camera: for each offer it pushes in on the offer card, punch-zooms (spring overshoot) onto the
-  verdict card as it lands, eases back so both cards show, then whip-zooms out with motion blur.
-  On the Rules screen it zooms in on the steppers and nudges on every step.
-- Verdict impact: the word fills the screen in its colour for about half a second with a white
-  flash and burst lines, then shrinks away to reveal the docked card. Hard shake on nah., a nudge
-  on the others. A glow in the verdict's colour pulses on the beat behind the phone.
-- Hook: a giant outlined countdown (15, 14, 13…) ticks behind the lines, which slam in.
-- Captions, promises and the tagline slam in (big and blurred, then sharp). The wordmark zooms
-  in, and the red square lands with a shockwave.
-- Film grain and a vignette over everything.
-- Music: recorded instruments (MuseScore General soundfont via FluidSynth), a crash on each verdict and on the strict flip.
-- Sound: recorded effects (Kenney, CC0): slowed card slides for whooshes, reversed for the swell
-  into each verdict; nah. is a heavy punch, low metal and a boom; bet! is a stack of poker chips and
-  a chime; meh. is two knocks on wood; can't read. is a digital stutter. Real clicks on the rules.
+**"This app tells me if a delivery offer is worth it, before the timer runs out."**
 
-Voice: the four verdict clips in `audio/voice/` (supplied by the project owner), one per verdict.
-The speech chip shows the verdict word and a waveform drawn from the clip itself, not a
-transcript. No narrator.
+Everything else (the voice, the rules, privacy) supports that one line. Each scene says what it
+means in plain words on screen. No scene relies on effects alone.
 
-Rules followed: no Uber branding; no tap on the offer card ever (the only presses shown are on
-nah.meter's own + button); the words "Accept" and "Decline" never appear; no emoji or exclamation
-marks except bet!; verdict words lowercase (nah. meh. bet! can't read.) from `NahCopy`; no iPhone
-and no "iOS".
+## Story: problem → answer → how it works → can I trust it → get it
+
+About 30 s. Times are approximate.
+
+| # | Time | What we see | On-screen words (big, plain) | Optional voiceover | Sound |
+| --- | --- | --- | --- | --- | --- |
+| 1. Hook (their problem) | 0–3 s | Phone in a dash mount, driving. A delivery offer pops up: **$6.07 · 23 min (11.5 km)**. A 15-second timer starts draining. | "New offer. 15 seconds." then "Is it worth it?" | "New offer. Fifteen seconds. Is it worth it?" | Offer ping, clock ticking |
+| 2. The pain | 3–6 s | Over the offer, the maths they'd have to do flickers up: "$6.07 ÷ 23 min × 60 = ?" The road is still moving. The timer keeps draining. | "Doing the math while driving?" | "Doing the math while you drive?" | Ticking gets faster |
+| 3. The answer (what the app is) | 6–10 s | A black card drops onto the offer: **nah.** $15.83/hr, "Under your $20". The maths disappears. | "nah.meter does the math for you." Then smaller: "It reads every offer and answers in one word." | "nah.meter reads every offer and answers in one word." | Card lands; your "nah." clip |
+| 4. The three answers | 10–17.5 s | Three offers in a row, each with its card and a plain label under it. | **bet!** "Pays your rate." / **meh.** "Pays the hour, but a long drive." / **nah.** "Not worth your time." | (the verdict clips themselves) | Your bet / meh / nah clips |
+| 5. Eyes on the road | 17.5–20.5 s | A new offer gets **bet!** and its full spoken line; the camera pulls back to the phone in its mount on the road. A sound-wave shows it speaking. | "It says it out loud. Eyes stay on the road." | (your "nah." clip with the rate) | Voice clip |
+| 6. Your rules | 20–24 s | The app's Rules screen. A thumb taps + on "$20.00/hr"; it goes to $21.00 and the card above updates. | "You set the numbers: minimum pay, $ per hour, $ per km." | "You pick what's worth it." | Clicks |
+| 7. Can I trust it | 24–28 s | Three short lines, one at a time, on black. | "It never taps anything. You decide." / "No internet. Nothing leaves your phone." / "No account." | "It never taps for you. You decide." | Soft hits |
+| 8. End | 28.5–33 s | The wordmark, the red square landing, the tagline. | "nah.meter" / "Bad offer? Just say nah." / "For Android" | "Bad offer? Just say nah." | Final hit |
+
+### What changes from the last cut
+
+- It opens on the courier's real problem (an offer and a timer) instead of abstract numbers.
+- Every scene has a sentence that says what is happening. The verdict words are always explained
+  ("bet! Pays your rate").
+- The app is named and explained by 10 s: "nah.meter does the math for you."
+- It ends with where to get it.
+- The look stays nah.meter (black, white, Geist, colour only on verdicts). The full-screen colour
+  bursts become shorter accents, so they don't hide the card being explained. The night drive
+  stays as the background, kept simpler and lighter so the phone and words lead.
+- The "can't read." and "strict on $/km" moments are cut to keep the story simple. They can
+  return in a longer cut.
+
+## Decisions (answered)
+
+1. **Naming the delivery app:** generic, "delivery offers" only. Uber Eats is not named.
+2. **Call to action:** none. It ends on the wordmark, "Bad offer? Just say nah." and "For Android".
+3. **Voiceover:** none. On-screen words only, plus the verdict clips. Scenes 3 and 5 play a full
+   clip; scene 4 plays just the verdict word of each clip.
+4. **Length:** 30 s only (it runs 33 s).
+
+## Rules kept
+
+- No Uber logo, colours or screens. The offer card is the app's neutral stand-in.
+- Nothing is ever tapped on the offer card.
+- "Accept" and "Decline" are never used.
+- Lowercase verdicts from the app: **nah.**, **meh.**, **bet!**, **can't read.**
+- No emoji. The only exclamation mark is in **bet!**.
+- Android only.

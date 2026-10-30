@@ -14,16 +14,38 @@ export const PHONE_W = SCREEN_W + BEZEL * 2;
 export const PHONE_H = SCREEN_H + BEZEL * 2;
 
 const S = timeline.scenes;
-const cue = timeline.offerCue;
 const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 
-/** One offer on screen: its scene, the offer (null = unreadable) and the verdict it gets. */
-export const OFFER_SCENES: { scene: [number, number]; offer: Offer | null; e: Evaluation }[] = [
-  { scene: S.nah as [number, number], offer: OFFERS.nah, e: score(OFFERS.nah, DEFAULT_RULES) },
-  { scene: S.bet as [number, number], offer: OFFERS.bet, e: score(OFFERS.bet, DEFAULT_RULES) },
-  { scene: S.meh as [number, number], offer: OFFERS.meh, e: score(OFFERS.meh, DEFAULT_RULES) },
-  { scene: S.grey as [number, number], offer: null, e: CANT_READ },
-];
+/**
+ * One offer on screen, from timeline.offers (absolute times in seconds): when the card comes up,
+ * when the verdict lands, when its clip plays ("full" line or just the "word"), and when it goes.
+ */
+export type OfferScene = {
+  id: string;
+  scene: [number, number];
+  offerIn: number;
+  verdictIn: number;
+  speechIn: number;
+  speech: "full" | "word";
+  timer: boolean;
+  offer: Offer | null;
+  e: Evaluation;
+};
+
+export const OFFER_SCENES: OfferScene[] = timeline.offers.map((o) => {
+  const offer = OFFERS[o.offer] ?? null;
+  return {
+    id: o.id,
+    scene: [o.offerInSec - 0.05, o.until],
+    offerIn: o.offerInSec,
+    verdictIn: o.verdictInSec,
+    speechIn: o.speechInSec,
+    speech: o.speech as "full" | "word",
+    timer: Boolean((o as { timer?: boolean }).timer),
+    offer,
+    e: offer ? score(offer, DEFAULT_RULES) : CANT_READ,
+  };
+});
 
 /** A seeded street map: grey lines only (colour is kept for verdicts). */
 const StreetMap: React.FC<{ t: number }> = ({ t }) => {
@@ -80,13 +102,14 @@ const Offers: React.FC<{ t: number }> = ({ t }) => {
   const { fps } = useVideoConfig();
   return (
     <>
-      {OFFER_SCENES.map(({ scene, offer, e }, i) => {
-        const [start, end] = scene;
+      {OFFER_SCENES.map((o, i) => {
+        const { offer, e } = o;
+        const [start, end] = o.scene;
         if (t < start || t > end + 0.5) return null;
-        const offerIn = spring({ frame: Math.max(0, (t - start - cue.offerInSec) * fps), fps, config: { damping: 18, stiffness: 140 } });
-        const verdictIn = spring({ frame: Math.max(0, (t - start - cue.verdictInSec) * fps), fps, config: { damping: 11, stiffness: 170, mass: 0.8 } });
+        const offerIn = spring({ frame: Math.max(0, (t - o.offerIn) * fps), fps, config: { damping: 18, stiffness: 140 } });
+        const verdictIn = spring({ frame: Math.max(0, (t - o.verdictIn) * fps), fps, config: { damping: 11, stiffness: 170, mass: 0.8 } });
         const out = interpolate(t, [end - 0.3, end + 0.02], [0, 1], { ...clamp, easing: Easing.in(Easing.cubic) });
-        const wordPop = interpolate(t - start - cue.verdictInSec, [0.05, 0.18, 0.4], [1, 1.12, 1], clamp);
+        const wordPop = interpolate(t - o.verdictIn, [0.05, 0.18, 0.4], [1, 1.12, 1], clamp);
         const offerY = (1 - offerIn) * (OFFER_H + 60) + out * (OFFER_H + 80);
         const verdictY = interpolate(verdictIn, [0, 1], [-140, 0]) + out * (OFFER_H + 260);
         return (
@@ -94,6 +117,7 @@ const Offers: React.FC<{ t: number }> = ({ t }) => {
             <StandInOffer
               offer={offer}
               blur={offer ? 0 : 6}
+              timerLeft={o.timer ? 15 - (t - o.offerIn) : undefined}
               style={{
                 position: "absolute",
                 left: 12,
@@ -126,12 +150,14 @@ const Offers: React.FC<{ t: number }> = ({ t }) => {
 
 /**
  * The Rules tab (ThresholdsScreen.kt): the live preview card scored on the example offer, then
- * "Strict on" and the steppers. Per hour steps up twice, then strict flips to $/km.
+ * "Strict on" and the steppers. Per hour steps up at each rulesStepsSec; strict flips to $/km
+ * only if the timeline has a rulesFlipSec.
  */
 const RulesScreen: React.FC<{ t: number }> = ({ t }) => {
   const { fps } = useVideoConfig();
   const steps = timeline.rulesStepsSec;
-  const flip = timeline.rulesFlipSec;
+  // A strict-rate flip is optional: the story cut leaves it out.
+  const flip = (timeline as { rulesFlipSec?: number }).rulesFlipSec ?? Infinity;
   const done = steps.filter((s) => t >= s).length;
   const rules: Rules = {
     ...DEFAULT_RULES,
@@ -144,9 +170,10 @@ const RulesScreen: React.FC<{ t: number }> = ({ t }) => {
   const pressed = Math.max(0, ...steps.map((s) => interpolate(t, [s - 0.12, s, s + 0.2], [0, 1, 0], clamp)));
   const pop = Math.max(0, ...steps.map((s) => spring({ frame: Math.max(0, (t - s) * fps), fps, config: { damping: 9 }, durationInFrames: 10 }) * interpolate(t, [s, s + 0.35], [1, 0], clamp)));
   const segPos = spring({ frame: Math.max(0, (t - flip) * fps), fps, config: { damping: 14, stiffness: 180 } });
-  const segPress = interpolate(t, [flip - 0.12, flip, flip + 0.25], [0, 1, 0], clamp);
-  // The card pops when its verdict or big rate changes.
-  const cardPop = interpolate(t - flip, [0, 0.1, 0.35], [1, 1.06, 1], clamp);
+  const segPress = Number.isFinite(flip) ? interpolate(t, [flip - 0.12, flip, flip + 0.25], [0, 1, 0], clamp) : 0;
+  // The card pops when its verdict, reason or big rate changes.
+  const changes = [...steps, flip].filter(Number.isFinite);
+  const cardPop = Math.max(1, ...changes.map((c) => interpolate(t - c, [0, 0.1, 0.35], [1, 1.06, 1], clamp)));
   return (
     <div style={{ position: "absolute", inset: 0, background: Mono.ground }}>
       <StatusBar />

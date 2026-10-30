@@ -1,6 +1,6 @@
 # nah.meter promo video
 
-A 39.5-second promo in two cuts, made with [Remotion](https://www.remotion.dev) (React → MP4):
+A 33-second promo in two cuts, made with [Remotion](https://www.remotion.dev) (React → MP4):
 
 - `NahPromoVertical`: 1080×1920 for Reels, TikTok and Shorts
 - `NahPromoWide`: 1920×1080
@@ -29,7 +29,7 @@ Chrome or Chromium, or add `--browser-executable`, to use a different one.
 
 | File | What it does |
 | --- | --- |
-| `src/timeline.json` | Every scene and cue time. The picture and the audio both read it, so a retimed scene moves its sounds with it. |
+| `src/timeline.json` | Every scene, every offer (when its card comes up, when its verdict lands, when its clip plays and whether it plays in full or just the word), and every cue. The picture, the music and the sound all read it. |
 | `src/nah.ts` | A port of `core/Scorer.kt` and `service/NahCopy.kt` (verdict words, strict rate, reasons): every number and reason on screen is computed, not typed. |
 | `src/tokens.ts` | Colours and type from `ui/Nah.kt` (Mono). |
 | `src/ui.tsx` | The verdict card, stand-in offer, status pill, rule steppers, wordmark. |

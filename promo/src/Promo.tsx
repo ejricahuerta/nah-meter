@@ -8,14 +8,13 @@ import { Mono, VerdictColor, nahText } from "./tokens";
 import { MEANING, word } from "./nah";
 import voice from "./voice.json";
 import { OFFER_SCENES, PHONE_H, PHONE_W, Phone } from "./Phone";
-import { StatusPill, Stop, Wordmark } from "./ui";
+import { Stop, Wordmark } from "./ui";
 import { CamLayout, Grain, VerdictSlam, Vignette, camera, shakeAt } from "./fx";
 import { Drive } from "./Drive";
 
 export type Aspect = "vertical" | "wide";
 
 const S = timeline.scenes;
-const cue = timeline.offerCue;
 const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 const outExpo = Easing.bezier(0.16, 1, 0.3, 1);
 
@@ -25,6 +24,8 @@ type Layout = CamLayout & {
   H: number;
   caption: Box & { size: number; align: "left" | "center" };
   chip: { x: number; y: number; align: "left" | "center"; scale: number };
+  /** Where the maths the courier would have to do floats, in the pain scene. */
+  math: { x: number; y: number; size: number; align: "left" | "center" };
   pad: number;
 };
 
@@ -36,6 +37,7 @@ const LAYOUTS: Record<Aspect, Layout> = {
     zoomQ: { x: 540, y: 1060 },
     caption: { x: 60, y: 140, w: 960, h: 380, size: 104, align: "center" },
     chip: { x: 540, y: 1760, align: "center", scale: 1.3 },
+    math: { x: 540, y: 640, size: 112, align: "center" },
     pad: 80,
   },
   wide: {
@@ -45,6 +47,7 @@ const LAYOUTS: Record<Aspect, Layout> = {
     zoomQ: { x: 500, y: 560 },
     caption: { x: 1000, y: 260, w: 860, h: 400, size: 110, align: "left" },
     chip: { x: 1000, y: 740, align: "left", scale: 1.3 },
+    math: { x: 1000, y: 640, size: 96, align: "left" },
     pad: 130,
   },
 };
@@ -87,85 +90,54 @@ const SlamLines: React.FC<{
 };
 
 /**
- * Scene 1: the offer's numbers slam in over a draining 15 s ring ("$6.07", "23 min", "11.5 km"),
- * then "Worth it?", then "Don't do the math." over scrambling digits.
+ * Scene 2 (the pain): the maths the courier would have to do in 15 seconds, while driving, floats
+ * over the offer term by term; the answer won't settle. It shatters when the verdict lands.
  */
-const Hook: React.FC<{ t: number; L: Layout }> = ({ t, L }) => {
-  if (t > S.hook[1] + 0.1) return null;
-  const wide = L.W > L.H;
-  const at = timeline.hookLinesSec;
-  const out = interpolate(t, [S.hook[1] - 0.2, S.hook[1]], [0, 1], clamp);
-  const sh = shakeAt(t);
-  const R = wide ? 420 : 470;
-  const left = interpolate(t, [0, S.hook[1]], [1, 0.73], clamp); // 15 s → 11 s
-  const secs = Math.ceil(15 - t);
-  const nums = ["$6.07", "23 min", "11.5 km"];
-  const mathP = interpolate(t, [at[4] - 0.05, at[4] + 0.1], [0, 1], clamp);
-  // Digits churning behind "Don't do the math."
-  let sd = Math.floor(t * 30) * 7919;
-  const digit = () => String((sd = (sd * 16807 + 11) % 2147483647) % 10);
+const MathOverlay: React.FC<{ t: number; L: Layout }> = ({ t, L }) => {
+  const [p0, p1] = S.pain;
+  if (t < p0 || t > p1 + 0.2) return null;
+  const m = L.math;
+  const terms = ["$6.07", "÷ 23 min", "× 60", "="];
+  const termAt = (i: number) => p0 + 0.2 + i * 0.4;
+  const out = interpolate(t, [p1 - 0.05, p1 + 0.15], [0, 1], clamp);
+  // The answer keeps flickering: nobody can work it out this fast.
+  let sd = Math.floor(t * 15) * 7919 + 3;
+  const dg = () => String((sd = (sd * 16807 + 11) % 2147483647) % 10);
+  const answerOn = t > termAt(4) - 0.1;
+  const jitter = (k: number) => Math.sin(t * 23 + k * 2.1) * 3;
   return (
-    <AbsoluteFill style={{ translate: `${sh.x}px ${sh.y}px`, scale: String(1 + out * 0.5), opacity: 1 - out, filter: `blur(${out * 14}px)` }}>
-      {/* The 15 s ring and its seconds */}
-      <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", opacity: 1 - mathP }}>
-        <svg width={R * 2 + 40} height={R * 2 + 40} style={{ position: "absolute" }}>
-          <circle cx={R + 20} cy={R + 20} r={R} fill="none" stroke="#1F1F1F" strokeWidth={10} />
-          <circle
-            cx={R + 20}
-            cy={R + 20}
-            r={R}
-            fill="none"
-            stroke="#FFFFFF"
-            strokeWidth={10}
-            strokeDasharray={2 * Math.PI * R}
-            strokeDashoffset={2 * Math.PI * R * (1 - left)}
-            transform={`rotate(-90 ${R + 20} ${R + 20})`}
-            strokeLinecap="round"
-          />
-        </svg>
-        <div style={{ position: "absolute", top: wide ? 70 : 330, ...nahText(wide ? 40 : 44, 700, 48, 0, Mono.inkMuted) }}>{secs} s</div>
-      </AbsoluteFill>
-      {/* The numbers, then the question */}
-      <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", gap: 6, opacity: 1 - mathP }}>
-        {nums.map((n, i) => {
-          const p = interpolate(t, [at[i], at[i] + 0.12], [0, 1], { ...clamp, easing: Easing.out(Easing.cubic) });
-          const dim = interpolate(t, [at[3] - 0.02, at[3] + 0.12], [1, 0.1], clamp);
-          return (
-            <div key={n} style={{ ...nahText(wide ? 150 : 170, 900, wide ? 150 : 172, -0.05, Mono.ink), opacity: p * dim, scale: String(interpolate(p, [0, 1], [2.2, 1])), filter: `blur(${(1 - dim) * 10}px)` }}>
-              {n}
-            </div>
-          );
-        })}
-        <div
-          style={{
-            position: "absolute",
-            ...nahText(wide ? 190 : 200, 900, 200, -0.06, Mono.ink),
-            opacity: interpolate(t, [at[3], at[3] + 0.1], [0, 1], clamp),
-            scale: String(interpolate(t, [at[3], at[3] + 0.16], [2.6, 1], { ...clamp, easing: Easing.out(Easing.cubic) })),
-            rotate: "-4deg",
-            textShadow: "0 0 60px #000, 0 0 30px #000",
-          }}
-        >
-          Worth it?
-        </div>
-      </AbsoluteFill>
-      {/* Don't do the math. */}
-      {mathP > 0 && (
-        <AbsoluteFill style={{ alignItems: "center", justifyContent: "center" }}>
-          <div style={{ position: "absolute", inset: 0, display: "flex", flexWrap: "wrap", alignContent: "center", justifyContent: "center", opacity: 0.16, ...nahText(wide ? 90 : 96, 800, wide ? 100 : 110, 0, Mono.ink) }}>
-            {Array.from({ length: wide ? 60 : 72 }, (_, i) => (
-              <span key={i} style={{ width: wide ? 120 : 130, textAlign: "center" }}>
-                {["÷", "×", "=", "$"][i % 9] ?? digit()}
-              </span>
-            ))}
-          </div>
-          <div style={{ ...nahText(wide ? 160 : 150, 900, wide ? 160 : 150, -0.055, Mono.ink), textAlign: "center", padding: `0 ${L.pad}px`, scale: String(interpolate(mathP, [0, 1], [1.8, 1])) }}>
-            Don't do the math
-            <span style={{ display: "inline-block", width: (wide ? 160 : 150) * 0.2, height: (wide ? 160 : 150) * 0.2, marginLeft: 8, background: Mono.stop }} />
-          </div>
-        </AbsoluteFill>
+    <div
+      style={{
+        position: "absolute",
+        left: m.align === "center" ? 0 : m.x,
+        right: m.align === "center" ? 0 : undefined,
+        top: m.y,
+        display: "flex",
+        flexWrap: "wrap",
+        justifyContent: m.align === "center" ? "center" : "flex-start",
+        alignItems: "baseline",
+        gap: `0 ${m.size * 0.28}px`,
+        padding: `0 ${L.pad}px`,
+        opacity: 1 - out,
+        scale: String(1 + out * 0.4),
+        filter: `blur(${out * 16}px)`,
+      }}
+    >
+      {terms.map((term, i) => {
+        const p = interpolate(t, [termAt(i), termAt(i) + 0.12], [0, 1], { ...clamp, easing: Easing.out(Easing.cubic) });
+        return (
+          <span key={term} style={{ ...nahText(m.size, 900, m.size * 1.1, -0.04, Mono.ink), opacity: p, scale: String(interpolate(p, [0, 1], [1.8, 1])), translate: `${jitter(i)}px ${jitter(i + 5)}px`, textShadow: "0 4px 30px #000, 0 0 12px #000" }}>
+            {term}
+          </span>
+        );
+      })}
+      {answerOn && (
+        <span style={{ ...nahText(m.size, 900, m.size * 1.1, -0.04, Mono.inkMuted), textShadow: "0 4px 30px #000" }}>
+          ${dg()}
+          {dg()}.{dg()}?
+        </span>
       )}
-    </AbsoluteFill>
+    </div>
   );
 };
 
@@ -175,14 +147,15 @@ const Hook: React.FC<{ t: number; L: Layout }> = ({ t, L }) => {
  */
 const SpeechChip: React.FC<{ t: number; L: Layout }> = ({ t, L }) => {
   const { fps } = useVideoConfig();
-  const active = OFFER_SCENES.find(({ scene }) => t >= scene[0] + cue.speechInSec - 0.1 && t < scene[1]);
+  const active = OFFER_SCENES.find((o) => t >= o.speechIn - 0.1 && t < o.scene[1]);
   if (!active) return null;
-  const local = t - active.scene[0] - cue.speechInSec;
+  const local = t - active.speechIn;
   const inP = spring({ frame: Math.max(0, (local + 0.1) * fps), fps, config: { damping: 11, stiffness: 160 } });
   const out = interpolate(t, [active.scene[1] - 0.25, active.scene[1]], [0, 1], clamp);
-  const clip = (voice as Record<string, { durationSec: number; envelope: number[] }>)[active.e.verdict];
+  const clip = (voice as Record<string, { durationSec: number; envelope: number[] }>)[active.id];
   const level = (k: number) => clip?.envelope[Math.floor(local * fps) - k] ?? 0;
-  const s = L.chip.scale;
+  // Bigger when the voice is the point of the scene ("It says it out loud").
+  const s = L.chip.scale * (active.id === "voice" ? 1.45 : 1);
   return (
     <div
       style={{
@@ -216,25 +189,42 @@ const SpeechChip: React.FC<{ t: number; L: Layout }> = ({ t, L }) => {
   );
 };
 
-/** Captions beside (wide) or above (vertical) the phone, one per scene. */
+/** Captions beside (wide) or above (vertical) the phone: what each moment means, in plain words. */
 const Captions: React.FC<{ t: number; L: Layout }> = ({ t, L }) => {
   const c = L.caption;
-  const items: { from: number; to: number; lines: React.ReactNode[]; extra?: React.ReactNode }[] = [
-    { from: S.shift[0] + 0.2, to: S.shift[1], lines: ["On shift."], extra: <StatusPill text="Reading offers" scale={1.7} /> },
-    ...OFFER_SCENES.map(({ scene, e }) => ({
-      from: scene[0] + cue.verdictInSec + 0.6,
-      to: scene[1],
-      lines: MEANING[e.verdict].split(/(?<=[?,]) /), // "Can't read it?" / "It won't guess."
-    })),
-    { from: S.rules[0] + 0.4, to: timeline.rulesFlipSec - 0.15, lines: ["Your rules.", "Your call."] },
-    // Strict on $/km suits busy times, when traffic stretches the minutes but not the distance.
-    { from: timeline.rulesFlipSec + 0.15, to: S.rules[1], lines: ["Traffic?", "Go strict on $/km."] },
+  const wide = L.W > L.H;
+  const sub = (text: string) => (
+    <div style={{ ...nahText(wide ? 44 : 46, 600, wide ? 56 : 58, -0.01, "#D4D4D4"), textAlign: c.align, maxWidth: c.w, textShadow: "0 4px 24px #000" }}>{text}</div>
+  );
+  const verdictLine = (o: (typeof OFFER_SCENES)[number]) => (
+    <span style={{ color: VerdictColor[o.e.verdict] }}>{word(o.e.verdict)}</span>
+  );
+  const answers = OFFER_SCENES.filter((o) => !o.timer && o.id !== "voice");
+  const voiceOffer = OFFER_SCENES.find((o) => o.id === "voice");
+  const items: { from: number; to: number; lines: React.ReactNode[]; extra?: React.ReactNode; extraAt?: number }[] = [
+    { from: timeline.hookLinesSec[0], to: timeline.hookLinesSec[2] - 0.1, lines: ["New offer.", "15 seconds."] },
+    { from: timeline.hookLinesSec[2], to: S.hook[1], lines: ["Is it worth it?"] },
+    { from: S.pain[0] + 0.1, to: S.pain[1], lines: ["Doing the math", "while driving?"] },
+    {
+      from: S.answer[0] + 0.45,
+      to: S.answer[1],
+      lines: ["nah.meter does", "the math for you."],
+      extra: sub("It reads every offer and answers in one word."),
+      extraAt: S.answer[0] + 1.5,
+    },
+    // The three answers, each explained.
+    ...answers.map((o) => ({ from: o.verdictIn + 0.3, to: o.scene[1], lines: [verdictLine(o), ...MEANING[o.e.verdict].split(/(?<=,) /)] })),
+    ...(voiceOffer
+      ? [{ from: voiceOffer.verdictIn + 0.4, to: voiceOffer.scene[1], lines: ["It says it", "out loud."], extra: sub("Eyes stay on the road."), extraAt: voiceOffer.verdictIn + 1.1 }]
+      : []),
+    { from: S.rules[0] + 0.3, to: S.rules[1], lines: ["You set", "the numbers."], extra: sub("Minimum pay, $ per hour, $ per km."), extraAt: S.rules[0] + 1.0 },
   ];
   return (
     <>
       {items.map((it, i) => {
         if (t < it.from - 0.1 || t > it.to + 0.1) return null;
-        const extraIn = spring({ frame: Math.max(0, (t - it.from - 0.3) * 30), fps: 30, config: { damping: 12 } });
+        const exAt = it.extraAt ?? it.from + 0.3;
+        const extraIn = spring({ frame: Math.max(0, (t - exAt) * 30), fps: 30, config: { damping: 14 } });
         const extraOut = interpolate(t, [it.to - 0.25, it.to], [0, 1], clamp);
         return (
           <div
@@ -249,18 +239,11 @@ const Captions: React.FC<{ t: number; L: Layout }> = ({ t, L }) => {
               flexDirection: "column",
               justifyContent: "center",
               alignItems: c.align === "center" ? "center" : "flex-start",
-              gap: 36,
+              gap: 28,
             }}
           >
-            <SlamLines
-              t={t}
-              lines={it.lines}
-              at={it.lines.map((_, j) => it.from + j * 0.3)}
-              outAt={it.to}
-              size={it.lines.length > 1 ? c.size * 1.05 : c.size}
-              align={c.align}
-            />
-            {it.extra && <div style={{ opacity: extraIn * (1 - extraOut), scale: String(0.6 + 0.4 * extraIn) }}>{it.extra}</div>}
+            <SlamLines t={t} lines={it.lines} at={it.lines.map((_, j) => it.from + j * 0.25)} outAt={it.to} size={it.lines.length > 2 ? c.size * 0.85 : c.size} align={c.align} />
+            {it.extra && t >= exAt && <div style={{ opacity: Math.min(1, extraIn) * (1 - extraOut), translate: `0 ${(1 - Math.min(1, extraIn)) * 24}px` }}>{it.extra}</div>}
           </div>
         );
       })}
@@ -269,13 +252,13 @@ const Captions: React.FC<{ t: number; L: Layout }> = ({ t, L }) => {
 };
 
 /**
- * The night drive and the phone in its dash mount, under the camera. The phone sits tilted in 3D,
- * squares up as the camera moves in, and leaves after the rules.
+ * The night drive and the phone in its dash mount, under the camera, from the first frame. The
+ * phone sits tilted in 3D, squares up as the camera moves in, and leaves after the rules.
  */
 const PhoneStage: React.FC<{ t: number; L: Layout }> = ({ t, L }) => {
   const { fps } = useVideoConfig();
-  if (t < S.shift[0] || t > S.rules[1] + 0.6) return null;
-  const rise = spring({ frame: Math.max(0, (t - S.shift[0]) * fps), fps, config: { damping: 14, stiffness: 120 } });
+  if (t > S.rules[1] + 0.6) return null;
+  const fadeIn = interpolate(t, [0, 0.3], [0, 1], clamp);
   const out = interpolate(t, [S.rules[1] - 0.2, S.rules[1] + 0.35], [0, 1], { ...clamp, easing: Easing.in(Easing.cubic) });
   const cam = camera(L, t, fps);
   const p = L.phone;
@@ -283,7 +266,7 @@ const PhoneStage: React.FC<{ t: number; L: Layout }> = ({ t, L }) => {
   const glare = ((t * 0.35) % 1.6) - 0.3; // a slow light across the glass
   return (
     <>
-      <div style={{ position: "absolute", inset: 0, opacity: 1 - out }}>
+      <div style={{ position: "absolute", inset: 0, opacity: (1 - out) * fadeIn }}>
         <Drive t={t} W={L.W} H={L.H} zoom={cam.zoom} />
       </div>
       <AbsoluteFill style={{ transformOrigin: "0 0", transform: cam.transform, filter: cam.blur > 0.4 ? `blur(${cam.blur}px)` : undefined }}>
@@ -294,8 +277,8 @@ const PhoneStage: React.FC<{ t: number; L: Layout }> = ({ t, L }) => {
             top: p.top,
             width: PHONE_W * p.scale,
             height: PHONE_H * p.scale,
-            translate: `0 ${(1 - rise) * L.H * 0.7 + out * L.H}px`,
-            transform: `perspective(2400px) rotateY(${-11 * tilt + (1 - rise) * 20}deg) rotateX(${6 * tilt}deg) rotateZ(${-out * 10}deg)`,
+            translate: `0 ${out * L.H}px`,
+            transform: `perspective(2400px) rotateY(${-11 * tilt}deg) rotateX(${6 * tilt}deg) rotateZ(${-out * 10}deg)`,
           }}
         >
           <div style={{ transformOrigin: "top left", scale: String(p.scale) }}>
@@ -335,7 +318,7 @@ const PhoneStage: React.FC<{ t: number; L: Layout }> = ({ t, L }) => {
 /** Darkens the top of a vertical frame while the camera is in close, so captions read over the phone. */
 const CaptionShade: React.FC<{ t: number; L: Layout }> = ({ t, L }) => {
   const { fps } = useVideoConfig();
-  if (L.W > L.H || t < S.shift[0] || t > S.rules[1]) return null;
+  if (L.W > L.H || t > S.rules[1]) return null;
   const z = camera(L, t, fps).zoom;
   return (
     <div
@@ -353,26 +336,25 @@ const CaptionShade: React.FC<{ t: number; L: Layout }> = ({ t, L }) => {
 };
 
 /**
- * Scene 8: the promises, one at a time and full screen. Each slams in with the red square and
- * knocks the last one up and away; "You decide." lands last, biggest.
+ * Can I trust it: three promises, one at a time and full screen, each knocking the last away.
  */
-const Promises: React.FC<{ t: number; L: Layout }> = ({ t, L }) => {
-  if (t < S.promise[0] || t > S.promise[1] + 0.1) return null;
+const Trust: React.FC<{ t: number; L: Layout }> = ({ t, L }) => {
+  const [t0, t1] = S.trust;
+  if (t < t0 || t > t1 + 0.1) return null;
   const { fps } = useVideoConfig();
-  const at = timeline.promiseLinesSec;
+  const at = timeline.trustLinesSec;
   const wide = L.W > L.H;
-  const lines = ["It never taps anything for you.", "No internet permission.", "Nothing leaves your phone.", "No account.", "You decide"];
-  const out = interpolate(t, [S.promise[1] - 0.25, S.promise[1]], [0, 1], clamp);
-  const sh = shakeAt(t);
+  const lines: [string, string?][] = [["It never taps anything.", "You decide."], ["No internet.", "Nothing leaves your phone."], ["No account."]];
+  const out = interpolate(t, [t1 - 0.25, t1], [0, 1], clamp);
   return (
-    <AbsoluteFill style={{ opacity: 1 - out, translate: `${sh.x}px ${sh.y}px` }}>
-      {lines.map((line, i) => {
-        const last = i === lines.length - 1;
+    <AbsoluteFill style={{ opacity: 1 - out }}>
+      {lines.map(([line, second], i) => {
         const next = at[i + 1] ?? Infinity;
         if (t < at[i] - 0.05 || t > next + 0.35) return null;
-        const inP = spring({ frame: Math.max(0, (t - at[i]) * fps), fps, config: { damping: 13, stiffness: 170 } });
+        const inP = spring({ frame: Math.max(0, (t - at[i]) * fps), fps, config: { damping: 14, stiffness: 170 } });
         const leave = Number.isFinite(next) ? interpolate(t, [next, next + 0.3], [0, 1], { ...clamp, easing: Easing.in(Easing.cubic) }) : 0;
-        const size = (last ? 2 : 1) * (wide ? 110 : 112);
+        const secondIn = interpolate(t, [at[i] + 0.45, at[i] + 0.7], [0, 1], { ...clamp, easing: outExpo });
+        const size = wide ? 120 : 116;
         return (
           <AbsoluteFill
             key={i}
@@ -381,17 +363,15 @@ const Promises: React.FC<{ t: number; L: Layout }> = ({ t, L }) => {
               justifyContent: "center",
               padding: `0 ${L.pad}px`,
               opacity: Math.min(1, inP * 1.5) * (1 - leave),
-              translate: `0 ${-leave * L.H * 0.35}px`,
-              scale: String(interpolate(inP, [0, 1], [2.3, 1]) * (1 - leave * 0.3)),
-              filter: `blur(${(1 - Math.min(1, inP)) * 18 + leave * 12}px)`,
+              translate: `0 ${-leave * L.H * 0.3}px`,
+              scale: String(interpolate(inP, [0, 1], [2, 1]) * (1 - leave * 0.25)),
+              filter: `blur(${(1 - Math.min(1, inP)) * 16 + leave * 12}px)`,
             }}
           >
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: size * 0.35 }}>
-              {!last && <Stop size={size * 0.42} style={{ rotate: `${(1 - Math.min(1, inP)) * 90}deg` }} />}
-              <div style={{ ...nahText(size, 900, size * 1.05, -0.05, Mono.ink), textAlign: "center", maxWidth: wide ? 1500 : 940 }}>
-                {line}
-                {last && <span style={{ display: "inline-block", width: size * 0.2, height: size * 0.2, marginLeft: size * 0.05, background: Mono.stop }} />}
-              </div>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: size * 0.3, textAlign: "center", maxWidth: wide ? 1500 : 940 }}>
+              <Stop size={size * 0.36} style={{ rotate: `${(1 - Math.min(1, inP)) * 90}deg` }} />
+              <div style={nahText(size, 900, size * 1.05, -0.05, Mono.ink)}>{line}</div>
+              {second && <div style={{ ...nahText(size * 0.55, 700, size * 0.65, -0.02, "#D4D4D4"), opacity: secondIn, translate: `0 ${(1 - secondIn) * 20}px` }}>{second}</div>}
             </div>
           </AbsoluteFill>
         );
@@ -464,12 +444,12 @@ export const Promo: React.FC<{ aspect: Aspect; withAudio?: boolean }> = ({ aspec
   const L = LAYOUTS[aspect];
   return (
     <AbsoluteFill style={{ background: Mono.ground, overflow: "hidden" }}>
-      <Hook t={t} L={L} />
       <PhoneStage t={t} L={L} />
       <CaptionShade t={t} L={L} />
+      <MathOverlay t={t} L={L} />
       <Captions t={t} L={L} />
       <SpeechChip t={t} L={L} />
-      <Promises t={t} L={L} />
+      <Trust t={t} L={L} />
       <End t={t} L={L} />
       <VerdictSlam t={t} W={L.W} H={L.H} cx={L.zoomQ.x} cy={L.zoomQ.y} />
       <Vignette />

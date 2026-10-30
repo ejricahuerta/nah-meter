@@ -8,7 +8,9 @@ import { VerdictColor, nahText } from "./tokens";
 import { BEZEL, OFFER_SCENES, PHONE_H, PHONE_W } from "./Phone";
 
 const S = timeline.scenes;
-const cue = timeline.offerCue;
+/** Rule changes on the Rules screen: the + steps, and the strict flip if the timeline has one. */
+const FLIP = (timeline as { rulesFlipSec?: number }).rulesFlipSec;
+const RULE_HITS = [...timeline.rulesStepsSec, ...(FLIP === undefined ? [] : [FLIP])];
 const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 const smooth = Easing.bezier(0.65, 0, 0.35, 1);
 
@@ -69,23 +71,27 @@ const run = (keys: Key[], t: number, start: Pose, fps: number): Pose => {
 };
 
 const cameraKeys = (L: CamLayout): Key[] => {
-  const keys: Key[] = [
-    // The shift: start wide on the night drive, then push in on the phone.
-    { at: S.shift[0] + 0.15, dur: 1.75, pose: { ...identity(L), z: 1.05 } },
-  ];
-  for (const { scene } of OFFER_SCENES) {
-    const [s, e] = scene;
+  const keys: Key[] = [];
+  for (const o of OFFER_SCENES) {
+    const [start, until] = o.scene;
     keys.push(
-      { at: s - 0.05, dur: 0.3, pose: identity(L) },
-      { at: s + cue.offerInSec, dur: cue.verdictInSec - cue.offerInSec, pose: zoomOn(L, 1.3, OFFER_CENTER, 120) },
-      { at: s + cue.verdictInSec, dur: 0, pose: zoomOn(L, 1.95, VERDICT_CENTER), spring: true },
-      { at: s + cue.verdictInSec + 1.5, dur: e - s - cue.verdictInSec - 1.9, pose: zoomOn(L, 1.5, BOTH_CARDS, 80) },
-      { at: e - 0.35, dur: 0.35, pose: identity(L) },
+      { at: start, dur: 0.25, pose: identity(L) },
+      // Move in on the offer as it arrives.
+      { at: o.offerIn, dur: o.timer ? 1.1 : Math.max(0.4, o.verdictIn - o.offerIn - 0.05), pose: zoomOn(L, o.timer ? 1.45 : 1.3, OFFER_CENTER, 120) },
+      // Punch in on the verdict card as it lands.
+      { at: o.verdictIn, dur: 0, pose: zoomOn(L, 1.95, VERDICT_CENTER), spring: true },
     );
+    if (o.id === "voice") {
+      // "Eyes stay on the road": pull back to the phone in its mount on the road.
+      keys.push({ at: o.verdictIn + 0.7, dur: 1.3, pose: { ...identity(L), z: 0.8 } });
+    } else if (until - o.verdictIn > 2.5) {
+      keys.push({ at: o.verdictIn + 1.5, dur: until - o.verdictIn - 1.9, pose: zoomOn(L, 1.5, BOTH_CARDS, 80) });
+    }
+    keys.push({ at: until - 0.3, dur: 0.3, pose: identity(L) });
   }
   keys.push(
-    { at: S.rules[0] + 0.5, dur: 1.1, pose: zoomOn(L, 1.7, RULES_FOCUS, 40) },
-    { at: S.rules[1] - 0.6, dur: 0.5, pose: identity(L) },
+    { at: S.rules[0] + 0.3, dur: 1.0, pose: zoomOn(L, 1.7, RULES_FOCUS, 170) },
+    { at: S.rules[1] - 0.5, dur: 0.45, pose: identity(L) },
   );
   return keys;
 };
@@ -96,17 +102,19 @@ const wobble = (t: number, k: number) => Math.sin(t * 61.3 + k * 1.7) * 0.6 + Ma
 /** How hard the screen shakes at `t`: hard on nah., a nudge on the others, a tap per rule step. */
 export const shakeAt = (t: number) => {
   let a = 0;
-  for (const { scene, e } of OFFER_SCENES) {
-    const u = t - scene[0] - cue.verdictInSec;
+  for (const { verdictIn, e } of OFFER_SCENES) {
+    const u = t - verdictIn;
     if (u >= 0 && u < 0.5) a = Math.max(a, (e.verdict === "RED" ? 26 : 10) * Math.exp(-u * 9));
   }
-  for (const s of [...timeline.rulesStepsSec, timeline.rulesFlipSec]) {
+  // A light rumble while the courier is driving and doing the maths.
+  if (t >= S.pain[0] && t < S.pain[1]) a = Math.max(a, 3);
+  for (const s of RULE_HITS) {
     const u = t - s;
     if (u >= 0 && u < 0.25) a = Math.max(a, 6 * Math.exp(-u * 14));
   }
   for (const s of timeline.hookLinesSec) {
     const u = t - s;
-    if (u >= 0 && u < 0.3) a = Math.max(a, 14 * Math.exp(-u * 12));
+    if (u >= 0 && u < 0.3) a = Math.max(a, 8 * Math.exp(-u * 12));
   }
   const u = t - timeline.endCue.stopSec;
   if (u >= 0 && u < 0.4) a = Math.max(a, 16 * Math.exp(-u * 10));
@@ -114,9 +122,9 @@ export const shakeAt = (t: number) => {
 };
 
 const poseAt = (L: CamLayout, t: number, fps: number) => {
-  const p = run(cameraKeys(L), t, { ...identity(L), z: 0.66 }, fps);
-  // A small extra punch on each rule step.
-  const bump = [...timeline.rulesStepsSec, timeline.rulesFlipSec].reduce((b, s) => b + (t >= s ? 0.07 * Math.exp(-(t - s) * 9) : 0), 0);
+  const p = run(cameraKeys(L), t, { ...identity(L), z: 0.8 }, fps);
+  // A small extra punch on each rule change.
+  const bump = RULE_HITS.reduce((b, s) => b + (t >= s ? 0.07 * Math.exp(-(t - s) * 9) : 0), 0);
   return { ...p, z: p.z + bump };
 };
 
@@ -145,7 +153,7 @@ export const camera = (L: CamLayout, t: number, fps: number) => {
 /** The scene whose verdict is landing (or held) at `t`, with the time since it landed. */
 export const impactAt = (t: number) => {
   for (const o of OFFER_SCENES) {
-    const u = t - o.scene[0] - cue.verdictInSec;
+    const u = t - o.verdictIn;
     if (u >= -0.05 && t < o.scene[1]) return { ...o, u };
   }
   return null;
@@ -158,18 +166,18 @@ export const impactAt = (t: number) => {
  */
 export const VerdictSlam: React.FC<{ t: number; W: number; H: number; cx: number; cy: number }> = ({ t, W, H, cx, cy }) => {
   const hit = impactAt(t);
-  if (!hit || hit.u < 0 || hit.u > 0.78) return null;
+  if (!hit || hit.u < 0 || hit.u > 0.46) return null;
   const { u, e } = hit;
   const v: Verdict = e.verdict;
   const color = VerdictColor[v];
   const far = Math.hypot(Math.max(cx, W - cx), Math.max(cy, H - cy));
-  const open = interpolate(u, [0, 0.12], [0, 1], { ...clamp, easing: Easing.out(Easing.cubic) });
-  const close = interpolate(u, [0.55, 0.78], [0, 1], { ...clamp, easing: Easing.in(Easing.cubic) });
+  const open = interpolate(u, [0, 0.08], [0, 1], { ...clamp, easing: Easing.out(Easing.cubic) });
+  const close = interpolate(u, [0.3, 0.46], [0, 1], { ...clamp, easing: Easing.in(Easing.cubic) });
   const radius = far * open * (1 - close);
   // As big as fits, about 0.55em a character in Geist Black at this tracking.
   const size = Math.min(Math.min(W, H) * 0.56, (W * 0.9) / (word(v).length * 0.55));
-  const stamp = interpolate(u, [0.03, 0.15, 0.22], [2.6, 0.94, 1], { ...clamp, easing: Easing.out(Easing.cubic) });
-  const rays = interpolate(u, [0.05, 0.5], [0, 1], clamp);
+  const stamp = interpolate(u, [0.02, 0.1, 0.15], [2.6, 0.94, 1], { ...clamp, easing: Easing.out(Easing.cubic) });
+  const rays = interpolate(u, [0.03, 0.4], [0, 1], clamp);
   const flash = interpolate(u, [0, 0.02, 0.08], [0, 0.9, 0], clamp);
   return (
     <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
@@ -192,31 +200,6 @@ export const VerdictSlam: React.FC<{ t: number; W: number; H: number; cx: number
       </div>
       <div style={{ position: "absolute", inset: 0, background: `rgba(255,255,255,${flash})` }} />
     </div>
-  );
-};
-
-/** A soft glow in the verdict's colour behind the phone while a verdict is up, pulsing on the beat. */
-export const VerdictGlow: React.FC<{ t: number; x: number; y: number; r: number }> = ({ t, x, y, r }) => {
-  const hit = impactAt(t);
-  if (!hit || hit.u < 0) return null;
-  const beat = 60 / timeline.bpm;
-  const pulse = 0.75 + 0.25 * Math.exp(-((t - timeline.musicInSec) % beat) * 6);
-  const end = hit.scene[1];
-  const a = interpolate(t, [hit.scene[0] + cue.verdictInSec, hit.scene[0] + cue.verdictInSec + 0.3, end - 0.35, end], [0, 1, 1, 0], clamp) * pulse;
-  const c = VerdictColor[hit.e.verdict];
-  return (
-    <div
-      style={{
-        position: "absolute",
-        left: x - r,
-        top: y - r,
-        width: r * 2,
-        height: r * 2,
-        borderRadius: "50%",
-        background: `radial-gradient(circle, ${c}66 0%, ${c}22 40%, transparent 70%)`,
-        opacity: a,
-      }}
-    />
   );
 };
 

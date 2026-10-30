@@ -115,9 +115,10 @@ export const VerdictCard: React.FC<{ e: Evaluation; rules: Rules; wordScale?: nu
 };
 
 /** A plain stand-in for the delivery app's offer card (StandInOffer): only shows where the verdict sits. */
-export const StandInOffer: React.FC<{ offer: Offer | null; blur?: number; style?: React.CSSProperties }> = ({
+export const StandInOffer: React.FC<{ offer: Offer | null; blur?: number; timerLeft?: number; style?: React.CSSProperties }> = ({
   offer,
   blur = 0,
+  timerLeft,
   style,
 }) => (
   <div
@@ -129,9 +130,11 @@ export const StandInOffer: React.FC<{ offer: Offer | null; blur?: number; style?
       flexDirection: "column",
       gap: 6,
       boxShadow: "0 -10px 40px rgba(0,0,0,0.5)",
+      position: "relative",
       ...style,
     }}
   >
+    {timerLeft !== undefined && <OfferTimer left={Math.max(0, timerLeft)} />}
     <div style={{ display: "flex", flexDirection: "column", gap: 6, filter: blur ? `blur(${blur}px)` : undefined }}>
       <div style={nahText(14, 600, 20, 0, StandIn.label)}>Delivery</div>
       <div style={nahText(32, 800, 36, -0.03, "#FFFFFF")}>{offer ? cents(offer.payCents) : "$1l.5?"}</div>
@@ -154,6 +157,23 @@ export const StandInOffer: React.FC<{ offer: Offer | null; blur?: number; style?
     </div>
   </div>
 );
+
+/** The offer's 15-second timer: a draining ring with the seconds left (neutral white, no brand). */
+const OfferTimer: React.FC<{ left: number }> = ({ left }) => {
+  const R = 20;
+  const c = 2 * Math.PI * R;
+  return (
+    <div style={{ position: "absolute", top: 14, right: 14, width: 52, height: 52 }}>
+      <svg width={52} height={52}>
+        <circle cx={26} cy={26} r={R} fill="none" stroke="#3A3A3C" strokeWidth={5} />
+        <circle cx={26} cy={26} r={R} fill="none" stroke="#FFFFFF" strokeWidth={5} strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - left / 15)} transform="rotate(-90 26 26)" />
+      </svg>
+      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", ...nahText(17, 800, 20, 0, "#FFFFFF") }}>
+        {Math.ceil(left)}
+      </div>
+    </div>
+  );
+};
 
 /** StatusPill: "Reading offers" with a green dot. */
 export const StatusPill: React.FC<{ text: string; scale?: number }> = ({ text, scale = 1 }) => (
