@@ -292,6 +292,39 @@ class OfferParserTest {
         assertEquals(13, read("$5.10", "13 min (3.5 km) total", "Kebab House (Church St)", "Accept").minutes)
     }
 
+    /**
+     * 2026-10-29 4:55: "$19.04 · Delivery (2) · 1 hr 12 min (25.0 km) total" got eh. at $190.40/hr:
+     * text recognition ran "hr" into "12", and the trip was scored as 2 minutes (+4 for 2 orders).
+     */
+    @Test fun hourRunIntoTheMinutes() {
+        val card = arrayOf("Delivery (2)", "Exclusive", "\$19.04", "including estimated tip")
+        val places = arrayOf("Chinese Halal Restaurant 中华牛羊馆", "(Ravel Rd)", "Oak St & Tubman Ave, Toronto", "Accept")
+        for (trip in listOf("1 hr12 min (25.0 km) total", "1hr12min (25.0km) total", "l hr12 min (25.0 km) total")) {
+            val o = read(*card, trip, *places)
+            assertEquals(trip, 72, o.minutes)
+            assertEquals(trip, 2, o.orders)
+        }
+        // At the courier's rules ($17.50/hr, 10% drive back): 72 + 7 + 4 = 83 min, 27.5 km, as the
+        // phone showed when it read the card right.
+        val e = Scorer.score(
+            read(*card, "1 hr 12 min (25.0 km) total", *places),
+            Thresholds(minHourly = BigDecimal("17.50"), extraKmPercent = 10),
+        )
+        assertEquals(Verdict.RED, e.verdict)
+        assertEquals("\$13.76/hr · \$0.69/km", e.ratesText)
+        // An hours word whose number was lost is can't read., never "2 min".
+        assertTrue(OfferParser.parse(listOf(*card, "hr12 min (25.0 km) total")) is ReadResult.Unreadable)
+    }
+
+    /** A time too short for the distance (over 100 km/h) is a misread: can't read., not $190.40/hr. */
+    @Test fun impossibleSpeedIsUnreadable() {
+        for (trip in listOf("2 min (25.0 km) total", "12 min (25.0 km) total")) {
+            assertTrue(trip, OfferParser.parse(listOf("\$19.04", trip)) is ReadResult.Unreadable)
+        }
+        // Exactly 100 km/h still reads.
+        assertEquals(15, read("\$19.04", "15 min (25.0 km) total").minutes)
+    }
+
     @Test fun tripWithoutATimeIsUnreadable() {
         assertTrue(OfferParser.parse(listOf("$6.07", "hr (11.5 km) total")) is ReadResult.Unreadable)
     }
