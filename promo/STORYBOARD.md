@@ -35,7 +35,9 @@ a grey "Match" button. No Uber name, logo, colours or screens.
 - Captions, promises and the tagline slam in (big and blurred, then sharp). The wordmark zooms
   in, and the red square lands with a shockwave.
 - Film grain and a vignette over everything.
-- Sound: a short riser and a sub boom under each verdict hit, and a whip whoosh on each exit.
+- Sound: recorded effects (Kenney, CC0): slowed card slides for whooshes, reversed for the swell
+  into each verdict; nah. is a heavy punch, low metal and a boom; bet! is a stack of poker chips and
+  a chime; meh. is two knocks on wood; can't read. is a digital stutter. Real clicks on the rules.
 
 Voice: the four verdict clips in `audio/voice/` (supplied by the project owner), one per verdict.
 The speech chip shows the verdict word and a waveform drawn from the clip itself, not a

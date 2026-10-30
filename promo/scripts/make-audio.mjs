@@ -139,103 +139,102 @@ const sub = (midi, sec) => {
   return s;
 };
 
-// ---------- sound effects ----------
+// ---------- sound effects (recorded, CC0) ----------
+// Real recordings from Kenney's CC0 packs (audio/sfx/, see CREDITS.md), shaped with ffmpeg:
+// pitched down for weight, reversed for swells, and given a room so they sit in the mix.
 
-/** Filtered noise sweeping up then down, panned across. */
-const whoosh = (sec = 0.5, lo = 350, hi = 3200) => {
-  const n = noise(sec);
-  const len = n.length;
-  const f = biquad(n, "bp", (i) => lo + (hi - lo) * Math.sin((Math.PI * i) / len) ** 1.5, 1.6);
-  return f.map((v, i) => v * Math.sin((Math.PI * i) / len) ** 2 * 2.2);
-};
+const sampleCache = new Map();
 
-const tick = (freq = 1800, sec = 0.035) => {
-  const s = buf(sec);
-  for (let i = 0; i < s.length; i++) {
-    const t = i / SR;
-    s[i] = (Math.sin(2 * Math.PI * freq * t) * 0.7 + rnd() * 0.3) * Math.exp(-t * 140);
-  }
-  return s;
-};
-
-const thump = (sec = 0.35, from = 120, to = 45) => {
-  const s = buf(sec);
-  let ph = 0;
-  for (let i = 0; i < s.length; i++) {
-    const t = i / SR;
-    ph += (2 * Math.PI * (to + (from - to) * Math.exp(-t * 25))) / SR;
-    s[i] = Math.sin(ph) * Math.exp(-t * 9);
-  }
-  return s;
-};
-
-/** The "nah" sting: two falling synth notes, "na-ah", with a low thud under them. */
-const nahSting = (big = false) => {
-  const s = buf(big ? 1.4 : 0.6);
-  const notes = [ [0, 0.11, 64], [0.1, big ? 1.2 : 0.45, 60] ];
-  for (const [at, dur, m] of notes) {
-    const st = Math.round(at * SR);
-    let ph = 0;
-    for (let i = 0; i < dur * SR && st + i < s.length; i++) {
-      const t = i / SR;
-      const bend = m === 60 ? -0.6 * Math.min(1, t / 0.35) : 0;
-      ph += (2 * Math.PI * mtof(m + bend - (big ? 12 : 0))) / SR;
-      const env = Math.min(1, t * 300) * Math.exp(-t * (big ? 2.2 : 5));
-      s[st + i] += (saw(ph, 10) + 0.5 * saw(ph * 2.003, 6)) * env * 0.55;
-    }
-  }
-  const out = biquad(s, "lp", (i) => 900 + 2600 * Math.exp(-(i / SR) * 6), 1.1);
-  const th = thump(0.4, 140, 42);
-  for (let i = 0; i < th.length; i++) out[i] += th[i] * 0.9;
+/**
+ * An audio/sfx/ file as 48 kHz mono. `rate` < 1 plays it slower and lower (tape-style), `reverse`
+ * flips it, `room` adds an echo tail (0…1), `lp` is a low-pass in Hz.
+ */
+const sample = (name, { rate = 1, reverse = false, room = 0, lp = 0 } = {}) => {
+  const key = JSON.stringify([name, rate, reverse, room, lp]);
+  if (sampleCache.has(key)) return sampleCache.get(key);
+  const af = [`asetrate=44100*${rate}`, "aresample=48000"];
+  if (lp) af.push(`lowpass=f=${lp}`);
+  if (room) af.push(`apad=pad_dur=${(0.6 * room + 0.2).toFixed(2)}`, `aecho=0.8:${(0.5 * room).toFixed(2)}:43|89|157|263:${[0.5, 0.4, 0.3, 0.2].map((g) => (g * room).toFixed(2)).join("|")}`);
+  if (reverse) af.push("areverse");
+  const raw = execFileSync(
+    "ffmpeg",
+    ["-hide_banner", "-loglevel", "error", "-i", join(root, "audio", "sfx", name), "-af", af.join(","), "-f", "f32le", "-ac", "1", "-ar", String(SR), "pipe:1"],
+    { maxBuffer: 64 * 1024 * 1024 },
+  );
+  const v = new Float32Array(raw.buffer, raw.byteOffset, raw.byteLength / 4);
+  const peak = v.reduce((m, x) => Math.max(m, Math.abs(x)), 0) || 1;
+  const out = v.map((x) => x / peak);
+  sampleCache.set(key, out);
   return out;
 };
 
-/** "bet!": a bright two-note pop going up. */
-const betPop = () => {
-  const s = buf(0.5);
-  for (const [at, m] of [[0, 84], [0.075, 91]]) {
+/** Several sounds layered: [signal, start (s), gain]. */
+const layer = (...parts) => {
+  const len = Math.max(...parts.map(([sig, at]) => Math.round(at * SR) + sig.length));
+  const out = new Float32Array(len);
+  for (const [sig, at, g] of parts) {
     const st = Math.round(at * SR);
-    for (let i = 0; st + i < s.length; i++) {
-      const t = i / SR;
-      const f = mtof(m) * (1 + 0.04 * Math.exp(-t * 60));
-      s[st + i] += (Math.sin(2 * Math.PI * f * t) + 0.3 * Math.sin(4 * Math.PI * f * t)) * Math.exp(-t * 11) * Math.min(1, t * 600) * 0.6;
-    }
+    for (let i = 0; i < sig.length; i++) out[st + i] += sig[i] * g;
   }
-  const th = thump(0.2, 220, 90);
-  for (let i = 0; i < th.length; i++) s[i] += th[i] * 0.4;
-  return s;
+  return out;
 };
 
-/** "meh.": a neutral wood-block double tick. */
-const mehTick = () => {
-  const s = buf(0.4);
-  for (const [at, f] of [[0, 880], [0.13, 740]]) {
-    const st = Math.round(at * SR);
-    const n = biquad(noise(0.08), "bp", f * 2, 3);
-    for (let i = 0; i < 0.2 * SR; i++) {
-      const t = i / SR;
-      s[st + i] += (Math.sin(2 * Math.PI * f * t) * Math.exp(-t * 32) + (n[i] ?? 0) * Math.exp(-t * 80) * 0.5) * 0.8;
-    }
-  }
-  return s;
-};
+/** A swish: a real card slide or shove, slowed down into a whoosh. Longer `sec` is slower and deeper. */
+const whoosh = (sec = 0.5) =>
+  sample(sec > 0.5 ? "card-shove-1.ogg" : "card-slide-1.ogg", { rate: sec > 0.5 ? 0.55 : 0.7, room: 0.3 });
 
-/** "can't read.": a soft, muffled blip. */
-const greyBlip = () => {
-  const s = buf(0.35);
-  for (let i = 0; i < s.length; i++) {
-    const t = i / SR;
-    s[i] = Math.sin(2 * Math.PI * (330 - 40 * t) * t) * Math.exp(-t * 12) * Math.min(1, t * 200) + rnd() * 0.08 * Math.exp(-t * 10);
-  }
-  return biquad(s, "lp", 900);
-};
-
-/** Rising filtered noise into a downbeat. */
+/** A swell into a hit: a slowed, reverberant shove played backwards. */
 const riser = (sec) => {
-  const n = noise(sec);
-  const len = n.length;
-  return biquad(n, "bp", (i) => 300 + 5000 * (i / len) ** 2, 2).map((v, i) => v * (i / len) ** 2 * 1.6);
+  const s = sample("card-shove-2.ogg", { rate: 0.5, room: 1, reverse: true });
+  return s.subarray(Math.max(0, s.length - Math.round(sec * SR)));
 };
+
+/** A clock tick (two alternating recordings), or a UI click when `click` is set. */
+const tick = (alt = 0) => sample(alt % 2 ? "tick_002.ogg" : "tick_001.ogg");
+const click = (alt = 0) => sample(alt % 2 ? "click_002.ogg" : "click_001.ogg");
+
+/** A dull body hit, for slams. */
+const thump = (heavy = false) => sample(heavy ? "impactPunch_heavy_000.ogg" : "impactPunch_medium_000.ogg", { rate: 0.85 });
+
+/** A deep, cinematic boom. */
+const boom = (long = false) => sample(long ? "lowFrequency_explosion_000.ogg" : "lowFrequency_explosion_001.ogg", { lp: 900 });
+
+/** "nah.": a heavy punch and a low metal hit over a boom. */
+const nahHit = (big = false) =>
+  layer(
+    [thump(true), 0, 1],
+    [sample("impactMetal_heavy_000.ogg", { rate: 0.6, room: 0.5 }), 0.01, 0.55],
+    [boom(big), 0, big ? 0.9 : 0.7],
+    ...(big ? [[sample("impactBell_heavy_000.ogg", { rate: 0.5, room: 0.8, lp: 2500 }), 0.02, 0.35]] : []),
+  );
+
+/** "bet!": a stack of chips (money landing) and a bright confirmation. */
+const betHit = () =>
+  layer(
+    [sample("chips-stack-1.ogg"), 0, 0.9],
+    [sample("chips-collide-1.ogg"), 0.07, 0.6],
+    [sample("confirmation_002.ogg", { room: 0.3 }), 0.02, 0.45],
+    [sample("impactSoft_heavy_000.ogg", { rate: 0.8 }), 0, 0.6],
+  );
+
+/** "meh.": two knocks on wood. */
+const mehHit = () =>
+  layer(
+    [sample("impactWood_medium_000.ogg", { room: 0.2 }), 0, 1],
+    [sample("impactWood_medium_001.ogg", { rate: 0.9, room: 0.2 }), 0.14, 0.8],
+    [sample("impactSoft_medium_000.ogg", { rate: 0.8 }), 0, 0.4],
+  );
+
+/** "can't read.": a digital stutter and a scratch. */
+const greyHit = () =>
+  layer(
+    [sample("glitch_001.ogg"), 0, 0.9],
+    [sample("glitch_002.ogg"), 0.05, 0.8],
+    [sample("glitch_004.ogg"), 0.09, 0.8],
+    [sample("glitch_002.ogg", { rate: 0.8 }), 0.15, 0.7],
+    [sample("scratch_001.ogg", { room: 0.3 }), 0.06, 0.6],
+    [sample("impactSoft_medium_000.ogg", { rate: 0.7 }), 0, 0.5],
+  );
 
 // ---------- the voice (the project's verdict clips) ----------
 
@@ -275,10 +274,10 @@ const voiceMeta = {};
 const S = T.scenes;
 
 // Scene 1: clock ticks, a slam per line, a low drone and a riser into the drop.
-for (let k = 0; k < 6; k++) add("sfx", k * 0.5, tick(k % 2 ? 1400 : 1800), 0.35, k % 2 ? 0.3 : -0.3);
+for (let k = 0; k < 6; k++) add("sfx", k * 0.5, tick(k), 0.45, k % 2 ? 0.3 : -0.3, 0.1);
 for (const s of T.hookLinesSec) {
-  add("sfx", s, thump(0.35, 160, 50), 0.7);
-  add("sfx", s, tick(2400, 0.02), 0.3);
+  add("sfx", s, thump(), 0.8, 0, 0.15);
+  add("sfx", s, boom(), 0.25);
 }
 {
   const d = buf(3.0);
@@ -319,7 +318,7 @@ for (let bar = 0; musicStart + bar * 4 * BEAT < musicEnd; bar++) {
     add("music", tb + BEAT / 2, hat(beat === 3), 0.16, 0.35);
     add("music", tb + BEAT / 4, hat(), 0.07, -0.35);
     add("music", tb + (3 * BEAT) / 4, hat(), 0.07, -0.35);
-    for (let q = 0; q < 4; q++) add("music", tb + (q * BEAT) / 4, pluck(ch.arp[(beat * 4 + q) % 4]), quiet ? 0.16 : 0.1, (q % 2 ? 0.4 : -0.4), 0.35);
+    for (let q = 0; q < 4; q++) add("music", tb + (q * BEAT) / 4, pluck(ch.arp[(beat * 4 + q) % 4]), quiet ? 0.07 : 0.035, (q % 2 ? 0.4 : -0.4), 0.35);
   }
 }
 add("sfx", breakdown[1], riser(S.promise[1] - breakdown[1]), 0.3, 0, 0.3);
@@ -328,33 +327,31 @@ add("sfx", breakdown[1], riser(S.promise[1] - breakdown[1]), 0.3, 0, 0.3);
 add("music", S.end[0], kick(true), 0.9);
 add("music", S.end[0], pad([45, 57, 60, 64, 69], T.durationSec - S.end[0], 1800), 0.7, 0, 0.6);
 add("music", S.end[0], sub(33, 3.2), 0.5);
-add("sfx", T.endCue.wordSec, whoosh(0.5, 200, 1800), 0.25);
-add("sfx", T.endCue.stopSec, nahSting(true), 0.55, 0, 0.35);
-add("sfx", T.endCue.stopSec, kick(true), 0.7);
-add("sfx", T.endCue.wordSec - 0.35, riser(0.35), 0.3, 0, 0.2);
-add("sfx", T.endCue.taglineSec, tick(2000, 0.03), 0.25);
+add("sfx", T.endCue.wordSec - 0.05, whoosh(0.8), 0.45, 0, 0.2);
+add("sfx", T.endCue.stopSec, nahHit(true), 0.9, 0, 0.3);
+add("sfx", T.endCue.wordSec - 0.5, riser(0.5), 0.45, 0, 0.2);
+add("sfx", T.endCue.taglineSec, click(), 0.4);
 
 // Transitions.
-add("sfx", S.shift[0] - 0.1, whoosh(0.6, 200, 2000), 0.35, 0, 0.2);
-add("sfx", S.rules[0] - 0.1, whoosh(0.45, 400, 3600), 0.3, 0.4, 0.2);
-add("sfx", S.rules[1] - 0.15, whoosh(0.55, 250, 2200), 0.3, -0.3, 0.2);
+add("sfx", S.shift[0] - 0.1, whoosh(0.8), 0.55, 0, 0.2);
+add("sfx", S.rules[0] - 0.1, whoosh(0.45), 0.5, 0.4, 0.2);
+add("sfx", S.rules[1] - 0.15, whoosh(0.8), 0.55, -0.3, 0.2);
 
 // Offers: a whoosh as the card comes up, a sound per verdict, then the spoken line.
 const offerScenes = [
-  [S.nah, score(OFFERS.nah, DEFAULT_RULES), nahSting],
-  [S.bet, score(OFFERS.bet, DEFAULT_RULES), betPop],
-  [S.meh, score(OFFERS.meh, DEFAULT_RULES), mehTick],
-  [S.grey, CANT_READ, greyBlip],
+  [S.nah, score(OFFERS.nah, DEFAULT_RULES), nahHit],
+  [S.bet, score(OFFERS.bet, DEFAULT_RULES), betHit],
+  [S.meh, score(OFFERS.meh, DEFAULT_RULES), mehHit],
+  [S.grey, CANT_READ, greyHit],
 ];
 const speechTimes = [];
 for (const [[s, e], ev, sound] of offerScenes) {
-  add("sfx", s + T.offerCue.offerInSec - 0.12, whoosh(0.45), 0.4, -0.2, 0.15);
-  add("sfx", s + T.offerCue.verdictInSec, sound(), sound === greyBlip ? 0.5 : 0.6, 0, 0.25);
-  // The camera punch: a short riser into the hit, a sub boom on it, and a whip when the scene ends.
-  add("sfx", s + T.offerCue.verdictInSec - 0.3, riser(0.3), 0.3, 0, 0.2);
-  add("sfx", s + T.offerCue.verdictInSec, kick(true), sound === nahSting ? 0.75 : 0.45);
-  add("sfx", s + T.offerCue.verdictInSec, biquad(noise(0.25), "lp", 2500).map((v, i) => v * Math.exp(-(i / SR) * 18)), 0.25, 0, 0.3);
-  add("sfx", e - 0.4, whoosh(0.4, 500, 4500), 0.35, 0.3, 0.15);
+  add("sfx", s + T.offerCue.offerInSec - 0.1, whoosh(0.45), 0.6, -0.2, 0.15);
+  add("sfx", s + T.offerCue.verdictInSec, sound(), 0.85, 0, 0.2);
+  // The camera punch: a swell into the hit, a boom under it (nah. has its own), a whoosh out.
+  add("sfx", s + T.offerCue.verdictInSec - 0.35, riser(0.35), 0.4, 0, 0.1);
+  if (sound === betHit || sound === mehHit) add("sfx", s + T.offerCue.verdictInSec, boom(), 0.35);
+  add("sfx", e - 0.4, whoosh(0.8), 0.5, 0.3, 0.15);
   const v = voice(ev.verdict);
   const at = s + T.offerCue.speechInSec;
   add("vo", at, v, 0.9, 0, 0.1);
@@ -366,19 +363,17 @@ for (const [[s, e], ev, sound] of offerScenes) {
 
 // Rules: a UI tick per step, a touch higher each time.
 T.rulesStepsSec.forEach((s, i) => {
-  add("sfx", s - 0.02, tick(1500 + i * 150, 0.03), 0.45, 0.2);
-  add("sfx", s, thump(0.12, 300, 160), 0.2);
+  add("sfx", s - 0.02, click(i), 0.6, 0.2);
 });
 
 // Strict flips to $/km: a switch click and a small whoosh.
-add("sfx", T.rulesFlipSec - 0.02, tick(2600, 0.025), 0.5, 0.2);
-add("sfx", T.rulesFlipSec, whoosh(0.3, 800, 5000), 0.25, 0.3);
-add("sfx", T.rulesFlipSec, thump(0.2, 220, 90), 0.35);
+add("sfx", T.rulesFlipSec - 0.03, sample("switch_001.ogg"), 0.7, 0.2);
+add("sfx", T.rulesFlipSec, whoosh(0.45), 0.35, 0.3);
 
 // Promises: a soft tick and thump per line.
 T.promiseLinesSec.forEach((s, i) => {
-  add("sfx", s, tick(1100 + i * 80, 0.05), 0.3);
-  add("sfx", s, thump(0.25, 140, 60), i === 3 ? 0.6 : 0.35);
+  add("sfx", s, sample(i % 2 ? "drop_002.ogg" : "drop_001.ogg"), 0.5, 0, 0.15);
+  add("sfx", s, thump(i === 3), i === 3 ? 0.8 : 0.5, 0, 0.15);
 });
 
 // ---------- mix ----------
