@@ -1,27 +1,26 @@
 {
   "fps": 30,
-  "durationSec": 33,
+  "durationSec": 18,
   "bpm": 120,
-  "musicInSec": 6.0,
+  "musicInSec": 2.0,
   "scenes": {
-    "hook": [0, 3],
-    "pain": [3, 6],
-    "answer": [6, 10],
-    "answers": [10, 17.5],
-    "voice": [17.5, 20.5],
-    "rules": [20.5, 24.5],
-    "trust": [24.5, 28.5],
-    "end": [28.5, 33]
+    "worth": [0, 2],
+    "answer": [2, 4],
+    "quick": [4, 7],
+    "loud": [7, 9.5],
+    "rules": [9.5, 12],
+    "trust": [12, 14.5],
+    "end": [14.5, 18]
   },
   "offers": [
-    { "id": "hero", "offer": "hero", "until": 10, "offerInSec": 0.25, "verdictInSec": 6.0, "speechInSec": 6.3, "speech": "full", "timer": true },
-    { "id": "bet", "offer": "bet", "until": 12.5, "offerInSec": 10.05, "verdictInSec": 10.5, "speechInSec": 10.6, "speech": "word" },
-    { "id": "meh", "offer": "meh", "until": 15, "offerInSec": 12.55, "verdictInSec": 13.0, "speechInSec": 13.1, "speech": "word" },
-    { "id": "nah", "offer": "nah", "until": 17.5, "offerInSec": 15.05, "verdictInSec": 15.5, "speechInSec": 15.6, "speech": "word" },
-    { "id": "voice", "offer": "voice", "until": 20.5, "offerInSec": 17.6, "verdictInSec": 18.0, "speechInSec": 18.2, "speech": "full" }
+    { "id": "hero", "offer": "hero", "until": 4.0, "offerInSec": 0.1, "verdictInSec": 2.0, "speechInSec": 2.15, "speech": "full", "timer": true },
+    { "id": "bet", "offer": "bet", "until": 5.0, "offerInSec": 4.0, "verdictInSec": 4.1, "speechInSec": 4.15, "speech": "word" },
+    { "id": "meh", "offer": "meh", "until": 6.0, "offerInSec": 5.0, "verdictInSec": 5.1, "speechInSec": 5.15, "speech": "word" },
+    { "id": "nah", "offer": "nah", "until": 7.0, "offerInSec": 6.0, "verdictInSec": 6.1, "speechInSec": 6.15, "speech": "word" },
+    { "id": "voice", "offer": "voice", "until": 9.5, "offerInSec": 7.0, "verdictInSec": 7.0, "speechInSec": 7.35, "speech": "full" }
   ],
-  "hookLinesSec": [0.4, 1.0, 1.8],
-  "rulesStepsSec": [21.8, 22.8],
-  "trustLinesSec": [24.7, 26.0, 27.2],
-  "endCue": { "wordSec": 28.6, "stopSec": 29.0, "taglineSec": 29.6, "fadeOutSec": [31.2, 33.0] }
+  "hookLinesSec": [0.6],
+  "rulesStepsSec": [10.4, 11.0],
+  "trustLinesSec": [12.1, 13.3],
+  "endCue": { "wordSec": 14.6, "stopSec": 14.95, "taglineSec": 15.4, "fadeOutSec": [17.3, 18.0] }
 }

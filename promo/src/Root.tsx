@@ -3,7 +3,7 @@ import { Composition, staticFile } from "remotion";
 import { loadFont } from "@remotion/fonts";
 import timeline from "./timeline.json";
 import { GEIST } from "./tokens";
-import { Promo } from "./Promo";
+import { Minimal } from "./Minimal";
 
 // Geist from the app (app/src/main/res/font, SIL OFL 1.1); scripts/copy-fonts.mjs puts it in public/.
 for (const weight of [400, 500, 600, 700, 800, 900]) {
@@ -16,7 +16,7 @@ export const Root: React.FC = () => (
   <>
     <Composition
       id="NahPromoVertical"
-      component={Promo}
+      component={Minimal}
       durationInFrames={frames}
       fps={timeline.fps}
       width={1080}
@@ -25,7 +25,7 @@ export const Root: React.FC = () => (
     />
     <Composition
       id="NahPromoWide"
-      component={Promo}
+      component={Minimal}
       durationInFrames={frames}
       fps={timeline.fps}
       width={1920}

@@ -206,15 +206,10 @@ const S = T.scenes;
   }
 }
 
-// The hook and the pain: the offer's timer ticking, every 0.5 s, then every 0.25 s while the
-// courier tries to do the maths; a swell into the answer.
-for (let t = 0, k = 0; t < S.pain[1] - 0.05; k++) {
-  add("sfx", t, tick(k), t < S.pain[0] ? 0.45 : 0.55, k % 2 ? 0.3 : -0.3, 0.1);
-  t += t < S.pain[0] ? 0.5 : 0.25;
-}
-for (const s of T.hookLinesSec) add("sfx", s, thump(), 0.55, 0, 0.15);
-for (let i = 0; i < 4; i++) add("sfx", S.pain[0] + 0.2 + i * 0.4, click(i), 0.45, 0.2); // each maths term
-add("sfx", S.answer[0] - 1.2, riser(1.2), 0.45, 0, 0.3);
+// The question: the offer's timer ticking every 0.5 s until the answer lands; a swell into it.
+for (let t = 0, k = 0; t < T.musicInSec - 0.05; t += 0.5, k++) add("sfx", t, tick(k), 0.45, k % 2 ? 0.3 : -0.3, 0.1);
+for (const s of T.hookLinesSec) add("sfx", s, thump(), 0.45, 0, 0.15);
+add("sfx", T.musicInSec - 1.0, riser(1.0), 0.4, 0, 0.3);
 
 // Offers: a ping and a swish as the card comes up, the verdict's sound, then its clip.
 const HITS = { RED: nahHit, GREEN: betHit, YELLOW: mehHit, GREY: greyHit };

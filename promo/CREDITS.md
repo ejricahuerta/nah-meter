@@ -21,8 +21,7 @@ of those are in this project.
 | What | Source | Licence |
 | --- | --- | --- |
 | Geist (all weights) | `app/src/main/res/font/geist_*.ttf`, copied into `public/fonts` at build time (not committed twice) | SIL Open Font License 1.1 |
-| UI (verdict card, stand-in offer, Rules screen, tab bar, wordmark) | Redrawn in code from `ui/Nah.kt`, `ui/SetupScreen.kt`, `ui/ThresholdsScreen.kt`, `ui/MainActivity.kt` | Same licence as the repo |
-| Phone, map | Drawn in code (a plain phone, seeded grey street lines) | Same licence as the repo |
+| UI (verdict card, stand-in offer card, the Per hour stepper, wordmark) | Redrawn in code from `ui/Nah.kt`, `ui/SetupScreen.kt`, `ui/ThresholdsScreen.kt` | Same licence as the repo |
 
 No third-party brand marks, logos, colours or screenshots appear. The offer card is the app's
 neutral stand-in (`StandInOffer`).

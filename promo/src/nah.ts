@@ -75,14 +75,6 @@ export const cardReason = (e: Evaluation, t: Rules) => {
   return `Clears your ${strictTarget(t)}`;
 };
 
-/** WelcomeStep's meaning for each verdict, as a caption. */
-export const MEANING: Record<Verdict, string> = {
-  GREEN: "Pays your rate.",
-  YELLOW: "Pays the hour, but a long drive.",
-  RED: "Not worth your time.",
-  GREY: "Can't read it? It won't guess.",
-};
-
 // ---- The offers in the video ----
 
 /** The PRD's worked example (EXAMPLE_OFFER in SetupScreen.kt): $6.07, 23 min, 11.5 km. */

@@ -1,67 +1,44 @@
-# nah.meter promo: storyboard (v3, story first)
+# nah.meter promo: storyboard (v4, clean and minimal)
 
-Approved and built: 33 s, vertical and wide. Times below are approximate; the exact ones are in
-`src/timeline.json`.
+18 s at 30 fps, vertical 1080×1920 and wide 1920×1080. Exact times are in `src/timeline.json`,
+which the picture, the music and the sound all read.
 
-## Who is watching
+## Who it's for, and the one message
 
-A food-delivery courier scrolling Reels or TikTok between orders. Android phone in a dash mount.
-They live this every shift:
+A delivery courier scrolling Reels or TikTok. An offer gives them 15 seconds to decide, and
+nothing on it says whether it's worth it per hour. The video says one thing:
+**nah.meter tells you, in one word, if a delivery offer is worth it.**
 
-- An offer pops up with **15 seconds** to decide.
-- It shows pay, minutes and km: "$6.07 · 23 min (11.5 km)". It doesn't show whether that's a good
-  deal per hour.
-- Working out "$6.07 for 23 minutes is $15.83 an hour" in 15 seconds, while driving, is hard
-  and unsafe, so they guess. Bad guesses drag their hourly down.
+## Look
 
-## The one thing they must get in 3 seconds
+- White (Daylight) and black (Mono) grounds, cut on the beat. No phone mockup, map or effects.
+- One big offer card (the app's neutral `StandInOffer`: "Delivery", the pay, "23 min (11.5 km)
+  total", a grey "Match" button, its 15-second timer) and the app's black verdict card.
+- Few words, Geist Black. Colour only on verdict words, plus the red square full stop.
 
-**"This app tells me if a delivery offer is worth it, before the timer runs out."**
+## Shots
 
-Everything else (the voice, the rules, privacy) supports that one line. Each scene says what it
-means in plain words on screen. No scene relies on effects alone.
+| Time | Ground | Picture | Words | Sound |
+| --- | --- | --- | --- | --- |
+| 0–2 s | White | The offer card snaps in, its timer running ($6.07 · 23 min, 11.5 km). | "Worth it?" (where the verdict will land) | Timer ticking, strings rising, a swell |
+| 2–4 s | White | The verdict card snaps down onto it: **nah.** $15.83/hr, "Under your $20", $0.53/km. | "nah.meter does the math." | Music drops; punch and boom; your full "nah." clip |
+| 4–7 s | White | Three hard cuts, one a second: **bet!** $14.20, **meh.** $9.40, **nah.** $7.25, each card with its verdict. | None (the cards say it) | Each verdict's sound and just its spoken word |
+| 7–9.5 s | Black | The **bet!** card big, a white waveform drawn from the real clip. | "Says it out loud." | Your full "bet!" clip |
+| 9.5–12 s | White | A huge "Per hour $20.00/hr" with − and +. + is tapped twice: $20.50, $21.00. | "Your rules." | Two clicks |
+| 12–14.5 s | Black | One line, then the next. | "Never taps for you." then "No internet. No account." | A drop and a punch each; drums out |
+| 14.5–18 s | White | The wordmark; the red square lands; the tagline. | "nah.meter" · "Bad offer? Just say nah." · "For Android" | A big final chord; punch and boom on the square |
 
-## Story: problem → answer → how it works → can I trust it → get it
+## Decisions (from the owner)
 
-About 30 s. Times are approximate.
-
-| # | Time | What we see | On-screen words (big, plain) | Optional voiceover | Sound |
-| --- | --- | --- | --- | --- | --- |
-| 1. Hook (their problem) | 0–3 s | Phone in a dash mount, driving. A delivery offer pops up: **$6.07 · 23 min (11.5 km)**. A 15-second timer starts draining. | "New offer. 15 seconds." then "Is it worth it?" | "New offer. Fifteen seconds. Is it worth it?" | Offer ping, clock ticking |
-| 2. The pain | 3–6 s | Over the offer, the maths they'd have to do flickers up: "$6.07 ÷ 23 min × 60 = ?" The road is still moving. The timer keeps draining. | "Doing the math while driving?" | "Doing the math while you drive?" | Ticking gets faster |
-| 3. The answer (what the app is) | 6–10 s | A black card drops onto the offer: **nah.** $15.83/hr, "Under your $20". The maths disappears. | "nah.meter does the math for you." Then smaller: "It reads every offer and answers in one word." | "nah.meter reads every offer and answers in one word." | Card lands; your "nah." clip |
-| 4. The three answers | 10–17.5 s | Three offers in a row, each with its card and a plain label under it. | **bet!** "Pays your rate." / **meh.** "Pays the hour, but a long drive." / **nah.** "Not worth your time." | (the verdict clips themselves) | Your bet / meh / nah clips |
-| 5. Eyes on the road | 17.5–20.5 s | A new offer gets **bet!** and its full spoken line; the camera pulls back to the phone in its mount on the road. A sound-wave shows it speaking. | "It says it out loud. Eyes stay on the road." | (your "nah." clip with the rate) | Voice clip |
-| 6. Your rules | 20–24 s | The app's Rules screen. A thumb taps + on "$20.00/hr"; it goes to $21.00 and the card above updates. | "You set the numbers: minimum pay, $ per hour, $ per km." | "You pick what's worth it." | Clicks |
-| 7. Can I trust it | 24–28 s | Three short lines, one at a time, on black. | "It never taps anything. You decide." / "No internet. Nothing leaves your phone." / "No account." | "It never taps for you. You decide." | Soft hits |
-| 8. End | 28.5–33 s | The wordmark, the red square landing, the tagline. | "nah.meter" / "Bad offer? Just say nah." / "For Android" | "Bad offer? Just say nah." | Final hit |
-
-### What changes from the last cut
-
-- It opens on the courier's real problem (an offer and a timer) instead of abstract numbers.
-- Every scene has a sentence that says what is happening. The verdict words are always explained
-  ("bet! Pays your rate").
-- The app is named and explained by 10 s: "nah.meter does the math for you."
-- It ends with where to get it.
-- The look stays nah.meter (black, white, Geist, colour only on verdicts). The full-screen colour
-  bursts become shorter accents, so they don't hide the card being explained. The night drive
-  stays as the background, kept simpler and lighter so the phone and words lead.
-- The "can't read." and "strict on $/km" moments are cut to keep the story simple. They can
-  return in a longer cut.
-
-## Decisions (answered)
-
-1. **Naming the delivery app:** generic, "delivery offers" only. Uber Eats is not named.
-2. **Call to action:** none. It ends on the wordmark, "Bad offer? Just say nah." and "For Android".
-3. **Voiceover:** none. On-screen words only, plus the verdict clips. Scenes 3 and 5 play a full
-   clip; scene 4 plays just the verdict word of each clip.
-4. **Length:** 30 s only (it runs 33 s).
+- Delivery app: generic ("delivery offers"); Uber Eats isn't named.
+- No call to action; no voiceover beyond the verdict clips.
+- Clean and minimal, after the dark night-drive cut read as murky and too wordy.
 
 ## Rules kept
 
 - No Uber logo, colours or screens. The offer card is the app's neutral stand-in.
-- Nothing is ever tapped on the offer card.
+- Nothing is ever tapped on the offer card (the only tap is on nah.meter's own + button).
 - "Accept" and "Decline" are never used.
-- Lowercase verdicts from the app: **nah.**, **meh.**, **bet!**, **can't read.**
-- No emoji. The only exclamation mark is in **bet!**.
+- Lowercase verdicts from the app: **nah.**, **meh.**, **bet!**. No emoji; the only exclamation
+  mark is in **bet!**.
 - Android only.

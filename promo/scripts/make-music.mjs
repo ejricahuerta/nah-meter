@@ -105,12 +105,10 @@ const breakdown = [S.trust[0], S.trust[1] - 1.0];
 const end = S.end[0];
 const bar = 4 * BEAT;
 
-// Intro (the hook and the pain): strings swell on Am, a piano low A on each line, a snare roll into the drop.
+// Intro (the question): strings swell on Am, a piano low A under it, a snare roll into the drop.
 for (const n of [45, 52, 57]) strings.note(STR, 0, start + 0.1, n, 70, true);
 for (let i = 0; i <= 24; i++) strings.cc(STR, (i / 24) * start, 11, 40 + (87 * i) / 24);
 T.hookLinesSec.forEach((s, i) => piano.note(PNO, s, 1.2, i === 2 ? 45 : 33, vary(88), true));
-// The pain: the piano's low A pulses with the ticking, building towards the answer.
-for (let t = S.pain[0], i = 0; t < S.pain[1] - 0.1; t += 0.25, i++) piano.note(PNO, t, 0.2, i % 2 ? 45 : 33, vary(50 + i * 2.5), true);
 for (let t = start - 1.0, i = 0; t < start - 0.02; i++) {
   const step = t < start - 0.5 ? BEAT / 4 : BEAT / 8;
   drums.note(DR, t, 0.05, SN, vary(40 + (i * 80) / 24), true);
