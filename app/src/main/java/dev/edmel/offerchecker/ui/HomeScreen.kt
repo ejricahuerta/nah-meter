@@ -167,7 +167,7 @@ private fun PowerButton(on: Boolean, label: String, active: Boolean, onChange: (
     }
 }
 
-/** Today's numbers: offers read, average $/hr, the Bet · Meh · Nah split, and the best offer. */
+/** Today's numbers: offers read, average $/hr, the bet · meh · nah split, and the best offer. */
 @Composable
 private fun Overview(today: List<OfferEntry>, modifier: Modifier = Modifier) {
     val c = Nah.c
@@ -194,7 +194,7 @@ private fun Overview(today: List<OfferEntry>, modifier: Modifier = Modifier) {
         }
         NahDivider()
         Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Stat("Bet · Meh · Nah", split, Modifier.weight(1f))
+            Stat("bet · meh · nah", split, Modifier.weight(1f))
             Stat("Best offer", perHour(today.maxOf { it.hourly }), Modifier.weight(1f))
         }
     }

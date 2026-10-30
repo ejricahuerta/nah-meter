@@ -11,7 +11,7 @@ import java.util.Locale
 import android.speech.tts.Voice as TtsVoice
 
 /**
- * Says the verdict out loud ("Nah. 14 an hour") so a courier who is driving doesn't have to look.
+ * Says the verdict out loud ("nah. 14 an hour") so a courier who is driving doesn't have to look.
  * Uses the phone's own text-to-speech engine (on the device, no network).
  *
  * It plays on the media volume, not the navigation one: Uber raises and lowers navigation volume

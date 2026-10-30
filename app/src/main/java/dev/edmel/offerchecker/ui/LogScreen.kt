@@ -78,7 +78,7 @@ fun LogScreen(thresholds: Thresholds, modifier: Modifier = Modifier) {
     val offers by dao.observeAll().collectAsState(initial = emptyList())
     var confirmClear by remember { mutableStateOf(false) }
     var open by remember { mutableStateOf<OfferEntry?>(null) }
-    // 0 = all, then Bet, Meh, Nah.
+    // 0 = all, then bet, meh, nah.
     var filter by rememberSaveable { mutableIntStateOf(0) }
 
     val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->

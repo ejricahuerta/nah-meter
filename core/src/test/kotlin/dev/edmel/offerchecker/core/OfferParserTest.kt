@@ -354,9 +354,9 @@ class OfferParserTest {
         assertEquals(null, o.dropoff)
     }
 
-    /** The verdict words as the card shows them ("Nah. Meh. Bet!") must never read back as a place. */
+    /** The verdict words as the card shows them ("nah. meh. bet!") must never read back as a place. */
     @Test fun verdictWordsAreNotAPlace() {
-        for (word in listOf("Bet!", "Meh.", "Nah.", "Can't read.")) {
+        for (word in listOf("bet!", "meh.", "nah.", "can't read.")) {
             val o = read("\$9.40", "22 min (6.8 km) total", word, "Kakuya (Yonge St)", "Accept")
             assertEquals(word, "Kakuya (Yonge St)", o.pickup)
             assertEquals(word, null, o.dropoff)

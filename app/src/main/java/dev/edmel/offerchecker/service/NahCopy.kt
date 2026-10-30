@@ -12,19 +12,19 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 
 /**
- * nah.meter's words for a verdict: Nah., Meh. and Bet!, then the number, then the reason
- * ("Nah. $15.83/hr · Under your $20").
+ * nah.meter's words for a verdict: lowercase verdicts (nah., meh. and bet!), then the number, then
+ * the reason ("nah. $15.83/hr · Under your $20").
  */
 object NahCopy {
-    /** On cards and pills: always with its full stop, or Bet!'s exclamation mark. */
+    /** On cards and pills: always with its full stop, or bet!'s exclamation mark. */
     fun word(v: Verdict) = when (v) {
-        Verdict.GREEN -> "Bet!"
-        Verdict.YELLOW -> "Meh."
-        Verdict.RED -> "Nah."
-        Verdict.GREY -> "Can't read."
+        Verdict.GREEN -> "bet!"
+        Verdict.YELLOW -> "meh."
+        Verdict.RED -> "nah."
+        Verdict.GREY -> "can't read."
     }
 
-    /** In lists and chips the full stop (or Bet!'s mark) becomes the coloured dot before the word. */
+    /** In lists and chips the full stop (or bet!'s mark) becomes the coloured dot before the word. */
     fun chipWord(v: Verdict) = word(v).trimEnd('.', '!')
 
     /** A rate split for the card, so the unit can be drawn smaller: "$15.83" and "/hr". */
@@ -91,16 +91,16 @@ object NahCopy {
     private fun strictTarget(t: Thresholds) = if (t.priority == Priority.PER_KM) perKmTarget(t) else hourlyTarget(t)
 
     /**
-     * Said out loud while driving. By default the word and whole dollars an hour, "Nah. 14 an hour"
-     * ("$14.19/hr" reads badly aloud); [VoiceMode.WORD] is just "Nah." and [VoiceMode.WORD_HOURLY_KM]
-     * adds the $/km as "Nah. 14 an hour, 53 cents a k." Add-ons start with "Add-on.".
-     * With [Priority.PER_KM] the $/km leads instead: "Nah. 53 cents a k." and
-     * "Nah. 53 cents a k, 14 an hour."
+     * Said out loud while driving. By default the word and whole dollars an hour, "nah. 14 an hour"
+     * ("$14.19/hr" reads badly aloud); [VoiceMode.WORD] is just "nah." and [VoiceMode.WORD_HOURLY_KM]
+     * adds the $/km as "nah. 14 an hour, 53 cents a k." Add-ons start with "add-on.".
+     * With [Priority.PER_KM] the $/km leads instead: "nah. 53 cents a k." and
+     * "nah. 53 cents a k, 14 an hour."
      */
     fun speech(e: Evaluation, mode: VoiceMode = VoiceMode.WORD_HOURLY, priority: Priority = Priority.HOURLY): String {
-        if (e.verdict == Verdict.GREY) return if (mode == VoiceMode.WORD) "Can't read." else "Can't read. Check it yourself."
+        if (e.verdict == Verdict.GREY) return if (mode == VoiceMode.WORD) "can't read." else "can't read. check it yourself."
         val line = StringBuilder()
-        if (e.offer?.addOn == true) line.append("Add-on. ")
+        if (e.offer?.addOn == true) line.append("add-on. ")
         line.append(word(e.verdict))
         if (mode == VoiceMode.WORD) return line.toString()
         val hourly = "${e.hourly?.toBigInteger() ?: 0} an hour"
@@ -127,12 +127,12 @@ object NahCopy {
     }
 
     /**
-     * What TalkBack announces, the card in reading order: "Nah. $15.83 per hour. Under your $20,
-     * $0.53 per km." With $/km strict the $/km comes first: "Nah. $0.53 per km. Under your $1 per
+     * What TalkBack announces, the card in reading order: "nah. $15.83 per hour. Under your $20,
+     * $0.53 per km." With $/km strict the $/km comes first: "nah. $0.53 per km. Under your $1 per
      * km, $15.83 per hour."
      */
     fun spoken(e: Evaluation, t: Thresholds): String {
-        val (big, chip) = rates(e, t) ?: return "Can't read. Check this offer yourself."
+        val (big, chip) = rates(e, t) ?: return "can't read. Check this offer yourself."
         return "${word(e.verdict)} ${spokenRate(big)}. " +
             (cardReason(e, t) + (chip?.let { " · $it" } ?: ""))
                 .replace(" · ", ", ").replace("/km", " per km").replace("/hr", " per hour") + "."

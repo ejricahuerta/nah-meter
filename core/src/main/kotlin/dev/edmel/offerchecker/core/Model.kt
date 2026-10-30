@@ -8,7 +8,7 @@ enum class Verdict { GREEN, YELLOW, RED, GREY }
 enum class Check { MIN_PAY, MAX_KM, HOURLY, PER_KM }
 
 /**
- * Which rate is strict: missing it is Nah., missing the other is only Meh. $/km suits busy times,
+ * Which rate is strict: missing it is nah., missing the other is only meh. $/km suits busy times,
  * when traffic stretches the minutes but not the distance.
  */
 enum class Priority { HOURLY, PER_KM }
