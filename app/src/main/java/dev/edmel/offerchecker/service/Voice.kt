@@ -4,15 +4,22 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
+import android.media.MediaPlayer
+import android.os.Handler
+import android.os.Looper
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import dev.edmel.offerchecker.R
+import dev.edmel.offerchecker.core.Verdict
 import dev.edmel.offerchecker.data.AppSettings
 import java.util.Locale
 import android.speech.tts.Voice as TtsVoice
 
 /**
  * Says the verdict out loud ("nah. 14 an hour") so a courier who is driving doesn't have to look.
- * Uses the phone's own text-to-speech engine (on the device, no network).
+ * Uses the phone's own text-to-speech engine (on the device, no network). With the Toronto voice
+ * on, the word is a recorded line from res/raw ("nah fam.", [NahCopy.clipLine]) and the engine says
+ * the rest; if a recording won't play, the engine says its line instead.
  *
  * It plays on the media volume, not the navigation one: Uber raises and lowers navigation volume
  * around its own prompts, which made the verdict too quiet or too loud. Just for the verdict, media
@@ -23,6 +30,7 @@ import android.speech.tts.Voice as TtsVoice
  * [onReady] is called once the engine has started, when [englishVoices] has something to list.
  */
 class Voice(context: Context, private val onReady: () -> Unit = {}) {
+    private val app = context.applicationContext
     private val audio = context.getSystemService(AudioManager::class.java)
     private val attributes = AudioAttributes.Builder()
         .setUsage(AudioAttributes.USAGE_MEDIA)
@@ -42,17 +50,26 @@ class Voice(context: Context, private val onReady: () -> Unit = {}) {
     /** The voice name last handed to the engine ([NOTHING] until the first verdict). */
     private var appliedVoice: String? = NOTHING
 
+    // The verdict being said, part by part. Touched only on the main thread.
+    private val main = Handler(Looper.getMainLooper())
+    private val queue = ArrayDeque<NahCopy.SpeechPart>()
+    private var player: MediaPlayer? = null
+    private var clipSpeed = 1f
+    /** Bumped for each verdict, so a late callback from the one before can't move this one on. */
+    private var generation = 0
+    private var clipErrorLogged = false
+
     init {
-        tts = TextToSpeech(context.applicationContext) { status ->
+        tts = TextToSpeech(app) { status ->
             if (status == TextToSpeech.SUCCESS) {
                 runCatching {
                     tts.setAudioAttributes(attributes)
                     if (tts.isLanguageAvailable(Locale.getDefault()) >= TextToSpeech.LANG_AVAILABLE) tts.language = Locale.getDefault()
                     tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                         override fun onStart(id: String?) = Unit
-                        override fun onDone(id: String?) { release() }
+                        override fun onDone(id: String?) { main.post { if (id == utterance()) next() } }
                         @Deprecated("Deprecated in Java")
-                        override fun onError(id: String?) { release() }
+                        override fun onError(id: String?) { main.post { if (id == utterance()) next() } }
                     })
                     ready = true
                 }.onFailure { fail("${it.javaClass.simpleName}: ${it.message}") }
@@ -64,22 +81,28 @@ class Voice(context: Context, private val onReady: () -> Unit = {}) {
     }
 
     /**
-     * Says [text] with the voice settings in [s]: at [AppSettings.voiceVolume] percent of the
-     * phone's media volume range (0 says nothing), at [AppSettings.voiceSpeed], in the picked voice.
+     * Says [parts] ([NahCopy.speechParts]) with the voice settings in [s]: at
+     * [AppSettings.voiceVolume] percent of the phone's media volume range (0 says nothing), at
+     * [AppSettings.voiceSpeed], in the picked voice. A new verdict cuts off the one being said.
      */
-    fun say(text: String, s: AppSettings) {
-        if (!ready || s.voiceVolume <= 0) return
+    fun say(parts: List<NahCopy.SpeechPart>, s: AppSettings) {
+        if (!ready || s.voiceVolume <= 0 || parts.isEmpty()) return
         if (onCall()) {
             ServiceState.log("Verdict not spoken", "a phone call is in progress")
             return
         }
-        runCatching {
-            applyVoice(s.voiceName)
-            tts.setSpeechRate(s.voiceSpeed)
-            setVolume(s.voiceVolume)
-            if (s.voiceDuck) audio?.requestAudioFocus(focus)
-            tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "verdict")
-        }.onFailure { release(); fail("${it.javaClass.simpleName}: ${it.message}") }
+        main.post {
+            runCatching {
+                stopSpeaking()
+                applyVoice(s.voiceName)
+                tts.setSpeechRate(s.voiceSpeed)
+                clipSpeed = s.voiceSpeed
+                setVolume(s.voiceVolume)
+                if (s.voiceDuck) audio?.requestAudioFocus(focus)
+                queue.addAll(parts)
+                next()
+            }.onFailure { stopSpeaking(); release(); fail("${it.javaClass.simpleName}: ${it.message}") }
+        }
     }
 
     /** English voices that work without a network, as (name, label) pairs; empty until the engine has started. */
@@ -102,8 +125,87 @@ class Voice(context: Context, private val onReady: () -> Unit = {}) {
 
     fun shutdown() {
         ready = false
+        main.removeCallbacksAndMessages(null)
+        stopSpeaking()
         release()
-        runCatching { tts.stop(); tts.shutdown() }
+        runCatching { tts.shutdown() }
+    }
+
+    private fun utterance() = "verdict-$generation"
+
+    /**
+     * Says the next part: its recorded line if it has one, else through the engine. When nothing is
+     * left, media volume and music go back.
+     */
+    private fun next() {
+        val part = queue.removeFirstOrNull() ?: return release()
+        val clip = part.clip
+        if (clip != null && playClip(clip, part.text)) return
+        // Parts without a recording go to the engine as one line, so they sound as they always have.
+        val line = StringBuilder(part.text)
+        while (queue.isNotEmpty() && queue.first().clip == null) line.append(' ').append(queue.removeFirst().text)
+        if (tts.speak(line, TextToSpeech.QUEUE_FLUSH, null, utterance()) != TextToSpeech.SUCCESS) {
+            queue.clear()
+            release()
+        }
+    }
+
+    /** Plays [v]'s recorded line; false if it can't start, so the engine says [text] instead. */
+    private fun playClip(v: Verdict, text: String): Boolean {
+        val am = audio ?: return false
+        val p = runCatching { MediaPlayer.create(app, clipRes(v), attributes, am.generateAudioSessionId()) }.getOrNull()
+        if (p == null) {
+            clipError("$v: couldn't open the recording")
+            return false
+        }
+        return runCatching {
+            p.setOnCompletionListener { finished(it) }
+            p.setOnErrorListener { mp, what, extra ->
+                clipError("$v: playback error $what/$extra")
+                queue.addFirst(NahCopy.SpeechPart(text))
+                finished(mp)
+                true
+            }
+            player = p
+            // A speed other than 0 also starts a prepared player.
+            runCatching { p.playbackParams = p.playbackParams.setSpeed(clipSpeed) }
+            if (!p.isPlaying) p.start()
+            true
+        }.getOrElse {
+            player = null
+            p.release()
+            clipError("$v: ${it.javaClass.simpleName}: ${it.message}")
+            false
+        }
+    }
+
+    private fun finished(mp: MediaPlayer) {
+        mp.release()
+        if (player !== mp) return
+        player = null
+        next()
+    }
+
+    private fun clipRes(v: Verdict) = when (v) {
+        Verdict.GREEN -> R.raw.verdict_bet
+        Verdict.YELLOW -> R.raw.verdict_meh
+        Verdict.RED -> R.raw.verdict_nah
+        Verdict.GREY -> R.raw.verdict_cant_read
+    }
+
+    /** Cuts off whatever is being said, recording or engine, so the next verdict starts at once. */
+    private fun stopSpeaking() {
+        generation++
+        queue.clear()
+        player?.let { p -> runCatching { p.stop() }; p.release() }
+        player = null
+        runCatching { tts.stop() }
+    }
+
+    private fun clipError(why: String) {
+        if (clipErrorLogged) return
+        clipErrorLogged = true
+        ServiceState.log("Voice clip didn't play", why)
     }
 
     /** Hands the engine the picked voice; with none picked, English (Canada) if installed, else the phone's own. */

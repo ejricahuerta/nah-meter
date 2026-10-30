@@ -78,7 +78,7 @@ fun VoiceScreen(settings: AppSettings, onBack: () -> Unit, modifier: Modifier = 
     val preview = Scorer.score(EXAMPLE_OFFER, settings.thresholds)
     val line = NahCopy.speech(preview, settings)
     // Settings are saved a moment after a tap, so a test passes the new value along itself.
-    fun test(s: AppSettings) = voice.say(NahCopy.speech(preview, s), s)
+    fun test(s: AppSettings) = voice.say(NahCopy.speechParts(preview, s), s)
 
     Column(
         modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(ScreenPadding),
@@ -114,7 +114,7 @@ fun VoiceScreen(settings: AppSettings, onBack: () -> Unit, modifier: Modifier = 
                 val priority = settings.thresholds.priority
                 modes(priority).forEachIndexed { i, (mode, title) ->
                     if (i > 0) NahDivider()
-                    RadioRow(title, "\"${NahCopy.speech(preview, mode, priority)}\"", settings.voiceMode == mode) {
+                    RadioRow(title, "\"${NahCopy.speech(preview, mode, priority, settings.torontoVoice)}\"", settings.voiceMode == mode) {
                         scope.launch { repo.setVoiceMode(mode) }
                     }
                 }
@@ -173,6 +173,17 @@ fun VoiceScreen(settings: AppSettings, onBack: () -> Unit, modifier: Modifier = 
         Column {
             SectionLabel("Voice")
             NahGroup {
+                NahRow("Toronto voice") {
+                    NahSwitch(
+                        settings.torontoVoice,
+                        { v ->
+                            scope.launch { repo.setTorontoVoice(v) }
+                            test(settings.copy(torontoVoice = v))
+                        },
+                        "Toronto voice",
+                    )
+                }
+                NahDivider()
                 val current = voices.firstOrNull { it.first == settings.voiceName }?.second
                 Box(Modifier.fillMaxWidth().clickable(enabled = voices.isNotEmpty(), role = Role.Button) { pickerOpen = !pickerOpen }) {
                     NahRow(

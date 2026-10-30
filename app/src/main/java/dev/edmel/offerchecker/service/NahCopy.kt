@@ -95,24 +95,59 @@ object NahCopy {
      * ("$14.19/hr" reads badly aloud); [VoiceMode.WORD] is just "nah." and [VoiceMode.WORD_HOURLY_KM]
      * adds the $/km as "nah. 14 an hour, 53 cents a k." Add-ons start with "add-on.".
      * With [Priority.PER_KM] the $/km leads instead: "nah. 53 cents a k." and
-     * "nah. 53 cents a k, 14 an hour."
+     * "nah. 53 cents a k, 14 an hour." With the Toronto voice the word is its recorded line
+     * ([clipLine]): "nah fam. 14 an hour."
      */
-    fun speech(e: Evaluation, mode: VoiceMode = VoiceMode.WORD_HOURLY, priority: Priority = Priority.HOURLY): String {
-        if (e.verdict == Verdict.GREY) return if (mode == VoiceMode.WORD) "can't read." else "can't read. check it yourself."
-        val line = StringBuilder()
-        if (e.offer?.addOn == true) line.append("add-on. ")
-        line.append(word(e.verdict))
-        if (mode == VoiceMode.WORD) return line.toString()
+    fun speech(
+        e: Evaluation,
+        mode: VoiceMode = VoiceMode.WORD_HOURLY,
+        priority: Priority = Priority.HOURLY,
+        toronto: Boolean = false,
+    ): String = speechParts(e, mode, priority, toronto).joinToString(" ") { it.text }
+
+    /** [speech] in the courier's voice mode and voice, with their strict rate leading. */
+    fun speech(e: Evaluation, s: AppSettings): String = speech(e, s.voiceMode, s.thresholds.priority, s.torontoVoice)
+
+    /**
+     * The Toronto voice's recorded lines (res/raw, made in ElevenLabs), word for word. Only the voice
+     * says these; the card keeps [word].
+     */
+    fun clipLine(v: Verdict) = when (v) {
+        Verdict.GREEN -> "bet, say less!"
+        Verdict.YELLOW -> "meh, your call fam."
+        Verdict.RED -> "nah fam."
+        Verdict.GREY -> "mans can't read that. check it yourself."
+    }
+
+    /** One piece of the spoken verdict: its [text], and the verdict whose recorded line says it instead. */
+    data class SpeechPart(val text: String, val clip: Verdict? = null)
+
+    /**
+     * [speech] in the order it's said: "add-on." for an add-on, the word, then the rates. With
+     * [toronto] the word is a recorded line ([SpeechPart.clip]); the rest is always the phone's voice.
+     */
+    fun speechParts(e: Evaluation, mode: VoiceMode, priority: Priority, toronto: Boolean): List<SpeechPart> {
+        if (e.verdict == Verdict.GREY) {
+            return listOf(
+                if (toronto) SpeechPart(clipLine(Verdict.GREY), Verdict.GREY)
+                else SpeechPart(if (mode == VoiceMode.WORD) "can't read." else "can't read. check it yourself."),
+            )
+        }
+        val parts = mutableListOf<SpeechPart>()
+        if (e.offer?.addOn == true) parts += SpeechPart("add-on.")
+        parts += if (toronto) SpeechPart(clipLine(e.verdict), e.verdict) else SpeechPart(word(e.verdict))
+        if (mode == VoiceMode.WORD) return parts
         val hourly = "${e.hourly?.toBigInteger() ?: 0} an hour"
         val perKm = e.perKm?.let { spokenPerKm(it) }
         // With no distance there's no $/km to lead with, so the hour does.
         val rates = if (priority == Priority.PER_KM && perKm != null) listOf(perKm, hourly) else listOfNotNull(hourly, perKm)
-        line.append(' ').append(if (mode == VoiceMode.WORD_HOURLY_KM) rates.joinToString(", ") else rates.first())
-        return line.append('.').toString()
+        parts += SpeechPart((if (mode == VoiceMode.WORD_HOURLY_KM) rates.joinToString(", ") else rates.first()) + ".")
+        return parts
     }
 
-    /** [speech] in the courier's voice mode, with their strict rate leading. */
-    fun speech(e: Evaluation, s: AppSettings): String = speech(e, s.voiceMode, s.thresholds.priority)
+    /** [speechParts] in the courier's voice mode and voice. */
+    fun speechParts(e: Evaluation, s: AppSettings): List<SpeechPart> =
+        speechParts(e, s.voiceMode, s.thresholds.priority, s.torontoVoice)
 
     /** "53 cents a k", "1 dollar 5 cents a k". */
     private fun spokenPerKm(v: BigDecimal): String {

@@ -95,7 +95,10 @@ app/   Android
   service/ReaderWatch.kt   "nah.meter stopped reading" notification if the reader stops mid-shift
   service/Voice.kt         says the verdict out loud ("nah. 14 an hour"), on-device TTS, on media
                            volume at the user's level (Uber moves navigation volume), then restores it;
-                           speed, voice and ducking from the settings; silent at 0% and on calls
+                           speed, voice and ducking from the settings; silent at 0% and on calls.
+                           With the Toronto voice on (default), the word is a recorded line from res/raw
+                           (ElevenLabs, "nah fam.") played before the TTS rates; a clip that won't
+                           play falls back to TTS
   service/ReadingTileService.kt, PauseReceiver.kt  pause / resume from the shade (tile, notification)
   service/PriorityTileService.kt  "Strict on $/hr / $/km" tile: flips the strict rate from the shade
   data/                    DataStore settings, Room offer log (last 200), CSV export
@@ -184,6 +187,11 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
   words drop it ("bet, meh or nah"). Use `NahCopy` for every verdict string, never inline text.
 - Voice: short, plain, sentence case, no emoji or exclamation marks (the bet! verdict aside). Never
   "Accept" or "Decline".
+- The Toronto voice's recorded lines are slang ("nah fam.", "meh, your call fam.", "bet, say less!",
+  "mans can't read that. check it yourself."), word for word in `NahCopy.clipLine`; keep that in
+  step with `res/raw/verdict_*.ogg` (mono Ogg Vorbis, ends trimmed, about −17 LUFS). The slang is
+  for the voice only: the card and the rest of the app keep the plain words. A recorded line never
+  tells the courier to take or pass an offer.
 - No helper text that restates a label or a visible state ("Tap to pause" under a power button). Add a
   line only for a reason, a warning, a step or a number.
 - The overlay is classic Views (not Compose); `TypefaceSpan(Typeface)` needs API 28, so use the
