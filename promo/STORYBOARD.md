@@ -13,15 +13,15 @@ a grey "Match" button. No Uber name, logo, colours or screens.
 
 | # | Time | Picture | On-screen text | Sound |
 | --- | --- | --- | --- | --- |
-| 1 | 0.0–3.0 | Black. A giant outlined countdown (15, 14, 13…) ticks behind; the lines slam in. | "New offer." / "15 seconds." / "Worth it?" | Clock tick every 0.5 s, a slam per line, riser into 2 |
-| 2 | 3.0–5.0 | Phone rises into frame over a dark, slowly panning street map (grey lines only). Status pill "Reading offers". Clock 6:42. | "On shift." | Music drops in (kick, sub, hats, soft chords) |
+| 1 | 0.0–3.0 | Black. A giant outlined countdown (15, 14, 13…) ticks behind; the lines slam in. | "New offer." / "15 seconds." / "Worth it?" | Clock tick every 0.5 s, a slam per line; strings swell, a piano low A per line, a snare roll into 2 |
+| 2 | 3.0–5.0 | Phone rises into frame over a dark, slowly panning street map (grey lines only). Status pill "Reading offers". Clock 6:42. | "On shift." | Music drops in with a crash: acoustic drums, fingered bass, electric piano, strings |
 | 3 | 5.0–10.0 | Offer card slides up. The verdict lands: **nah.** fills the screen, then the card: $15.83/hr, "Under your $20", chip $0.53/km. A speech chip shows the clip's waveform. | "Not worth your time." · chip "nah." | Whoosh, riser, sub boom + "nah" sting, the nah clip |
 | 4 | 10.0–14.0 | New offer: $14.20 · 28 min (9.8 km). **bet!** $30.43/hr, "Clears your $20", $1.45/km. | "Pays your rate." · chip "bet!" | Whoosh, bright two-note pop, the bet clip |
 | 5 | 14.0–18.5 | New offer: $9.40 · 26 min (12.4 km). **meh.** $21.69/hr, "Short on $/km", $0.76/km. | "Pays the hour," / "long drive." · chip "meh." | Whoosh, neutral double tick, the meh clip |
 | 6 | 18.5–24.0 | A blurred, unreadable offer. **can't read.** "Check this offer yourself". | "Can't read it?" / "It won't guess." · chip "can't read." | Whoosh, soft muted blip, the can't-read clip |
 | 7 | 24.0–31.5 | The Rules tab as in the app: live preview card, "Strict on $/hr / $/km", Minimum pay, Per hour, Per km, Max km. + on Per hour twice ($20 → $21), then Strict flips to $/km: the card's big rate becomes $0.53/km, "Under your $1/km", chip $15.83/hr; the hints swap nah./meh. | "Your rules." / "Your call.", then "Traffic?" / "Go strict on $/km." | A UI tick per step; a switch click on the flip |
-| 8 | 31.5–36.5 | Three promise lines slam in with the red square bullet. Then "You decide." | "It never taps anything for you." / "No internet permission. Nothing leaves your phone." / "No account." / "You decide." | Tick per line, music breaks down |
-| 9 | 36.5–41.0 | The wordmark zooms in; the square lands with a shockwave. Tagline word by word. | "Bad offer? Just say nah." (full stop as the red square) · "For Android" | "nah" sting and boom on the square, final chord, fade |
+| 8 | 31.5–36.5 | Three promise lines slam in with the red square bullet. Then "You decide." | "It never taps anything for you." / "No internet permission. Nothing leaves your phone." / "No account." / "You decide." | Tick per line; drums drop out (piano and strings), a snare roll into 9 |
+| 9 | 36.5–41.0 | The wordmark zooms in; the square lands with a shockwave. Tagline word by word. | "Bad offer? Just say nah." (full stop as the red square) · "For Android" | Crash and a big Am on piano and strings; punch and boom on the square; fade |
 
 ## Motion (second pass: flashier)
 
@@ -35,6 +35,7 @@ a grey "Match" button. No Uber name, logo, colours or screens.
 - Captions, promises and the tagline slam in (big and blurred, then sharp). The wordmark zooms
   in, and the red square lands with a shockwave.
 - Film grain and a vignette over everything.
+- Music: recorded instruments (MuseScore General soundfont via FluidSynth), a crash on each verdict and on the strict flip.
 - Sound: recorded effects (Kenney, CC0): slowed card slides for whooshes, reversed for the swell
   into each verdict; nah. is a heavy punch, low metal and a boom; bet! is a stack of poker chips and
   a chime; meh. is two knocks on wood; can't read. is a digital stutter. Real clicks on the rules.

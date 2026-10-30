@@ -1,14 +1,14 @@
 # Credits and licences
 
-The music is synthesised by this project's own script. The sound effects are real recordings
-from Kenney's CC0 packs, and the spoken verdicts are clips the project owner supplied. Nothing is
-downloaded at build time: every file used is in `audio/`.
+The music is composed by this project's own script and played on recorded instruments (the
+MuseScore General soundfont, rendered by FluidSynth). The sound effects are real recordings from
+Kenney's CC0 packs, and the spoken verdicts are clips the project owner supplied.
 
 ## Audio
 
 | What | Source | Licence |
 | --- | --- | --- |
-| Music: 120 bpm A-minor loop (kick, clap, hats, sub bass, pad, a quiet plucked arpeggio), intro drone, final chord | Synthesised sample by sample in `scripts/make-audio.mjs` | Original work of this project, same licence as the repo |
+| Music: 120 bpm, A minor (Am7 F C G): drums, bass, electric piano, strings, grand piano | Composed in `scripts/make-music.mjs` (written as MIDI) and rendered with FluidSynth through the MuseScore General soundfont (Ubuntu package `musescore-general-soundfont`) | The composition: same licence as the repo. The soundfont: MIT, with parts CC0 or public domain (MuseScore Drumline samples, VSCO strings and VCSL cymbals CC0; the grand piano public domain); see `/usr/share/doc/musescore-general-soundfont/copyright`. FluidSynth: LGPL-2.1 (a tool; the output is ours). |
 | Sound effects in `audio/sfx/` (29 files): card slides and shoves (whooshes, reversed for swells), poker chips (bet!), wood knocks (meh.), punches, metal, bell and low explosions (nah. and the slams), glitches and a scratch (can't read.), clicks, ticks, a switch, drops | [Kenney](https://www.kenney.nl) Casino Audio, Impact Sounds, Interface Sounds and Sci-fi Sounds, taken from the [soundcn](https://github.com/kapishdima/soundcn) collection (which lists each of them as CC0); pitched, reversed and given a room by `scripts/make-audio.mjs` | CC0 1.0 (public domain); `audio/sfx/Kenney-License.txt`. Credit is not required; Kenney is credited here anyway. |
 | Spoken verdicts (`audio/voice/verdict_nah.mp3`, `verdict_bet.mp3`, `verdict_meh.mp3`, `verdict_cant_read.mp3`) | Supplied by the project owner for this video; trimmed and levelled by `scripts/make-audio.mjs` | Owned by the project owner |
 | Echo tails and loudness (about -14 LUFS, peaks under -1.5 dBTP) | ffmpeg `aecho`, `loudnorm` | ffmpeg (LGPL/GPL); the output is ours |

@@ -10,7 +10,9 @@ separate from the app: nothing here is built by Gradle or shipped in the APK.
 
 ## Build
 
-Needs Node 22.18+ (the audio script imports `src/nah.ts` directly) and ffmpeg.
+Needs Node 22.18+ (the audio script imports `src/nah.ts` directly), ffmpeg, and FluidSynth with the
+MuseScore General soundfont for the music (Ubuntu: `apt install fluidsynth musescore-general-soundfont`;
+or set `SOUNDFONT` to another .sf2/.sf3).
 
 ```bash
 cd promo
@@ -33,7 +35,8 @@ Chrome or Chromium, or add `--browser-executable`, to use a different one.
 | `src/ui.tsx` | The verdict card, stand-in offer, status pill, rule steppers, wordmark. |
 | `src/Phone.tsx` | The phone, the map with the offers, and the Rules screen. |
 | `src/Promo.tsx` | Scenes and captions, laid out per aspect. |
-| `scripts/make-audio.mjs` | Synthesises the music, layers the recorded effects from `audio/sfx/`, places the verdict clips from `audio/voice/`, mixes to `public/audio/mix.wav`, and writes each clip's loudness to `src/voice.json` for the speech chip. |
+| `scripts/make-music.mjs` | Composes the music from the timeline (drums, bass, electric piano, strings, piano), writes it as MIDI and renders it with FluidSynth to `audio/build/music.wav`. |
+| `scripts/make-audio.mjs` | Takes that music, layers the recorded effects from `audio/sfx/`, places the verdict clips from `audio/voice/`, mixes to `public/audio/mix.wav`, and writes each clip's loudness to `src/voice.json` for the speech chip. |
 | `audio/sfx/` | Recorded sound effects (Kenney, CC0). |
 | `audio/voice/` | The four spoken verdicts. Replace a file and re-run `npm run render` to change a voice line. |
 | `scripts/copy-fonts.mjs` | Copies Geist from the app into `public/fonts`. |
