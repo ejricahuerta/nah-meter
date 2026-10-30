@@ -32,7 +32,7 @@ data class AppSettings(
     val vibration: Boolean = true,
     /** Say the verdict out loud ("nah. 14 an hour"), for couriers who are driving. */
     val voice: Boolean = true,
-    /** How loud the spoken verdict is, as a share of the phone's media volume (0–100; 0 is silent). */
+    /** How loud the spoken verdict is, as a share of the accessibility volume range (0–100; 0 is silent). */
     val voiceVolume: Int = 80,
     val voiceMode: VoiceMode = VoiceMode.WORD_HOURLY,
     /** Which verdicts are spoken; the rest only show. */
@@ -43,6 +43,8 @@ data class AppSettings(
     val voiceName: String? = null,
     /** Music and other audio get quieter while the verdict is spoken. */
     val voiceDuck: Boolean = true,
+    /** The verdict word in the Toronto voice's recorded lines ("nah fam."); the rates stay the phone's voice. */
+    val torontoVoice: Boolean = true,
     /** Compact pill at the top of the screen instead of the card docked above the offer. */
     val compactBadge: Boolean = false,
     /** The welcome screen has been seen. */
@@ -75,6 +77,7 @@ class SettingsRepository(context: Context) {
         val voiceSpeed = floatPreferencesKey("voice_speed")
         val voiceName = stringPreferencesKey("voice_name")
         val voiceDuck = booleanPreferencesKey("voice_duck")
+        val torontoVoice = booleanPreferencesKey("toronto_voice")
         val compactBadge = booleanPreferencesKey("compact_badge")
         val onboarded = booleanPreferencesKey("onboarded")
         val appearance = stringPreferencesKey("appearance")
@@ -107,6 +110,7 @@ class SettingsRepository(context: Context) {
             voiceSpeed = (this[Keys.voiceSpeed] ?: d.voiceSpeed).coerceIn(0.5f, 2f),
             voiceName = this[Keys.voiceName]?.takeIf { it.isNotEmpty() },
             voiceDuck = this[Keys.voiceDuck] ?: d.voiceDuck,
+            torontoVoice = this[Keys.torontoVoice] ?: d.torontoVoice,
             compactBadge = this[Keys.compactBadge] ?: d.compactBadge,
             onboarded = this[Keys.onboarded] ?: d.onboarded,
             appearance = this[Keys.appearance]?.let { v -> Appearance.entries.firstOrNull { it.name == v } } ?: d.appearance,
@@ -139,6 +143,7 @@ class SettingsRepository(context: Context) {
     suspend fun setVoiceSpeed(v: Float) = store.edit { it[Keys.voiceSpeed] = v.coerceIn(0.5f, 2f) }
     suspend fun setVoiceName(v: String?) = store.edit { prefs -> if (v == null) prefs.remove(Keys.voiceName) else prefs[Keys.voiceName] = v }
     suspend fun setVoiceDuck(v: Boolean) = store.edit { it[Keys.voiceDuck] = v }
+    suspend fun setTorontoVoice(v: Boolean) = store.edit { it[Keys.torontoVoice] = v }
     suspend fun setCompactBadge(v: Boolean) = store.edit { it[Keys.compactBadge] = v }
     suspend fun setOnboarded() = store.edit { it[Keys.onboarded] = true }
     suspend fun setAppearance(v: Appearance) = store.edit { it[Keys.appearance] = v.name }

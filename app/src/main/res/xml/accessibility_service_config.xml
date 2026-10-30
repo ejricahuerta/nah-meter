@@ -2,11 +2,13 @@
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:accessibilityEventTypes="typeWindowContentChanged|typeWindowStateChanged|typeWindowsChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
-    android:accessibilityFlags="flagRetrieveInteractiveWindows|flagIncludeNotImportantViews"
+    android:accessibilityFlags="flagRetrieveInteractiveWindows|flagIncludeNotImportantViews|flagEnableAccessibilityVolume"
     android:canRetrieveWindowContent="true"
     android:canTakeScreenshot="true"
     android:description="@string/accessibility_description"
     android:notificationTimeout="50" />
-<!-- No packageNames filter: Uber draws offers as a pop-up over other apps, and the
+<!-- flagEnableAccessibilityVolume: the spoken verdict plays on its own accessibility volume, which
+     nah.meter sets; Uber changes the media and navigation volume around its offers.
+     No packageNames filter: Uber draws offers as a pop-up over other apps, and the
      "windows changed" event for that pop-up carries no package name. The service itself
      only ever reads text from Uber (com.ubercab.*) windows. -->

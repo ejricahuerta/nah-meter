@@ -93,9 +93,13 @@ app/   Android
   service/ServiceState.kt  in-process state shared with the UI, including the diagnostics log
   service/CrashLog.kt      the last crash's stack trace, saved on the phone, shown in Diagnostics
   service/ReaderWatch.kt   "nah.meter stopped reading" notification if the reader stops mid-shift
-  service/Voice.kt         says the verdict out loud ("nah. 14 an hour"), on-device TTS, on media
-                           volume at the user's level (Uber moves navigation volume), then restores it;
-                           speed, voice and ducking from the settings; silent at 0% and on calls
+  service/Voice.kt         says the verdict out loud ("nah. 14 an hour"), on-device TTS, on the
+                           accessibility volume at the user's level, then restores it (Uber moves the
+                           navigation volume, and the media volume during its offer sound);
+                           speed, voice and ducking from the settings; silent at 0% and on calls.
+                           With the Toronto voice on (default), the word is a recorded line from res/raw
+                           (ElevenLabs, "nah fam.") played before the TTS rates; a clip that won't
+                           play falls back to TTS
   service/ReadingTileService.kt, PauseReceiver.kt  pause / resume from the shade (tile, notification)
   service/PriorityTileService.kt  "Strict on $/hr / $/km" tile: flips the strict rate from the shade
   data/                    DataStore settings, Room offer log (last 200), CSV export
@@ -184,6 +188,11 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
   words drop it ("bet, meh or nah"). Use `NahCopy` for every verdict string, never inline text.
 - Voice: short, plain, sentence case, no emoji or exclamation marks (the bet! verdict aside). Never
   "Accept" or "Decline".
+- The Toronto voice's recorded lines are slang ("nah fam.", "meh, your call fam.", "bet, say less!",
+  "mans can't read that. check it yourself."), word for word in `NahCopy.clipLine`; keep that in
+  step with `res/raw/verdict_*.ogg` (mono Ogg Vorbis, ends trimmed, about −17 LUFS). The slang is
+  for the voice only: the card and the rest of the app keep the plain words. A recorded line never
+  tells the courier to take or pass an offer.
 - No helper text that restates a label or a visible state ("Tap to pause" under a power button). Add a
   line only for a reason, a warning, a step or a number.
 - The overlay is classic Views (not Compose); `TypefaceSpan(Typeface)` needs API 28, so use the
@@ -196,7 +205,9 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
 Ask the user to wait for an offer, then open **Settings → Permissions → Diagnostics → Show → Copy diagnostics**
 and paste it. The log shows Uber coming on screen (its area, and which app it popped up over) and
 leaving, but not other apps opening and closing; the card's lines read by each method; and
-each verdict with its source. A grey verdict logs the card text it saw. Entries are
+each verdict with its source. A grey verdict logs the card text it saw. Each spoken verdict logs a
+`Spoke:` entry: recording or phone voice, how long it took, and what got in its way (another app
+taking audio focus, the volume changed under it, cut off by the next verdict). Entries are
 `[yyyy-MM-dd HH:mm:ss] - title` with one `- detail` line each (`LogEntry`); log through
 `ServiceState.log(title, details…)`, never a run-on line with `|` separators. Errors go in as
 `LogEntry.error(title, throwable)`. The log is saved on the phone (`files/diagnostics.log`, last

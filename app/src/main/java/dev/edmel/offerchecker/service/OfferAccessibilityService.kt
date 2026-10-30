@@ -389,7 +389,7 @@ class OfferAccessibilityService : AccessibilityService() {
         val s = settings
         guarded("verdict card") { badge.show(e, s.thresholds, s.compactBadge, cardTop ?: popupTop) }
         if (s.vibration) runCatching { alerts.vibrate(e.verdict) }
-        if (s.voice && e.verdict in s.voiceVerdicts) voice?.say(NahCopy.speech(e, s), s)
+        if (s.voice && e.verdict in s.voiceVerdicts) voice?.say(NahCopy.speechParts(e, s), s)
         ServiceState.lastReadFlow.value = LastRead(System.currentTimeMillis(), e, raw)
         val offer = e.offer ?: return
         if (e.verdict == Verdict.GREY) return
@@ -420,7 +420,7 @@ class OfferAccessibilityService : AccessibilityService() {
         val s = settings
         badge.show(e, s.thresholds, s.compactBadge, null)
         if (s.vibration) alerts.vibrate(e.verdict)
-        if (s.voice) voice?.say(NahCopy.speech(e, s), s)
+        if (s.voice) voice?.say(NahCopy.speechParts(e, s), s)
     }
 
     override fun onInterrupt() = Unit

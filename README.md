@@ -72,6 +72,10 @@ to expand). Tap the card to dismiss it; it also leaves when the offer closes or 
 bet! one short buzz, meh. two short, nah. one long. The **Read offers** switch on Status pauses
 everything.
 
+**Voice:** Settings → Voice reads the verdict out loud. The **Toronto voice** (on by default) says
+the word as a recorded line ("nah fam.", "meh, your call fam.", "bet, say less!"), then the
+phone's own voice reads the rate. Turn it off to hear the phone's voice for everything.
+
 **Updates:** install the new APK over the old one. Settings and the offer log are kept as
 long as the signing secrets below are set, because every build is then signed with the same key.
 
