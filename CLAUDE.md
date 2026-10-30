@@ -125,9 +125,11 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
   adds 2 min per order for waiting on food (`Thresholds.perOrderWaitMin`, decided 2026-10-29), so
   2 orders score 4 min longer than Uber's time. The verdict card doesn't show "×2".
 - OCR mangles text. The parser tolerates: `$1l.59` and `$1159` (look-alike letters, dropped decimal
-  point), stray symbols before `$`, `(` read as `C`, missing spaces or brackets, `l hr 3 min` (Uber's
-  "1" reads as l or I). Uber always shows cents. A trip line with an hours word but no readable
-  hours number is `can't read.`: the minutes alone once scored 63 min as 3 ($270.80/hr).
+  point), stray symbols before `$`, `(` read as `C`, missing spaces or brackets (`1 hr12 min`),
+  `l hr 3 min` (Uber's "1" reads as l or I). Uber always shows cents. A trip line with an hours word
+  but no readable hours number is `can't read.`: the minutes alone once scored 63 min as 3
+  ($270.80/hr), and "1 hr12 min" as 2 ($190.40/hr). A trip faster than 100 km/h is a misread
+  time, also `can't read.`
 - **Pay is the dollar amount in the tallest text** in the band above the trip line, never the
   largest value: pages behind the pop-up have their own dollar amounts.
 - The restaurant and drop-off area are the lines between the trip line and the card's button
@@ -137,10 +139,15 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
 - The log holds each offer once: a card equal (pay, minutes, km, ×2) to the last logged offer, or
   to one logged in the last 30 min, still gets its verdict but isn't logged again
   (`OfferDao.addIfNew`). Uber re-shows the same card after you leave and come back.
-- One verdict per card: re-reads of the same card (same minutes and km) are ignored until the
-  card has been gone for 600 ms. This stops flip-flopping between noisy OCR reads.
+- One verdict per card (decided 2026-10-29): a screenshot read counts only when the next read
+  agrees (a grey read in between doesn't break the pair), so a one-off misread ($19.04 read as
+  $9.04) never shows or replaces a verdict. The verdict comes about 1 s after the card. Re-reads of
+  the same card (same minutes and km) are ignored until the card has been gone for 600 ms.
+  Accessibility text is exact and counts at once.
 - The verdict stays up as long as Uber's card does (no timer, decided 2026-10-29): it goes when
-  the card has been gone for 600 ms (closed or accepted), or when tapped.
+  the card has been gone for 600 ms (closed or accepted), or when tapped. While a card is up the
+  reader looks every second even without Uber events (a still screen sends none), or the verdict
+  could outlive the card.
 - Accepted vs passed isn't known yet (nah.meter sees the screen, never the tap). To learn it from
   real text, the log has "After the card (4 s / 12 s)" entries: Uber's text after each read card
   goes. Build accepted/passed tracking from those pastes, not from guesses.

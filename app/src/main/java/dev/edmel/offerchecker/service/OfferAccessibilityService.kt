@@ -58,8 +58,13 @@ class OfferAccessibilityService : AccessibilityService() {
     private var lastKey: String? = null
     private var lastKeyAt = 0L
     private var cardMissingSince = 0L
+    /** An offer card has been read and hasn't been gone for [CARD_GONE_MS] yet. */
+    private var cardUp = false
     /** The offer read from the card on screen now, if any; cleared when the card goes away. */
     private var shownOffer: Offer? = null
+    /** The last readable screenshot read of the card on screen, and the grey reads since. */
+    private var lastScreenRead: String? = null
+    private var greyReads = 0
     /** The offer card's top edge (screen px) from the latest read, to dock the verdict card. */
     private var cardTop: Int? = null
     /** Top of Uber's pop-up window (not the bubble), the fallback for [cardTop]. */
@@ -217,26 +222,60 @@ class OfferAccessibilityService : AccessibilityService() {
             return
         }
         cardMissingSince = 0L
+        cardUp = true
+        keepWatching()
         val raw = when (read) {
             is ReadResult.Read -> read.raw
             is ReadResult.Unreadable -> read.raw
             ReadResult.NoOffer -> emptyList()
         }
         val offer = (read as? ReadResult.Read)?.offer
-        val key = offer?.let { "${it.pay}|${it.minutes}|${it.km}" }
+        val key = offer?.let { "${it.pay}|${it.minutes}|${it.km}|${it.orders}|${it.addOn}" }
             ?: "grey|${raw.filter(OfferParser::isTripLine)}"
+        // Screenshots of the same card are re-read about once a second and text recognition
+        // varies between them ($19.04 read as $9.04 on one). A screenshot read only counts once
+        // the next one agrees, so a one-off misread never shows, nor replaces the verdict on
+        // screen. Accessibility text is exact and counts at once.
+        val agreed = source != "screenshot" || agreesWithLastRead(offer?.let { key })
         val now = SystemClock.elapsedRealtime()
         if (key == lastKey && now - lastKeyAt < DEDUPE_MS) return
-        // Screenshots of the same card are re-read about once a second and text recognition
-        // varies between them. Once a card has been read, keep that verdict while it stays up:
-        // a grey re-read, or a different pay with the same minutes and km, is noise.
+        // Once a card has been read, keep that verdict while it stays up: a grey re-read, or a
+        // different pay with the same minutes and km, is noise.
         val shown = shownOffer
-        if (shown != null && (offer == null || (offer.minutes == shown.minutes && offer.km == shown.km))) return
+        if (lastKey != null && (offer == null || (shown != null && offer.minutes == shown.minutes && offer.km == shown.km))) return
+        if (!agreed) return
         shownOffer = offer
         lastKey = key
         lastKeyAt = now
         ServiceState.log("Offer: ${NahCopy.word(evaluation.verdict)} ($source)", *offerDetails(evaluation, raw).toTypedArray())
         onNewCard(evaluation, raw)
+    }
+
+    /**
+     * Whether this screenshot read ([key], or null for can't read) matches the one before it.
+     * A grey read between two matching ones doesn't break them; two greys in a row agree.
+     */
+    private fun agreesWithLastRead(key: String?): Boolean {
+        if (key == null) return ++greyReads >= 2
+        greyReads = 0
+        return (key == lastScreenRead).also { lastScreenRead = key }
+    }
+
+    /**
+     * While a card is up, look again every second even when Uber sends no events (a still screen
+     * sends none): that read confirms the verdict, and lets the verdict go when the card does.
+     */
+    private val watch = Runnable { watchCard() }
+
+    private fun watchCard() {
+        if (!cardUp || !settings.readingEnabled) return
+        if (!scanPending) guarded("scan") { scanScreen() }
+        if (cardUp) keepWatching()
+    }
+
+    private fun keepWatching() {
+        handler.removeCallbacks(watch)
+        handler.postDelayed(watch, OCR_INTERVAL_MS)
     }
 
     /**
@@ -307,13 +346,17 @@ class OfferAccessibilityService : AccessibilityService() {
      * A card that comes back after that counts as a new card.
      */
     private fun onCardGone() {
-        if (lastKey == null && !badge.isShowing) return
+        // A read with no card breaks a pair of matching reads.
+        lastScreenRead = null
+        greyReads = 0
+        if (!cardUp && !badge.isShowing) return
         val now = SystemClock.elapsedRealtime()
         if (cardMissingSince == 0L) {
             cardMissingSince = now
             handler.postDelayed({ if (!scanPending) guarded("scan") { scanScreen() } }, CARD_GONE_MS + 50)
         } else if (now - cardMissingSince >= CARD_GONE_MS) {
             cardMissingSince = 0L
+            cardUp = false
             val gone = shownOffer
             lastKey = null
             shownOffer = null
