@@ -70,8 +70,8 @@ const run = (keys: Key[], t: number, start: Pose, fps: number): Pose => {
 
 const cameraKeys = (L: CamLayout): Key[] => {
   const keys: Key[] = [
-    // The shift: a slow push.
-    { at: S.shift[0] + 0.6, dur: 1.4, pose: { ...identity(L), z: 1.08 } },
+    // The shift: start wide on the night drive, then push in on the phone.
+    { at: S.shift[0] + 0.15, dur: 1.75, pose: { ...identity(L), z: 1.05 } },
   ];
   for (const { scene } of OFFER_SCENES) {
     const [s, e] = scene;
@@ -114,7 +114,7 @@ export const shakeAt = (t: number) => {
 };
 
 const poseAt = (L: CamLayout, t: number, fps: number) => {
-  const p = run(cameraKeys(L), t, identity(L), fps);
+  const p = run(cameraKeys(L), t, { ...identity(L), z: 0.66 }, fps);
   // A small extra punch on each rule step.
   const bump = [...timeline.rulesStepsSec, timeline.rulesFlipSec].reduce((b, s) => b + (t >= s ? 0.07 * Math.exp(-(t - s) * 9) : 0), 0);
   return { ...p, z: p.z + bump };
@@ -151,56 +151,43 @@ export const impactAt = (t: number) => {
   return null;
 };
 
-/** The verdict word, full screen, with a flash and burst lines; then it shrinks away to the card. */
-export const VerdictSlam: React.FC<{ t: number; W: number; H: number }> = ({ t, W, H }) => {
+/**
+ * The verdict lands: the screen bursts open in the verdict's colour from the card (an iris), the
+ * word is stamped huge in black, burst lines fly out, then the colour closes back into the card.
+ * `cx`, `cy` is where the card sits on the canvas.
+ */
+export const VerdictSlam: React.FC<{ t: number; W: number; H: number; cx: number; cy: number }> = ({ t, W, H, cx, cy }) => {
   const hit = impactAt(t);
-  if (!hit || hit.u > 0.75) return null;
+  if (!hit || hit.u < 0 || hit.u > 0.78) return null;
   const { u, e } = hit;
   const v: Verdict = e.verdict;
   const color = VerdictColor[v];
-  // As big as fits: about 0.55em a character in Geist Black at this tracking.
-  const size = Math.min(Math.min(W, H) * 0.5, (W * 0.88) / (word(v).length * 0.55));
-  const inP = interpolate(u, [0, 0.14], [0, 1], { ...clamp, easing: Easing.out(Easing.cubic) });
-  const outP = interpolate(u, [0.42, 0.72], [0, 1], { ...clamp, easing: Easing.in(Easing.cubic) });
-  const scale = interpolate(inP, [0, 1], [2.4, 1]) * interpolate(outP, [0, 1], [1, 0.35]);
-  const dim = interpolate(u, [-0.05, 0.05, 0.45, 0.72], [0, 0.88, 0.88, 0], clamp);
-  const flash = interpolate(u, [0, 0.03, 0.16], [0, 0.55, 0], clamp);
-  const rays = interpolate(u, [0, 0.4], [0, 1], clamp);
+  const far = Math.hypot(Math.max(cx, W - cx), Math.max(cy, H - cy));
+  const open = interpolate(u, [0, 0.12], [0, 1], { ...clamp, easing: Easing.out(Easing.cubic) });
+  const close = interpolate(u, [0.55, 0.78], [0, 1], { ...clamp, easing: Easing.in(Easing.cubic) });
+  const radius = far * open * (1 - close);
+  // As big as fits, about 0.55em a character in Geist Black at this tracking.
+  const size = Math.min(Math.min(W, H) * 0.56, (W * 0.9) / (word(v).length * 0.55));
+  const stamp = interpolate(u, [0.03, 0.15, 0.22], [2.6, 0.94, 1], { ...clamp, easing: Easing.out(Easing.cubic) });
+  const rays = interpolate(u, [0.05, 0.5], [0, 1], clamp);
+  const flash = interpolate(u, [0, 0.02, 0.08], [0, 0.9, 0], clamp);
   return (
     <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-      <div style={{ position: "absolute", inset: 0, background: `rgba(0,0,0,${dim})` }} />
-      <svg width={W} height={H} style={{ position: "absolute", inset: 0, opacity: (1 - rays) * 0.75 }}>
-        {Array.from({ length: 28 }, (_, i) => {
-          const ang = (i / 28) * Math.PI * 2 + 0.2;
-          const r0 = Math.min(W, H) * (0.18 + rays * 0.45);
-          const r1 = r0 + Math.min(W, H) * (0.12 + (i % 3) * 0.06) * (1 - rays * 0.5);
-          return (
-            <line
-              key={i}
-              x1={W / 2 + Math.cos(ang) * r0}
-              y1={H / 2 + Math.sin(ang) * r0}
-              x2={W / 2 + Math.cos(ang) * r1}
-              y2={H / 2 + Math.sin(ang) * r1}
-              stroke={color}
-              strokeWidth={i % 2 ? 6 : 12}
-              strokeLinecap="square"
-            />
-          );
-        })}
-      </svg>
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          opacity: 1 - outP,
-          filter: `blur(${(1 - inP) * 14 + outP * 10}px)`,
-        }}
-      >
-        <div style={{ ...nahText(size, 900, size, -0.07, color), scale: String(scale), whiteSpace: "nowrap", textShadow: `0 0 ${size * 0.25}px ${color}55` }}>
-          {word(v)}
+      <div style={{ position: "absolute", inset: 0, background: color, clipPath: `circle(${radius}px at ${cx}px ${cy}px)` }}>
+        {/* Halftone dots, for print-like texture */}
+        <div style={{ position: "absolute", inset: 0, opacity: 0.18, backgroundImage: "radial-gradient(#000 1.2px, transparent 1.6px)", backgroundSize: "14px 14px" }} />
+        <svg width={W} height={H} style={{ position: "absolute", inset: 0, opacity: (1 - rays) * 0.9 }}>
+          {Array.from({ length: 22 }, (_, i) => {
+            const ang = (i / 22) * Math.PI * 2 + 0.3;
+            const r0 = Math.min(W, H) * (0.3 + rays * 0.5);
+            const r1 = r0 + Math.min(W, H) * (0.1 + (i % 3) * 0.05);
+            return (
+              <line key={i} x1={W / 2 + Math.cos(ang) * r0} y1={H / 2 + Math.sin(ang) * r0} x2={W / 2 + Math.cos(ang) * r1} y2={H / 2 + Math.sin(ang) * r1} stroke="#000" strokeWidth={i % 2 ? 8 : 16} />
+            );
+          })}
+        </svg>
+        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ ...nahText(size, 900, size, -0.07, "#000"), scale: String(stamp), rotate: "-5deg", whiteSpace: "nowrap" }}>{word(v)}</div>
         </div>
       </div>
       <div style={{ position: "absolute", inset: 0, background: `rgba(255,255,255,${flash})` }} />

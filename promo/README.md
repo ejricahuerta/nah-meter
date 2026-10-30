@@ -1,6 +1,6 @@
 # nah.meter promo video
 
-A 41-second promo in two cuts, made with [Remotion](https://www.remotion.dev) (React → MP4):
+A 39.5-second promo in two cuts, made with [Remotion](https://www.remotion.dev) (React → MP4):
 
 - `NahPromoVertical`: 1080×1920 for Reels, TikTok and Shorts
 - `NahPromoWide`: 1920×1080
@@ -34,6 +34,8 @@ Chrome or Chromium, or add `--browser-executable`, to use a different one.
 | `src/tokens.ts` | Colours and type from `ui/Nah.kt` (Mono). |
 | `src/ui.tsx` | The verdict card, stand-in offer, status pill, rule steppers, wordmark. |
 | `src/Phone.tsx` | The phone, the map with the offers, and the Rules screen. |
+| `src/Drive.tsx` | The night drive behind the phone: rain, city lights, streetlights, road, dash. Greyscale, except the verdict's colour spilling onto the glass. |
+| `src/fx.tsx` | Camera moves, shake, motion blur, and the full-screen verdict burst. |
 | `src/Promo.tsx` | Scenes and captions, laid out per aspect. |
 | `scripts/make-music.mjs` | Composes the music from the timeline (drums, bass, electric piano, strings, piano), writes it as MIDI and renders it with FluidSynth to `audio/build/music.wav`. |
 | `scripts/make-audio.mjs` | Takes that music, layers the recorded effects from `audio/sfx/`, places the verdict clips from `audio/voice/`, mixes to `public/audio/mix.wav`, and writes each clip's loudness to `src/voice.json` for the speech chip. |

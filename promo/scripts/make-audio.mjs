@@ -173,7 +173,7 @@ const voiceMeta = {};
 const S = T.scenes;
 
 // Scene 1: clock ticks, a slam per line and a swell into the drop.
-for (let k = 0; k < 6; k++) add("sfx", k * 0.5, tick(k), 0.45, k % 2 ? 0.3 : -0.3, 0.1);
+for (let k = 0; k < S.hook[1] * 2; k++) add("sfx", k * 0.5, tick(k), 0.45, k % 2 ? 0.3 : -0.3, 0.1);
 for (const s of T.hookLinesSec) {
   add("sfx", s, thump(), 0.8, 0, 0.15);
   add("sfx", s, boom(), 0.25);
@@ -246,7 +246,9 @@ add("sfx", T.rulesFlipSec, whoosh(0.45), 0.35, 0.3);
 // Promises: a soft tick and thump per line.
 T.promiseLinesSec.forEach((s, i) => {
   add("sfx", s, sample(i % 2 ? "drop_002.ogg" : "drop_001.ogg"), 0.5, 0, 0.15);
-  add("sfx", s, thump(i === 3), i === 3 ? 0.8 : 0.5, 0, 0.15);
+  const last = i === T.promiseLinesSec.length - 1;
+  add("sfx", s, thump(last), last ? 0.8 : 0.5, 0, 0.15);
+  if (last) add("sfx", s, boom(), 0.5);
 });
 
 // ---------- mix ----------

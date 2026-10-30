@@ -1,27 +1,28 @@
 # nah.meter promo: storyboard
 
-41 s at 30 fps. Vertical 1080×1920 (Reels, TikTok, Shorts) and wide 1920×1080 from the same
-scenes: in the wide cut the phone sits left and the captions sit right. Times are in
-`src/timeline.json`, which both the picture (`src/`) and the sound (`scripts/make-audio.mjs`) read,
-so a retimed scene moves its sounds with it.
+**Concept: the world is black and white; only the verdict has colour.** The courier's world is a
+night drive seen from the driver's seat, in greyscale. When a verdict lands, the screen bursts open
+in the verdict's colour with the word stamped huge in black, then closes back into the card.
 
-Look: black ground, white Geist (800–900, lowercase where it's the brand), colour only on verdict
-words (bet! #30D158, meh. #FFD60A, nah. #FF3B30, can't read. #8E8E93). The red square full stop is
-the only other red. The phone is a plain Android phone (punch-hole camera, no brand). The offer
+39.5 s at 30 fps. Vertical 1080×1920 (Reels, TikTok, Shorts) and wide 1920×1080 from the same
+scenes. All times are in `src/timeline.json`, which the picture, the music and the sound read.
+
+Look: Geist 800–900; colour only on verdicts (bet! #30D158, meh. #FFD60A, nah. #FF3B30, can't read.
+#8E8E93) and the red square full stop. A plain Android phone in a dash mount (no brand). The offer
 is the app's neutral stand-in (`StandInOffer`): "Delivery", the pay, "23 min (11.5 km) total",
 a grey "Match" button. No Uber name, logo, colours or screens.
 
 | # | Time | Picture | On-screen text | Sound |
 | --- | --- | --- | --- | --- |
-| 1 | 0.0–3.0 | Black. A giant outlined countdown (15, 14, 13…) ticks behind; the lines slam in. | "New offer." / "15 seconds." / "Worth it?" | Clock tick every 0.5 s, a slam per line; strings swell, a piano low A per line, a snare roll into 2 |
-| 2 | 3.0–5.0 | Phone rises into frame over a dark, slowly panning street map (grey lines only). Status pill "Reading offers". Clock 6:42. | "On shift." | Music drops in with a crash: acoustic drums, fingered bass, electric piano, strings |
-| 3 | 5.0–10.0 | Offer card slides up. The verdict lands: **nah.** fills the screen, then the card: $15.83/hr, "Under your $20", chip $0.53/km. A speech chip shows the clip's waveform. | "Not worth your time." · chip "nah." | Whoosh, riser, sub boom + "nah" sting, the nah clip |
-| 4 | 10.0–14.0 | New offer: $14.20 · 28 min (9.8 km). **bet!** $30.43/hr, "Clears your $20", $1.45/km. | "Pays your rate." · chip "bet!" | Whoosh, bright two-note pop, the bet clip |
-| 5 | 14.0–18.5 | New offer: $9.40 · 26 min (12.4 km). **meh.** $21.69/hr, "Short on $/km", $0.76/km. | "Pays the hour," / "long drive." · chip "meh." | Whoosh, neutral double tick, the meh clip |
-| 6 | 18.5–24.0 | A blurred, unreadable offer. **can't read.** "Check this offer yourself". | "Can't read it?" / "It won't guess." · chip "can't read." | Whoosh, soft muted blip, the can't-read clip |
-| 7 | 24.0–31.5 | The Rules tab as in the app: live preview card, "Strict on $/hr / $/km", Minimum pay, Per hour, Per km, Max km. + on Per hour twice ($20 → $21), then Strict flips to $/km: the card's big rate becomes $0.53/km, "Under your $1/km", chip $15.83/hr; the hints swap nah./meh. | "Your rules." / "Your call.", then "Traffic?" / "Go strict on $/km." | A UI tick per step; a switch click on the flip |
-| 8 | 31.5–36.5 | Three promise lines slam in with the red square bullet. Then "You decide." | "It never taps anything for you." / "No internet permission. Nothing leaves your phone." / "No account." / "You decide." | Tick per line; drums drop out (piano and strings), a snare roll into 9 |
-| 9 | 36.5–41.0 | The wordmark zooms in; the square lands with a shockwave. Tagline word by word. | "Bad offer? Just say nah." (full stop as the red square) · "For Android" | Crash and a big Am on piano and strings; punch and boom on the square; fade |
+| 1 | 0.0–4.0 | Black. A 15 s ring drains; the offer's numbers slam in one by one; "Worth it?" stamps over them; then a wall of churning digits and maths signs behind "Don't do the math." | "$6.07" / "23 min" / "11.5 km" / "Worth it?" / "Don't do the math." | Clock tick every 0.5 s, a punch per line; strings swell, snare roll into the drop |
+| 2 | 4.0–6.0 | Hard cut to the night drive, wide: rain on the windshield, city bokeh, streetlights passing overhead, the road rushing in, the phone in its mount tilted in 3D. The camera pushes in. | "On shift." · "Reading offers" | Music drops with a crash; whoosh |
+| 3 | 6.0–11.0 | The offer slides up; the verdict lands: the screen bursts red with a huge black **nah.**, then closes into the docked card ($15.83/hr, "Under your $20", $0.53/km). Red spills onto the glass and the dash. | "Not worth your time." · chip "nah." | Swell, punch + metal + boom, crash; the nah clip |
+| 4 | 11.0–14.0 | Next offer, $14.20 · 28 min (9.8 km): green burst, **bet!** ($30.43/hr, "Clears your $20", $1.45/km). | "Pays your rate." | Chips and a chime; the bet clip |
+| 5 | 14.0–18.5 | $9.40 · 26 min (12.4 km): yellow burst, **meh.** ($21.69/hr, "Short on $/km", $0.76/km). | "Pays the hour," / "long drive." | Two wood knocks; the meh clip |
+| 6 | 18.5–24.0 | A blurred, unreadable offer: grey burst, **can't read.** ("Check this offer yourself"). | "Can't read it?" / "It won't guess." | Glitch stutter; the can't-read clip |
+| 7 | 24.0–30.0 | The Rules tab as in the app. + on Per hour twice ($20 → $21), then Strict flips to $/km: the card shows $0.53/km big, "Under your $1/km". | "Your rules." / "Your call.", then "Traffic?" / "Go strict on $/km." | Clicks, a switch, a crash on the flip |
+| 8 | 30.0–35.0 | One promise at a time, full screen, each knocking the last up and away, the red square spinning in. | "It never taps anything for you." / "No internet permission." / "Nothing leaves your phone." / "No account." / "You decide." | A drop and a punch per line, a boom on "You decide."; drums out, then a snare roll |
+| 9 | 35.0–39.5 | The wordmark zooms in; the square lands with a shockwave; the tagline word by word. | "Bad offer? Just say nah." · "For Android" | Crash and a big Am; punch and boom on the square; fade |
 
 ## Motion (second pass: flashier)
 
