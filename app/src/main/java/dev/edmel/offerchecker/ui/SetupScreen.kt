@@ -151,7 +151,7 @@ private fun WelcomeStep(thresholds: Thresholds) {
         }
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Example(Verdict.GREEN, "pays your rate")
-            // eh. is the soft rate falling short, so it depends on which rate is strict.
+            // meh. is the soft rate falling short, so it depends on which rate is strict.
             Example(Verdict.YELLOW, if (perKmFirst) "pays the km, slow trip" else "pays the hour, long drive")
             Example(Verdict.RED, "not worth your time")
         }

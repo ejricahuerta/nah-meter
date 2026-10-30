@@ -12,20 +12,20 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 
 /**
- * nah.meter's words for a verdict, from the design system's voice: lowercase verdicts that end in a
- * full stop, then the number, then the reason ("nah. $15.83/hr · Under your $20").
+ * nah.meter's words for a verdict: lowercase verdicts (nah., meh. and bet!), then the number, then
+ * the reason ("nah. $15.83/hr · Under your $20").
  */
 object NahCopy {
-    /** On cards and pills: always with the full stop. */
+    /** On cards and pills: always with its full stop, or bet!'s exclamation mark. */
     fun word(v: Verdict) = when (v) {
-        Verdict.GREEN -> "bet."
-        Verdict.YELLOW -> "eh."
+        Verdict.GREEN -> "bet!"
+        Verdict.YELLOW -> "meh."
         Verdict.RED -> "nah."
         Verdict.GREY -> "can't read."
     }
 
-    /** In lists and chips the full stop becomes the coloured dot before the word. */
-    fun chipWord(v: Verdict) = word(v).removeSuffix(".")
+    /** In lists and chips the full stop (or bet!'s mark) becomes the coloured dot before the word. */
+    fun chipWord(v: Verdict) = word(v).trimEnd('.', '!')
 
     /** A rate split for the card, so the unit can be drawn smaller: "$15.83" and "/hr". */
     data class Rate(val amount: String, val unit: String) {

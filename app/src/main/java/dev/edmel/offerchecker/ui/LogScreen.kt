@@ -78,7 +78,7 @@ fun LogScreen(thresholds: Thresholds, modifier: Modifier = Modifier) {
     val offers by dao.observeAll().collectAsState(initial = emptyList())
     var confirmClear by remember { mutableStateOf(false) }
     var open by remember { mutableStateOf<OfferEntry?>(null) }
-    // 0 = all, then bet, eh, nah.
+    // 0 = all, then bet, meh, nah.
     var filter by rememberSaveable { mutableIntStateOf(0) }
 
     val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
@@ -112,7 +112,7 @@ fun LogScreen(thresholds: Thresholds, modifier: Modifier = Modifier) {
                 }, kind = NahButtonKind.Secondary, small = true, enabled = offers.isNotEmpty())
             }
         }
-        item { NahSegmented(listOf("All", "bet", "eh", "nah"), filter, { filter = it }) }
+        item { NahSegmented(verdicts.map { it?.let(NahCopy::chipWord) ?: "All" }, filter, { filter = it }) }
         if (shown.isEmpty()) {
             item {
                 NahGroup {

@@ -153,7 +153,8 @@ class BadgeOverlay(private val context: Context) {
         }
         val unknown = e.verdict == Verdict.GREY
         row.addView(
-            text(NahCopy.word(e.verdict), if (unknown) 44f else 64f, font900, wordColor(e.verdict), if (unknown) -0.05f else -0.07f),
+            text(NahCopy.word(e.verdict), if (unknown) 44f else 64f, font900, wordColor(e.verdict), if (unknown) -0.05f else -0.07f)
+                .apply { maxLines = 1 },
             LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
         )
         // The strict rate big (normally $/hr), the other in the chip.
@@ -266,7 +267,7 @@ class BadgeOverlay(private val context: Context) {
         private val CARD_SOFT = Color.rgb(0xDE, 0xDE, 0xDE)
         private val CARD_CHIP = Color.rgb(0x26, 0x26, 0x26)
 
-        /** The verdict word's colour on the black card: bet green, eh yellow, nah red. */
+        /** The verdict word's colour on the black card: bet green, meh yellow, nah red. */
         fun wordColor(v: Verdict): Int = when (v) {
             Verdict.GREEN -> Color.rgb(0x30, 0xD1, 0x58)
             Verdict.YELLOW -> Color.rgb(0xFF, 0xD6, 0x0A)

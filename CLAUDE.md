@@ -1,8 +1,8 @@
 # CLAUDE.md
 
 nah.meter ("nah." for short) is a sideloaded Android app for Uber Eats couriers. It reads each
-offer the Uber Driver app shows and docks a one-word verdict above the offer card: **bet.**,
-**eh.**, **nah.** or **can't read.** Kotlin, Jetpack Compose, min API 26, target API 35.
+offer the Uber Driver app shows and docks a one-word verdict above the offer card: **bet!**,
+**meh.**, **nah.** or **can't read.** Kotlin, Jetpack Compose, min API 26, target API 35.
 
 Android only: iPhone is out of scope until the project is funded (see README, "iPhone: not
 supported yet"); don't start iOS work unless asked.
@@ -82,7 +82,7 @@ never a push to `main`.
 core/  pure Kotlin, no Android: what to read and how to score it (unit-tested)
   OfferParser.kt  all text patterns; card texts -> ReadResult; OCR lines -> card texts
   Scorer.kt       the five rules (max km off by default; Thresholds.priority picks the strict rate, $/hr
-                  or $/km, the other gives eh.) and the unpaid extra km, exact BigDecimal maths -> Evaluation
+                  or $/km, the other gives meh.) and the unpaid extra km, exact BigDecimal maths -> Evaluation
   Model.kt        Offer, ReadResult, Thresholds, Priority, Evaluation, Verdict, Check, OcrLine
 app/   Android
   service/OfferAccessibilityService.kt  event loop: find Uber windows, read, score, show, log
@@ -179,9 +179,11 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
   "Under $5.50 minimum", "Short on $/km", "Clears your $20"; strict on $/km: "Under your $1/km",
   "Short on $/hr", "Clears your $1/km") and the other rate in its own chip (`cardChip`). Which
   rate goes where comes only from `NahCopy.rates`. Nothing under 15sp.
-- Verdict words are lowercase and end in a full stop (`bet.`); in chips the stop becomes a dot
-  before the word. Use `NahCopy` for every verdict string, never inline text.
-- Voice: short, plain, sentence case, no emoji or exclamation marks. Never "Accept" or "Decline".
+- Verdict words are lowercase: **nah.**, **meh.**, **bet!** and **can't read.** (bet! is the only
+  exclamation mark). In chips the stop or mark becomes a dot before the word; in running text the
+  words drop it ("bet, meh or nah"). Use `NahCopy` for every verdict string, never inline text.
+- Voice: short, plain, sentence case, no emoji or exclamation marks (the bet! verdict aside). Never
+  "Accept" or "Decline".
 - No helper text that restates a label or a visible state ("Tap to pause" under a power button). Add a
   line only for a reason, a warning, a step or a number.
 - The overlay is classic Views (not Compose); `TypefaceSpan(Typeface)` needs API 28, so use the
