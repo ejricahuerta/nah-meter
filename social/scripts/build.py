@@ -280,16 +280,20 @@ def map_layers(box_ll, proj, rect_km, detail):
 
 # Page sizes (CSS px) and the band above the cards the route must fit in; template.html uses the same.
 # 468 px wide is a phone at a slightly smaller display size, so the map shows more above the cards.
-FORMATS = {"story": (468, 832, 44, 236), "post": (468, 585, 10, 200)}
+FORMATS = {"story": (468, 832, 40, 226), "post": (468, 585, 4, 200)}
 
 
-def fit(route_bbox, fmt):
-    """px per km and the route's centre in page px for a format (mirrors template.html)."""
+def fit(route_bbox, fmt, shorter=0):
+    """px per km and the route's centre in page px for a format (mirrors template.html).
+    template.html fits the route to the room actually left above the cards, which is less when a
+    place line wraps; `shorter` takes that much off the band, for working out what to fetch."""
     W, H, band_top, band_h = FORMATS[fmt]
+    band_h -= shorter
     x0, y0, x1, y1 = route_bbox
     rw, rh = max(x1 - x0, 0.3), max(y1 - y0, 0.3)
-    s = min((W - 96) / rw, (band_h - 56) / rh)
-    return s, (W / 2, band_top + band_h / 2)
+    # Pins stand 56 px above their point: 62 px of headroom; 40 below keeps the map credit clear.
+    s = min((W - 96) / rw, (band_h - 102) / rh)
+    return s, (W / 2, band_top + 62 + (band_h - 102) / 2)
 
 
 def build_offer(o, t):
@@ -363,7 +367,7 @@ def build_offer(o, t):
     detail = True
     for fmt in FORMATS:
         W, H, band_top, band_h = FORMATS[fmt]
-        s, (cx_px, cy_px) = fit(rb, fmt)
+        s, (cx_px, cy_px) = fit(rb, fmt, shorter=60)
         cx, cy = (rb[0] + rb[2]) / 2, (rb[1] + rb[3]) / 2
         ext = [min(ext[0], cx - cx_px / s - 0.3), min(ext[1], cy - (H - cy_px) / s - 0.3),
                max(ext[2], cx + (W - cx_px) / s + 0.3), max(ext[3], cy + cy_px / s + 0.3)]

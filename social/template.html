@@ -137,12 +137,14 @@ function statusBar(s) {
 // ---------------------------------------------------------------- map
 
 function drawMap(svg, m, fmt, W, H, labelFloor) {
-  const [, , bandTop, bandH] = fmt;
+  // The band runs from the format's top to just above the verdict card (lower when a place wraps).
+  const bandTop = fmt[2], bandH = Math.min(fmt[3], labelFloor - 2 - bandTop);
   const [x0, y0, x1, y1] = m.routeBox;
   const rw = Math.max(x1 - x0, 0.3), rh = Math.max(y1 - y0, 0.3);
-  const s = Math.min((W - 96) / rw, (bandH - 56) / rh);
+  // Same fit as scripts/build.py: 62 px headroom for the pins, 40 below for the map credit.
+  const s = Math.min((W - 96) / rw, (bandH - 102) / rh);
   const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
-  const cxp = W / 2, cyp = bandTop + bandH / 2;
+  const cxp = W / 2, cyp = bandTop + 62 + (bandH - 102) / 2;
   const P = ([x, y]) => [cxp + (x - cx) * s, cyp - (y - cy) * s];
   const path = (pts) => "M" + pts.map((p) => P(p).map((v) => v.toFixed(1)).join(" ")).join("L");
   const ring = (rings) => rings.map((r) => path(r) + "Z").join("");
@@ -175,6 +177,8 @@ function drawMap(svg, m, fmt, W, H, labelFloor) {
     [0, 0, W, 50], // status bar
     [W - 270, labelFloor - 14, 270, 22], // map attribution
   ];
+  // Labels stay off the route line too.
+  for (let i = 0; i < m.route.length; i += 2) { const [x, y] = P(m.route[i]); taken.push([x - 7, y - 7, 14, 14]); }
   const free = (r) => r[0] > 6 && r[0] + r[2] < W - 6 && r[1] > 40 && r[1] + r[3] < labelFloor &&
     !taken.some((t) => r[0] < t[0] + t[2] && r[0] + r[2] > t[0] && r[1] < t[1] + t[3] && r[1] + r[3] > t[1]);
   const ctx = document.createElement("canvas").getContext("2d");
