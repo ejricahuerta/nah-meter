@@ -23,6 +23,14 @@ export const Daylight = {
   stop: "#E5251B",
 };
 
+/** Verdict colours for text on white (Daylight betInk / ehInk / nahInk in Nah.kt), for 4.5:1 contrast. */
+export const VerdictInkOnWhite = {
+  GREEN: "#076B31",
+  YELLOW: "#8A5A00",
+  RED: "#C4241B",
+  GREY: "#5E5E5E",
+} as const;
+
 export const Card = {
   card: "#000000",
   cardEdge: "#2A2A2A",

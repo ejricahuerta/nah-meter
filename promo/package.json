@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "fonts": "node scripts/copy-fonts.mjs",
-    "audio": "node scripts/make-music.mjs && node scripts/make-audio.mjs",
+    "audio": "node scripts/make-timeline.mjs && node scripts/make-music.mjs && node scripts/make-audio.mjs",
     "prepare-assets": "npm run fonts && npm run audio",
     "studio": "npm run prepare-assets && remotion studio",
     "stills": "npm run fonts && node scripts/stills.mjs",

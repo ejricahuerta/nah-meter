@@ -1,8 +1,8 @@
 // Builds public/audio/mix.wav: music, sound effects and the spoken verdicts.
 //   - Music: audio/build/music.wav, played by scripts/make-music.mjs (run it first).
 //   - Sound effects: recorded (Kenney, CC0) in audio/sfx/, shaped below.
-//   - Voice: the project's own verdict clips in audio/voice/ (supplied by the project owner),
-//     trimmed and levelled here. Their loudness envelopes go to src/voice.json for the speech chip.
+//   - Speech: the owner's voiceover lines and verdict clips, prepared by scripts/make-timeline.mjs
+//     (run it first), placed where src/timeline.json says, never overlapping or cut off.
 // Times come from src/timeline.json, the same file the picture uses.
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -135,56 +135,18 @@ const greyHit = () =>
     [sample("impactSoft_medium_000.ogg", { rate: 0.7 }), 0, 0.5],
   );
 
-// ---------- the voice (the project's verdict clips) ----------
+// ---------- speech (prepared by scripts/make-timeline.mjs) ----------
 
-const CLIPS = { RED: "verdict_nah.mp3", GREEN: "verdict_bet.mp3", YELLOW: "verdict_meh.mp3", GREY: "verdict_cant_read.mp3" };
-
-/**
- * A clip as 48 kHz mono, silence trimmed from both ends, peak-normalised. With `wordOnly`, just
- * the verdict word: up to the first pause (the clips are the word, a pause, then the rest).
- */
-const voice = (verdict, wordOnly = false) => {
+/** A voiceover line or verdict clip from audio/build/speech/, as 48 kHz mono. */
+const speechFile = (id) => {
   const raw = execFileSync(
     "ffmpeg",
-    ["-hide_banner", "-loglevel", "error", "-i", join(root, "audio", "voice", CLIPS[verdict]),
-      "-af", "silenceremove=start_periods=1:start_threshold=-40dB:start_silence=0.02,areverse,silenceremove=start_periods=1:start_threshold=-40dB:start_silence=0.05,areverse,highpass=f=80",
-      "-f", "f32le", "-ac", "1", "-ar", String(SR), "pipe:1"],
+    ["-hide_banner", "-loglevel", "error", "-i", join(root, "audio", "build", "speech", `${id}.wav`), "-f", "f32le", "-ac", "1", "-ar", String(SR), "pipe:1"],
     { maxBuffer: 64 * 1024 * 1024 },
   );
-  const v = new Float32Array(raw.buffer, raw.byteOffset, raw.byteLength / 4);
-  const peak = v.reduce((m, x) => Math.max(m, Math.abs(x)), 0) || 1;
-  const out = v.map((x) => (x / peak) * 0.95);
-  if (!wordOnly) return out;
-  // The first stretch of 150 ms quieter than -35 dB, after at least 150 ms of speech.
-  const win = Math.round(SR * 0.01);
-  let quiet = 0;
-  for (let i = Math.round(SR * 0.15); i + win < out.length; i += win) {
-    let sum = 0;
-    for (let j = i; j < i + win; j++) sum += out[j] * out[j];
-    quiet = Math.sqrt(sum / win) < 0.018 ? quiet + 1 : 0;
-    if (quiet >= 15) {
-      const cut = i - 14 * win + Math.round(SR * 0.04);
-      const w = out.slice(0, cut);
-      for (let k = 0; k < SR * 0.03 && k < w.length; k++) w[w.length - 1 - k] *= k / (SR * 0.03);
-      return w;
-    }
-  }
-  return out;
+  return new Float32Array(raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength));
 };
 
-/** Loudness per video frame (0…1), for the speech chip's waveform. */
-const envelope = (v) => {
-  const step = SR / T.fps;
-  const out = [];
-  for (let i = 0; i < v.length; i += step) {
-    let sum = 0;
-    const end = Math.min(v.length, i + step);
-    for (let j = Math.floor(i); j < end; j++) sum += v[j] * v[j];
-    out.push(Math.sqrt(sum / Math.max(1, end - i)));
-  }
-  const max = Math.max(...out) || 1;
-  return out.map((x) => Math.round((x / max) * 100) / 100);
-};
 // ---------- the score ----------
 
 const S = T.scenes;
@@ -211,52 +173,48 @@ for (let t = 0, k = 0; t < T.musicInSec - 0.05; t += 0.5, k++) add("sfx", t, tic
 for (const s of T.hookLinesSec) add("sfx", s, thump(), 0.45, 0, 0.15);
 add("sfx", T.musicInSec - 1.0, riser(1.0), 0.4, 0, 0.3);
 
-// Offers: a ping and a swish as the card comes up, the verdict's sound, then its clip.
+// Offers: a swish and a ping as the card comes up, a swell into the verdict and its sound.
 const HITS = { RED: nahHit, GREEN: betHit, YELLOW: mehHit, GREY: greyHit };
-const speechTimes = [];
-const voiceMeta = {};
 for (const o of T.offers) {
   const offer = OFFERS[o.offer];
   const ev = offer ? score(offer, DEFAULT_RULES) : CANT_READ;
-  add("sfx", o.offerInSec - 0.1, whoosh(0.45), 0.55, -0.2, 0.15);
-  add("sfx", o.offerInSec, sample("drop_002.ogg", { rate: 1.2 }), 0.35, 0.1, 0.2);
-  add("sfx", o.verdictInSec - 0.3, riser(0.3), 0.35, 0, 0.1);
-  add("sfx", o.verdictInSec, HITS[ev.verdict](o.timer), 0.85, 0, 0.2);
-  if (ev.verdict === "GREEN" || ev.verdict === "YELLOW") add("sfx", o.verdictInSec, boom(), 0.3);
-  add("sfx", o.until - 0.35, whoosh(0.8), 0.45, 0.3, 0.15);
-  const v = voice(ev.verdict, o.speech === "word");
-  add("vo", o.speechInSec, v, 0.9, 0, 0.1);
-  speechTimes.push([o.speechInSec, o.speechInSec + v.length / SR]);
-  voiceMeta[o.id] = { durationSec: Math.round((v.length / SR) * 100) / 100, envelope: envelope(v) };
-  if (o.speechInSec + v.length / SR > o.until) console.warn(`warning: the ${o.id} clip runs past its offer`);
-  console.log(`voice: ${o.id} (${CLIPS[ev.verdict]}, ${o.speech}) at ${o.speechInSec.toFixed(2)} s, ${(v.length / SR).toFixed(2)} s`);
+  add("sfx", o.offerInSec - 0.1, whoosh(0.45), 0.5, -0.2, 0.15);
+  add("sfx", o.offerInSec, sample("drop_002.ogg", { rate: 1.2 }), 0.3, 0.1, 0.2);
+  add("sfx", o.verdictInSec - 0.3, riser(0.3), 0.3, 0, 0.1);
+  add("sfx", o.verdictInSec, HITS[ev.verdict](o.timer), 0.75, 0, 0.2);
 }
 
-// Rules: a whoosh in and out, a click per step.
-add("sfx", S.rules[0] - 0.1, whoosh(0.45), 0.5, 0.4, 0.2);
-add("sfx", S.rules[1] - 0.15, whoosh(0.8), 0.55, -0.3, 0.2);
-T.rulesStepsSec.forEach((s, i) => add("sfx", s - 0.02, click(i), 0.6, 0.2));
+// Speech: every voiceover line and verdict clip, in full, where the timeline put it.
+const speechTimes = [];
+let lastEnd = 0;
+for (const { id, at } of [...T.speech].sort((a, b) => a.at - b.at)) {
+  const v = speechFile(id);
+  const end = at + v.length / SR;
+  if (at < lastEnd - 0.01 || end > T.durationSec) throw new Error(`${id} at ${at} s would overlap or be cut off`);
+  add("vo", at, v, 1, 0, 0.06);
+  speechTimes.push([at, end]);
+  lastEnd = end;
+  console.log(`speech: ${id} ${at.toFixed(2)}–${end.toFixed(2)} s`);
+}
 
-// Trust: a drop and a punch per line, a swell into the end.
-T.trustLinesSec.forEach((s, i) => {
-  add("sfx", s, sample(i % 2 ? "drop_002.ogg" : "drop_001.ogg"), 0.5, 0, 0.15);
-  add("sfx", s, thump(), 0.55, 0, 0.15);
-});
-add("sfx", S.end[0] - 1.0, riser(1.0), 0.3, 0, 0.3);
+// Shot changes: a soft swish into the black shots and back.
+for (const name of ["money", "rules", "trust", "end"]) add("sfx", S[name][0] - 0.12, whoosh(0.45), 0.35, 0.3, 0.15);
+// Rules: a click per step. Trust: a soft drop per line.
+T.rulesStepsSec.forEach((s, i) => add("sfx", s - 0.02, click(i), 0.55, 0.2));
+T.trustLinesSec.forEach((s, i) => add("sfx", s, sample(i % 2 ? "drop_002.ogg" : "drop_001.ogg"), 0.4, 0, 0.15));
 
-// Ending.
-add("sfx", T.endCue.wordSec - 0.05, whoosh(0.8), 0.45, 0, 0.2);
-add("sfx", T.endCue.stopSec, nahHit(true), 0.9, 0, 0.3);
-add("sfx", T.endCue.taglineSec, click(), 0.4);
+// The end: a swell, the red square landing.
+add("sfx", T.endCue.stopSec - 0.6, riser(0.6), 0.3, 0, 0.3);
+add("sfx", T.endCue.stopSec, nahHit(true), 0.7, 0, 0.3);
 
 // ---------- mix ----------
 
-// Duck the music under the voice.
+// Duck the music about 10 dB (and the effects a little) under every line and clip.
 const duck = new Float32Array(N).fill(1);
 for (const [a, b] of speechTimes) {
-  for (let j = Math.round((a - 0.08) * SR); j < Math.round((b + 0.25) * SR) && j < N; j++) {
-    const edge = Math.min((j / SR - (a - 0.08)) / 0.08, (b + 0.25 - j / SR) / 0.2, 1);
-    duck[j] *= 1 - 0.5 * Math.max(0, edge);
+  for (let j = Math.max(0, Math.round((a - 0.12) * SR)); j < Math.round((b + 0.3) * SR) && j < N; j++) {
+    const edge = Math.min((j / SR - (a - 0.12)) / 0.12, (b + 0.3 - j / SR) / 0.25, 1);
+    duck[j] = Math.min(duck[j], 1 - 0.68 * Math.max(0, edge));
   }
 }
 // Fade everything out at the end.
@@ -294,7 +252,8 @@ const out = new Int16Array(N * 2);
 for (let j = 0; j < N; j++) {
   for (let c = 0; c < 2; c++) {
     const m = buses.music[c][j] * duck[j] * 0.7;
-    const v = m + buses.sfx[c][j] * 0.8 + buses.vo[c][j] + (c ? verbR[j] : verbL[j]);
+    const fx = buses.sfx[c][j] * 0.8 * (0.55 + 0.45 * duck[j]);
+    const v = m + fx + buses.vo[c][j] + (c ? verbR[j] : verbL[j]);
     const soft = Math.tanh(v * fade(j) * 0.9);
     out[j * 2 + c] = Math.round(soft * 32000);
   }
@@ -320,5 +279,3 @@ writeWav(rawPath, out);
 // Loudness for social video: about -14 LUFS, peaks under -1.5 dBTP.
 execFileSync("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-i", rawPath, "-af", "loudnorm=I=-14:TP=-1.5:LRA=11", "-ar", String(SR), "-c:a", "pcm_s16le", join(pubDir, "mix.wav")]);
 console.log(`wrote ${join(pubDir, "mix.wav")} (${T.durationSec} s)`);
-writeFileSync(join(root, "src", "voice.json"), JSON.stringify(voiceMeta) + "\n");
-console.log("wrote src/voice.json");

@@ -1,15 +1,15 @@
 // The promo, clean and minimal: white and black grounds, one big offer card, the verdict card
-// snapping onto it, few words, hard cuts on the beat. Colour only on verdict words.
+// snapping onto it, short captions of what the voiceover says. Colour only on verdict words.
 // Laid out for "vertical" (1080×1920) or "wide" (1920×1080). Times come from timeline.json.
 import React from "react";
-import { AbsoluteFill, Easing, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { Audio } from "@remotion/media";
 import timeline from "./timeline.json";
-import { Card, Daylight, Mono, VerdictColor, nahText } from "./tokens";
+import { Daylight, Mono, VerdictInkOnWhite, nahText } from "./tokens";
 import { DEFAULT_RULES, cents } from "./nah";
-import { OFFER_SCENES, OfferScene } from "./offers";
+import { OFFER_SCENES, OfferScene, speechAt } from "./offers";
 import voice from "./voice.json";
-import { StandInOffer, VerdictCard, Wordmark } from "./ui";
+import { StandInOffer, Stop, VerdictCard, Wordmark } from "./ui";
 
 export type Aspect = "vertical" | "wide";
 
@@ -113,33 +113,37 @@ const Stack: React.FC<{ t: number; o: OfferScene; L: Layout; question?: React.Re
   );
 };
 
-/** Says it out loud: the verdict card big on black, and a waveform drawn from the real clip. */
-const Loud: React.FC<{ t: number; L: Layout }> = ({ t, L }) => {
+/**
+ * A benefit on black: the red square, then a line or two, each arriving when it's said. With
+ * `wave`, a waveform drawn from that voiceover line's own loudness (src/voice.json).
+ */
+const Benefit: React.FC<{ t: number; L: Layout; lines: { text: string; at: number }[]; wave?: { at: number; env: number[] } }> = ({ t, L, lines, wave }) => {
   const { fps } = useVideoConfig();
   const snap = useSnap();
-  const o = OFFER_SCENES.find((x) => x.id === "voice")!;
-  const clip = (voice as Record<string, { envelope: number[] }>)[o.id];
-  const local = t - o.speechIn;
-  const level = (k: number) => clip?.envelope[Math.floor(local * fps) - k] ?? 0;
-  const bars = L.W > L.H ? 44 : 30;
-  const p = snap(t, S.loud[0]);
-  const k = L.k * 1.05;
+  const wide = L.W > L.H;
+  const sq = snap(t, lines[0].at - 0.1);
+  const level = (k: number) => (wave ? wave.env[Math.floor((t - wave.at) * fps) - k] ?? 0 : 0);
+  const bars = wide ? 40 : 28;
   return (
-    <AbsoluteFill style={{ background: Mono.ground }}>
-      <Words t={t} at={S.loud[0] + 0.15} size={L.text} color={Mono.ink} style={{ position: "absolute", left: 0, right: 0, top: L.W > L.H ? 110 : 330 }}>
-        Says it out loud.
-      </Words>
-      <div style={{ position: "absolute", left: L.stackX - (CARD_W * k) / 2, top: L.W > L.H ? 300 : 700, width: CARD_W, transformOrigin: "top left", scale: String(k * interpolate(p, [0, 1], [0.94, 1])), opacity: p }}>
-        <VerdictCard e={o.e} rules={DEFAULT_RULES} style={{ border: `1px solid ${Card.cardEdge}` }} />
+    <AbsoluteFill style={{ background: Mono.ground, alignItems: "center", justifyContent: "center", gap: wide ? 50 : 70, padding: "0 70px" }}>
+      <Stop size={wide ? 46 : 52} color={Mono.stop} style={{ scale: String(sq), rotate: `${(1 - Math.min(1, sq)) * 90}deg` }} />
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: wide ? 10 : 18 }}>
+        {lines.map((l, i) => (
+          <Words key={i} t={t} at={l.at} size={i === 0 ? L.text * 1.1 : L.text * 0.9} color={i === 0 ? Mono.ink : "#D4D4D4"}>
+            {l.text}
+          </Words>
+        ))}
       </div>
-      <div style={{ position: "absolute", left: 0, right: 0, top: L.W > L.H ? 730 : 1220, height: L.W > L.H ? 180 : 260, display: "flex", alignItems: "center", justifyContent: "center", gap: L.W > L.H ? 12 : 14 }}>
-        {Array.from({ length: bars }, (_, i) => {
-          // The newest loudness in the middle, spreading out to both sides.
-          const d = Math.abs(i - (bars - 1) / 2);
-          const h = 0.06 + 0.94 * level(Math.round(d / 1.5)) * (1 - d / bars);
-          return <div key={i} style={{ width: L.W > L.H ? 12 : 14, height: `${h * 100}%`, borderRadius: 8, background: i % 6 === 0 ? VerdictColor[o.e.verdict] : Mono.ink }} />;
-        })}
-      </div>
+      {wave && (
+        <div style={{ height: wide ? 150 : 220, display: "flex", alignItems: "center", gap: wide ? 12 : 14 }}>
+          {Array.from({ length: bars }, (_, i) => {
+            // The newest loudness in the middle, spreading out to both sides.
+            const d = Math.abs(i - (bars - 1) / 2);
+            const h = 0.06 + 0.94 * level(Math.round(d / 1.5)) * (1 - d / bars);
+            return <div key={i} style={{ width: wide ? 12 : 14, height: `${h * 100}%`, borderRadius: 8, background: Mono.ink }} />;
+          })}
+        </div>
+      )}
     </AbsoluteFill>
   );
 };
@@ -199,18 +203,23 @@ const RulesField: React.FC<{ t: number; L: Layout }> = ({ t, L }) => {
   );
 };
 
-/** Two promises, one after the other, on black. */
+/** Trust, on black: what it never does, then what it doesn't need, each when it's said. */
 const Trust: React.FC<{ t: number; L: Layout }> = ({ t, L }) => {
   const [a, b] = timeline.trustLinesSec;
-  const size = L.W > L.H ? 130 : 120;
+  const size = L.W > L.H ? 120 : 112;
   return (
     <AbsoluteFill style={{ background: Mono.ground, alignItems: "center", justifyContent: "center", padding: "0 80px" }}>
       {t < b ? (
-        <Words t={t} at={a} size={size} color={Mono.ink}>
-          Never taps
-          <br />
-          for you.
-        </Words>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 30 }}>
+          <Words t={t} at={a} size={size} color={Mono.ink}>
+            Never taps
+            <br />
+            for you.
+          </Words>
+          <Words t={t} at={a + 1.2} size={size * 0.62} color="#D4D4D4">
+            You decide.
+          </Words>
+        </div>
       ) : (
         <Words t={t} at={b} size={size} color={Mono.ink}>
           No internet.
@@ -255,22 +264,54 @@ export const Minimal: React.FC<{ aspect: Aspect; withAudio?: boolean }> = ({ asp
   const { fps } = useVideoConfig();
   const t = frame / fps;
   const L = LAYOUTS[aspect];
-  const inScene = (k: keyof typeof S) => t >= S[k][0] && t < S[k][1];
+  const wide = L.W > L.H;
+  const inScene = (...ks: (keyof typeof S)[]) => ks.some((k) => t >= S[k][0] && t < S[k][1]);
   const hero = OFFER_SCENES.find((o) => o.timer)!;
-  const quick = OFFER_SCENES.find((o) => !o.timer && o.id !== "voice" && t >= o.from && t < o.until);
+  const current = OFFER_SCENES.find((o) => !o.timer && t >= o.from && t < o.until);
+  const [newOfferSec, worthSec] = timeline.hookLinesSec;
   const ask = <div style={nahText(56, 900, 60, -0.05, Daylight.ink)}>Worth it?</div>;
+  // What each verdict means, shown under its card from when the verdict lands.
+  const meaning: Record<string, [string, string]> = { bet: ["bet!", "Pays your rate."], meh: ["meh.", "Pays the hour, long drive."], nah: ["nah.", "Not worth your time."] };
+  const caption = (node: React.ReactNode, at: number, size = L.text * 0.8) => (
+    <Words t={t} at={at} size={size} color={Daylight.ink} style={{ position: "absolute", left: 40, right: 40, top: L.wordsY }}>
+      {node}
+    </Words>
+  );
   return (
     <AbsoluteFill style={{ background: Daylight.ground, overflow: "hidden" }}>
-      {(inScene("worth") || inScene("answer")) && (
+      {inScene("hook", "answer", "what") && (
         <>
-          <Stack t={t} o={hero} L={L} question={t >= timeline.hookLinesSec[0] ? ask : undefined} />
-          <Words t={t} at={S.answer[0] + 0.35} size={L.text * 0.8} color={Daylight.ink} style={{ position: "absolute", left: 0, right: 0, top: L.wordsY }}>
-            nah.meter does the math.
+          <Words t={t} at={0.25} size={wide ? 52 : 56} color={Daylight.inkMuted} style={{ position: "absolute", left: 0, right: 0, top: wide ? 50 : 300, opacity: t < S.answer[0] ? 1 : 0 }}>
+            For delivery drivers.
           </Words>
+          <Stack t={t} o={hero} L={L} question={t >= worthSec ? ask : undefined} />
+          {t >= newOfferSec - 0.05 && t < S.what[0] && caption("New offer. 15 seconds.", newOfferSec, L.text * 0.62)}
+          {inScene("what") && caption("nah.meter does the math.", speechAt("vo_02"))}
         </>
       )}
-      {inScene("quick") && quick && <Stack key={quick.id} t={t} o={quick} L={L} />}
-      {inScene("loud") && <Loud t={t} L={L} />}
+      {current && (
+        <>
+          <Stack key={current.id} t={t} o={current} L={L} />
+          {caption(
+            <>
+              <span style={{ color: VerdictInkOnWhite[current.e.verdict] }}>{meaning[current.id][0]}</span> {meaning[current.id][1]}
+            </>,
+            current.verdictIn + 0.25,
+            L.text * 0.72,
+          )}
+        </>
+      )}
+      {inScene("money") && (
+        <Benefit t={t} L={L} lines={[{ text: "Skip the bad offers.", at: speechAt("vo_06") }, { text: "Earn more per hour.", at: speechAt("vo_06") + 1.3 }]} />
+      )}
+      {inScene("road") && (
+        <Benefit
+          t={t}
+          L={L}
+          lines={[{ text: "Says it out loud.", at: speechAt("vo_07") }, { text: "Eyes on the road.", at: speechAt("vo_07") + 1.2 }]}
+          wave={{ at: speechAt("vo_07"), env: voice.vo_07 }}
+        />
+      )}
       {inScene("rules") && <RulesField t={t} L={L} />}
       {inScene("trust") && <Trust t={t} L={L} />}
       {t >= S.end[0] && <End t={t} L={L} />}

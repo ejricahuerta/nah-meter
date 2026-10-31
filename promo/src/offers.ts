@@ -9,9 +9,6 @@ export type OfferScene = {
   until: number;
   offerIn: number;
   verdictIn: number;
-  speechIn: number;
-  /** The whole clip, or just the verdict word. */
-  speech: "full" | "word";
   /** The offer card shows its 15-second timer. */
   timer: boolean;
   offer: Offer | null;
@@ -22,14 +19,15 @@ export const OFFER_SCENES: OfferScene[] = timeline.offers.map((o) => {
   const offer = OFFERS[o.offer] ?? null;
   return {
     id: o.id,
-    from: o.offerInSec,
+    from: o.from,
     until: o.until,
     offerIn: o.offerInSec,
     verdictIn: o.verdictInSec,
-    speechIn: o.speechInSec,
-    speech: o.speech as "full" | "word",
-    timer: Boolean((o as { timer?: boolean }).timer),
+    timer: o.timer,
     offer,
     e: offer ? score(offer, DEFAULT_RULES) : CANT_READ,
   };
 });
+
+/** When a voiceover line or verdict clip starts (from timeline.speech). */
+export const speechAt = (id: string) => timeline.speech.find((s) => s.id === id)?.at ?? 0;
