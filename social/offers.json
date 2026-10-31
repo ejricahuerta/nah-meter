@@ -1,0 +1,268 @@
+{
+  "thresholds": {
+    "minPay": "5.50",
+    "minHourly": "20.00",
+    "minPerKm": "1.00",
+    "perOrderWaitMin": 2
+  },
+  "offers": [
+    {
+      "id": "01",
+      "restaurant": {
+        "name": "Kinton Ramen",
+        "near": [
+          -79.396,
+          43.649
+        ],
+        "street": "Queen St W"
+      },
+      "courier": [
+        -79.4045,
+        43.6455
+      ],
+      "dropoff": {
+        "near": [
+          -79.4195,
+          43.6395
+        ],
+        "city": "Toronto"
+      },
+      "orders": 1,
+      "exclusive": false,
+      "hourly": "31.40",
+      "clock": "12:14",
+      "battery": 82,
+      "timer": 0.18,
+      "expect": {
+        "verdict": "GREEN",
+        "reason": "Clears your $20"
+      }
+    },
+    {
+      "id": "02",
+      "restaurant": {
+        "name": "Koh Lipe Thai Kitchen",
+        "near": [
+          -79.307,
+          43.826
+        ],
+        "street": "Steeles Ave E"
+      },
+      "courier": [
+        -79.2985,
+        43.8215
+      ],
+      "dropoff": {
+        "near": [
+          -79.2655,
+          43.8555
+        ],
+        "city": "Markham"
+      },
+      "orders": 2,
+      "exclusive": true,
+      "hourly": "27.60",
+      "clock": "6:42",
+      "battery": 57,
+      "timer": 0.33,
+      "expect": {
+        "verdict": "GREEN",
+        "reason": "Clears your $20"
+      }
+    },
+    {
+      "id": "03",
+      "restaurant": {
+        "name": "La Carnita",
+        "near": [
+          -79.641,
+          43.593
+        ],
+        "street": "Square One"
+      },
+      "courier": [
+        -79.6305,
+        43.5885
+      ],
+      "dropoff": {
+        "near": [
+          -79.5585,
+          43.6305
+        ],
+        "city": "Etobicoke"
+      },
+      "orders": 1,
+      "exclusive": false,
+      "clock": "8:05",
+      "battery": 41,
+      "timer": 0.52,
+      "expect": {
+        "verdict": "YELLOW",
+        "reason": "Short on $/km"
+      },
+      "hourly": "21.20"
+    },
+    {
+      "id": "04",
+      "restaurant": {
+        "name": "Konjiki Ramen",
+        "near": [
+          -79.411,
+          43.762
+        ],
+        "street": "Yonge St"
+      },
+      "courier": [
+        -79.4142,
+        43.7552
+      ],
+      "dropoff": {
+        "near": [
+          -79.5205,
+          43.7185
+        ],
+        "city": "Toronto"
+      },
+      "orders": 2,
+      "exclusive": true,
+      "clock": "7:26",
+      "battery": 63,
+      "timer": 0.27,
+      "expect": {
+        "verdict": "YELLOW",
+        "reason": "Short on $/km"
+      },
+      "hourly": "21.00"
+    },
+    {
+      "id": "05",
+      "restaurant": {
+        "name": "Hyderabad Biryani Hut",
+        "near": [
+          -79.257,
+          43.776
+        ],
+        "street": "Ellesmere Rd"
+      },
+      "courier": [
+        -79.2655,
+        43.7685
+      ],
+      "dropoff": {
+        "near": [
+          -79.2195,
+          43.8095
+        ],
+        "city": "Scarborough"
+      },
+      "orders": 1,
+      "exclusive": true,
+      "hourly": "15.80",
+      "clock": "5:51",
+      "battery": 34,
+      "timer": 0.61,
+      "expect": {
+        "verdict": "RED",
+        "reason": "Under your $20"
+      }
+    },
+    {
+      "id": "06",
+      "restaurant": {
+        "name": "Dave's Hot Chicken",
+        "near": [
+          -79.399,
+          43.707
+        ],
+        "street": "Yonge St"
+      },
+      "courier": [
+        -79.3962,
+        43.7032
+      ],
+      "dropoff": {
+        "near": [
+          -79.3925,
+          43.7135
+        ],
+        "city": "Toronto"
+      },
+      "orders": 1,
+      "exclusive": false,
+      "pay": "4.35",
+      "clock": "1:37",
+      "battery": 90,
+      "timer": 0.12,
+      "expect": {
+        "verdict": "RED",
+        "reason": "Under $5.50 minimum"
+      }
+    },
+    {
+      "id": "07",
+      "restaurant": {
+        "name": "Northern Dumpling Kitchen",
+        "near": [
+          -79.383,
+          43.85
+        ],
+        "street": "Hwy 7"
+      },
+      "courier": [
+        -79.3905,
+        43.8448
+      ],
+      "dropoff": {
+        "near": [
+          -79.4105,
+          43.8695
+        ],
+        "city": "Richmond Hill"
+      },
+      "orders": 1,
+      "exclusive": true,
+      "addOn": true,
+      "hourly": "14.20",
+      "clock": "6:58",
+      "battery": 72,
+      "timer": 0.44,
+      "expect": {
+        "verdict": "RED",
+        "reason": "Add-on · Under your $20"
+      }
+    },
+    {
+      "id": "08",
+      "restaurant": {
+        "name": "Vintage Thai",
+        "near": [
+          -79.525,
+          43.645
+        ],
+        "street": "Bloor St W"
+      },
+      "courier": [
+        -79.5335,
+        43.6412
+      ],
+      "dropoff": {
+        "near": [
+          -79.5045,
+          43.6605
+        ],
+        "city": "Etobicoke"
+      },
+      "orders": 2,
+      "exclusive": false,
+      "hourly": "18.90",
+      "clock": "9:12",
+      "battery": 23,
+      "timer": 0.38,
+      "unreadable": true,
+      "expect": {
+        "verdict": "GREY",
+        "reason": "Check this offer yourself"
+      }
+    }
+  ]
+}

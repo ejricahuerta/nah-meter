@@ -1,0 +1,312 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>nah.meter social frame</title>
+<style>
+  @font-face { font-family: Geist; font-weight: 600; src: url(../app/src/main/res/font/geist_600.ttf); }
+  @font-face { font-family: Geist; font-weight: 700; src: url(../app/src/main/res/font/geist_700.ttf); }
+  @font-face { font-family: Geist; font-weight: 800; src: url(../app/src/main/res/font/geist_800.ttf); }
+  @font-face { font-family: Geist; font-weight: 900; src: url(../app/src/main/res/font/geist_900.ttf); }
+  @font-face { font-family: Inter; font-weight: 400; src: url(node_modules/@fontsource/inter/files/inter-latin-400-normal.woff2); }
+  @font-face { font-family: Inter; font-weight: 500; src: url(node_modules/@fontsource/inter/files/inter-latin-500-normal.woff2); }
+  @font-face { font-family: Inter; font-weight: 600; src: url(node_modules/@fontsource/inter/files/inter-latin-600-normal.woff2); }
+  @font-face { font-family: Inter; font-weight: 700; src: url(node_modules/@fontsource/inter/files/inter-latin-700-normal.woff2); }
+
+  :root {
+    --map: #262a33;
+    --verdict-green: #30D158; --verdict-yellow: #FFD60A; --verdict-red: #FF3B30; --verdict-grey: #8E8E93;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: #000; }
+  #screen { position: relative; overflow: hidden; background: var(--map); font-family: Inter, sans-serif; -webkit-font-smoothing: antialiased; }
+  #map { position: absolute; inset: 0; }
+
+  /* Android status bar (story only) */
+  .status { position: absolute; left: 0; right: 0; top: 0; height: 36px; display: flex; align-items: center; justify-content: space-between; padding: 0 22px 0 26px; color: #fff; font: 600 15px Inter; letter-spacing: 0.01em; text-shadow: 0 0 6px rgba(0,0,0,.35); }
+  .status .right { display: flex; align-items: center; gap: 7px; font: 700 13px Inter; }
+  .battery { position: relative; width: 30px; height: 15px; border-radius: 4px; background: #fff; color: #000; font: 700 11px Inter; display: flex; align-items: center; justify-content: center; }
+  .battery::after { content: ""; position: absolute; right: -3px; top: 5px; width: 2px; height: 5px; border-radius: 0 1px 1px 0; background: #fff; }
+  .attrib { position: absolute; font: 500 8.5px Inter; color: rgba(255,255,255,.5); letter-spacing: .01em; }
+  .home { position: absolute; bottom: 8px; left: 50%; width: 134px; height: 5px; margin-left: -67px; border-radius: 3px; background: #fff; }
+
+  /* nah.meter's verdict card: app/.../service/BadgeOverlay.kt */
+  .vcard { position: absolute; left: 16px; right: 16px; padding: 18px 20px; background: #000; border: 1px solid #2A2A2A; border-radius: 22px; box-shadow: 0 12px 28px rgba(0,0,0,.5); font-feature-settings: "tnum"; }
+  .vrow { display: flex; align-items: flex-end; }
+  .vword { flex: 1; font: 900 64px/0.98 Geist; letter-spacing: -0.07em; white-space: nowrap; padding-top: 2px; }
+  .vcard.grey .vword { font-size: 44px; letter-spacing: -0.05em; line-height: 1.05; }
+  .vrate { font: 800 36px/1 Geist; color: #fff; letter-spacing: -0.04em; padding: 0 0 6px 12px; white-space: nowrap; }
+  .vrate small { font: 600 15px Geist; color: #A8A8A8; letter-spacing: 0; }
+  .vfoot { display: flex; align-items: center; margin-top: 8px; }
+  .vreason { flex: 1; font: 600 17px/1.3 Geist; color: #DEDEDE; }
+  .vchip { height: 30px; padding: 0 12px; margin-left: 12px; border-radius: 999px; background: #262626; color: #fff; font: 700 15px Geist; display: flex; align-items: center; }
+
+  /* The delivery app's offer card, laid out like the real one (no logo or name) */
+  .ocard { position: absolute; left: 16px; right: 16px; background: #1D1D1D; color: #F2F2F2; border-radius: 20px; border: 1.5px solid #9C9C9C; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+  .ocard.excl { border: 2.5px solid #2FBF5B; background: #1C1F1D; }
+  .otop { position: relative; padding: 16px 16px 0; }
+  .tags { display: flex; gap: 8px; }
+  .tag { height: 33px; padding: 0 11px; border-radius: 8px; display: flex; align-items: center; gap: 8px; font: 500 17.5px Inter; letter-spacing: -0.01em; }
+  .tag.kind { background: #2FBF5B; color: #fff; }
+  .tag.ex { background: #0D3B1C; color: #4FD173; }
+  .close { position: absolute; right: 16px; top: 16px; width: 50px; height: 50px; border-radius: 11px; background: #2B2B2B; display: flex; align-items: center; justify-content: center; }
+  .pay { font: 700 47px/1.12 Inter; letter-spacing: -0.035em; margin-top: 10px; }
+  .tip { display: inline-flex; align-items: center; height: 33px; padding: 0 10px; border-radius: 9px; background: #2D2D2D; font: 400 17px Inter; color: #EAEAEA; margin: 8px 0 16px; }
+  .orow { border-top: 1px solid #343434; padding: 13px 16px; display: flex; gap: 12px; align-items: center; font: 400 18.5px Inter; letter-spacing: -0.005em; }
+  .places { align-items: stretch; padding: 13px 16px 10px; }
+  .places .lines { display: flex; flex-direction: column; justify-content: space-between; gap: 4px; line-height: 1.38; }
+  .btn { position: relative; margin: 6px 16px 16px; height: 56px; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; font: 500 19px Inter; }
+  .btn.accept { background: #3DBF6B; color: #fff; }
+  .btn.accept .fill { position: absolute; left: 0; top: 0; bottom: 0; background: #1EAD55; }
+  .btn.match { background: #E7E7E7; color: #141414; }
+  .btn span { position: relative; }
+
+  /* Map labels */
+  .lbl { font-family: Inter; paint-order: stroke; stroke: var(--map); stroke-width: 3px; stroke-linejoin: round; }
+  .hood { font-weight: 700; font-size: 12.5px; letter-spacing: 0.17em; fill: #A3ACCF; }
+  .city { font-weight: 600; font-size: 16px; fill: #9DB0FF; }
+  .street { font-weight: 700; font-size: 10.5px; letter-spacing: 0.13em; fill: #C2C8DE; }
+</style>
+</head>
+<body>
+<div id="screen"></div>
+<script>
+const NS = "http://www.w3.org/2000/svg";
+const VERDICT_COLOUR = { GREEN: "#30D158", YELLOW: "#FFD60A", RED: "#FF3B30", GREY: "#8E8E93" };
+const ROAD = {
+  residential: [1.1, "#343944"], living_street: [1.1, "#343944"], unclassified: [1.1, "#343944"],
+  tertiary: [1.7, "#3C4250"], secondary: [2.3, "#434A59"], primary: [2.9, "#4A5263"],
+};
+const ORDER = ["residential", "living_street", "unclassified", "tertiary", "secondary", "primary", "trunk", "motorway"];
+
+function el(tag, attrs = {}, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function h(html) { const d = document.createElement("div"); d.innerHTML = html.trim(); return d.firstChild; }
+const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+
+const ICON = {
+  food: `<svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M6 2h1.6v6.2c0 .7.5 1.2 1.2 1.2V2h1.6v7.4c.7 0 1.2-.5 1.2-1.2V2h1.6v6.6c0 1.8-1.3 3.2-3 3.4V22H8.4V12c-1.7-.2-3-1.6-3-3.4V2zM16.6 2c1.9 0 3.4 2.3 3.4 5.4 0 2.3-.9 4.2-2.2 4.9V22h-2.4V2.2c.4-.1.8-.2 1.2-.2z"/></svg>`,
+  close: `<svg width="22" height="22" viewBox="0 0 24 24" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg>`,
+  clock: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#F2F2F2" stroke-width="1.8"><circle cx="12" cy="12" r="9.2"/><path d="M12 6.8V12l3.4 2.6" stroke-linecap="round"/></svg>`,
+};
+
+function verdictCard(o) {
+  const grey = o.verdict === "GREY";
+  const [amount, unit] = [o.big, o.bigUnit];
+  return h(`<div class="vcard${grey ? " grey" : ""}">
+    <div class="vrow"><div class="vword" style="color:${VERDICT_COLOUR[o.verdict]}">${esc(o.word)}</div>
+      ${grey ? "" : `<div class="vrate">${amount}<small>${unit}</small></div>`}</div>
+    <div class="vfoot"><div class="vreason">${esc(o.reason)}</div>${o.chip ? `<div class="vchip">${o.chip}</div>` : ""}</div>
+  </div>`);
+}
+
+function offerCard(c) {
+  const button = c.exclusive
+    ? `<div class="btn accept"><div class="fill" style="width:${Math.round((1 - c.timer) * 100)}%"></div><span>Accept</span></div>`
+    : `<div class="btn match"><span>Match</span></div>`;
+  return h(`<div class="ocard${c.exclusive ? " excl" : ""}">
+    <div class="otop">
+      <div class="tags"><div class="tag kind">${ICON.food}${esc(c.kind)}</div>${c.exclusive ? `<div class="tag ex">Exclusive</div>` : ""}</div>
+      <div class="close">${ICON.close}</div>
+      <div class="pay">${esc(c.pay)}</div>
+      <div class="tip">including estimated tip</div>
+    </div>
+    <div class="orow trip">${ICON.clock}<div>${esc(c.trip)}</div></div>
+    <div class="orow places">
+      <svg width="28" viewBox="0 0 28 60" style="flex:none;align-self:stretch" preserveAspectRatio="xMidYMid meet">
+        <circle cx="14" cy="9" r="4.2" fill="none" stroke="#F2F2F2" stroke-width="2"/>
+        <path d="M14 13.5V45" stroke="#F2F2F2" stroke-width="2"/>
+        <rect x="9.2" y="45" width="9.6" height="9.6" rx="1.5" fill="none" stroke="#F2F2F2" stroke-width="2"/>
+      </svg>
+      <div class="lines"><div>${esc(c.place)}</div><div>${esc(c.drop)}</div></div>
+    </div>
+    ${button}
+  </div>`);
+}
+
+function statusBar(s) {
+  const bars = [5, 8, 11, 14].map((hgt, i) => `<rect x="${i * 4.5}" y="${14 - hgt}" width="3" height="${hgt}" rx="1" fill="${i < 3 ? "#fff" : "rgba(255,255,255,.45)"}"/>`).join("");
+  return h(`<div class="status"><div>${s.clock}</div>
+    <div class="right"><span>5G</span><svg width="18" height="14">${bars}</svg><div class="battery">${s.battery}</div></div></div>`);
+}
+
+// ---------------------------------------------------------------- map
+
+function drawMap(svg, m, fmt, W, H, labelFloor) {
+  const [, , bandTop, bandH] = fmt;
+  const [x0, y0, x1, y1] = m.routeBox;
+  const rw = Math.max(x1 - x0, 0.3), rh = Math.max(y1 - y0, 0.3);
+  const s = Math.min((W - 96) / rw, (bandH - 56) / rh);
+  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+  const cxp = W / 2, cyp = bandTop + bandH / 2;
+  const P = ([x, y]) => [cxp + (x - cx) * s, cyp - (y - cy) * s];
+  const path = (pts) => "M" + pts.map((p) => P(p).map((v) => v.toFixed(1)).join(" ")).join("L");
+  const ring = (rings) => rings.map((r) => path(r) + "Z").join("");
+
+  el("rect", { width: W, height: H, fill: "#262A33" }, svg);
+  const g = (attrs) => el("g", attrs, svg);
+  const parks = g({ fill: "#26332F" });
+  for (const p of m.parks) el("path", { d: ring(p) }, parks);
+  const water = g({ fill: "#1A1E27" });
+  for (const p of m.water) el("path", { d: ring(p), "fill-rule": "evenodd" }, water);
+  for (const r of m.rivers) el("path", { d: path(r.p), fill: "none", stroke: "#1A1E27", "stroke-width": r.w * 1.6 }, svg);
+
+  const roads = [...m.roads].sort((a, b) => ORDER.indexOf(a.c) - ORDER.indexOf(b.c));
+  const zoomW = Math.max(0.8, Math.min(1.25, s / 40));
+  const roadG = g({ fill: "none", "stroke-linecap": "round", "stroke-linejoin": "round" });
+  for (const r of roads) {
+    if (r.c === "motorway" || r.c === "trunk") continue;
+    const [w, col] = ROAD[r.c];
+    el("path", { d: path(r.p), stroke: col, "stroke-width": w * zoomW }, roadG);
+  }
+  // Highways: a dark road with a lighter edge, drawn last.
+  const hw = roads.filter((r) => r.c === "motorway" || r.c === "trunk");
+  for (const r of hw) el("path", { d: path(r.p), stroke: "#4D5567", "stroke-width": (r.c === "motorway" ? 5.2 : 4.4) * zoomW }, roadG);
+  for (const r of hw) el("path", { d: path(r.p), stroke: "#1B1E25", "stroke-width": (r.c === "motorway" ? 3.4 : 2.8) * zoomW }, roadG);
+
+  // Pins and route positions, to keep labels off them.
+  const pick = P(m.pickup), drop = P(m.drop), cour = P(m.courier);
+  const taken = [
+    [pick[0] - 24, pick[1] - 62, 48, 70], [drop[0] - 24, drop[1] - 62, 48, 70], [cour[0] - 22, cour[1] - 22, 44, 44],
+    [0, 0, W, 50], // status bar
+    [W - 270, labelFloor - 14, 270, 22], // map attribution
+  ];
+  const free = (r) => r[0] > 6 && r[0] + r[2] < W - 6 && r[1] > 40 && r[1] + r[3] < labelFloor &&
+    !taken.some((t) => r[0] < t[0] + t[2] && r[0] + r[2] > t[0] && r[1] < t[1] + t[3] && r[1] + r[3] > t[1]);
+  const ctx = document.createElement("canvas").getContext("2d");
+  const measure = (text, font, spacing) => { ctx.font = font; return ctx.measureText(text).width + spacing * text.length; };
+
+  const labelG = g({});
+  // Street names along straight runs of the main roads (Toronto's grid keeps them straight).
+  const byName = {};
+  for (const r of m.roads) if (r.n && ["primary", "secondary", "trunk", "tertiary"].includes(r.c)) (byName[r.n] ||= []).push(...r.p.map(P));
+  const streets = Object.entries(byName).sort((a, b) => b[1].length - a[1].length);
+  let placedStreets = 0;
+  for (const [name, pts] of streets) {
+    if (placedStreets >= 4) break;
+    const vis = pts.filter(([x, y]) => x > 0 && x < W && y > 44 && y < labelFloor);
+    if (vis.length < 6) continue;
+    // Principal direction of the visible points.
+    const mx = vis.reduce((a, p) => a + p[0], 0) / vis.length, my = vis.reduce((a, p) => a + p[1], 0) / vis.length;
+    let sxx = 0, syy = 0, sxy = 0;
+    for (const [x, y] of vis) { sxx += (x - mx) ** 2; syy += (y - my) ** 2; sxy += (x - mx) * (y - my); }
+    const ang = 0.5 * Math.atan2(2 * sxy, sxx - syy);
+    let dx = Math.cos(ang), dy = Math.sin(ang);
+    if (dx < 0) { dx = -dx; dy = -dy; }
+    const off = vis.map(([x, y]) => -(x - mx) * dy + (y - my) * dx);
+    if (Math.max(...off.map(Math.abs)) > 5) continue; // not straight here
+    const text = name.toUpperCase();
+    const tw = measure(text, "700 10.5px Inter", 10.5 * 0.13);
+    const along = vis.map(([x, y]) => (x - mx) * dx + (y - my) * dy);
+    const lo = Math.min(...along), hi = Math.max(...along);
+    if (hi - lo < tw + 30) continue;
+    for (const f of [0.5, 0.3, 0.7, 0.15, 0.85]) {
+      const c = lo + (hi - lo) * f;
+      if (c - tw / 2 < lo + 8 || c + tw / 2 > hi - 8) continue;
+      const px = mx + dx * c, py = my + dy * c;
+      const ex = Math.abs(dx) * tw / 2 + 8, ey = Math.abs(dy) * tw / 2 + 8;
+      const r = [px - ex, py - ey, ex * 2, ey * 2];
+      if (!free(r)) continue;
+      const deg = Math.atan2(dy, dx) * 180 / Math.PI;
+      el("text", { class: "lbl street", x: px, y: py, "text-anchor": "middle", "dominant-baseline": "central", transform: `rotate(${deg.toFixed(1)} ${px.toFixed(1)} ${py.toFixed(1)})` }, labelG).textContent = text;
+      taken.push(r);
+      placedStreets++;
+      break;
+    }
+  }
+  // Neighbourhood names, uppercase and spaced; city names in their own colour.
+  const order = { locality: 0, macrohood: 1, neighborhood: 2, microhood: 3 };
+  const labels = [...m.labels].sort((a, b) => order[a.k] - order[b.k]);
+  for (const l of labels) {
+    const [x, y] = P([l.x, l.y]);
+    const city = l.k === "locality";
+    const words = city ? [l.t] : l.t.toUpperCase().split(/\s+/);
+    // Two lines for long names, like a map does.
+    let lines = words.length > 1 && words.join(" ").length > 12 ? [words.slice(0, Math.ceil(words.length / 2)).join(" "), words.slice(Math.ceil(words.length / 2)).join(" ")] : [words.join(" ")];
+    const font = city ? "600 16px Inter" : "700 12.5px Inter";
+    const tw = Math.max(...lines.map((t) => measure(t, font, city ? 0 : 12.5 * 0.17)));
+    const lh = city ? 18 : 15;
+    const r = [x - tw / 2 - 4, y - lh * lines.length / 2 - 3, tw + 8, lh * lines.length + 6];
+    if (!free(r)) continue;
+    const t = el("text", { class: `lbl ${city ? "city" : "hood"}`, x, y: y - lh * (lines.length - 1) / 2, "text-anchor": "middle", "dominant-baseline": "central" }, labelG);
+    lines.forEach((ln, i) => { const ts = el("tspan", { x, dy: i ? lh : 0 }, t); ts.textContent = ln; });
+    taken.push(r);
+  }
+
+  // Route: courier → restaurant → drop-off.
+  const rt = path(m.route);
+  el("path", { d: rt, fill: "none", stroke: "#8E9198", "stroke-width": 9.5, "stroke-linecap": "round", "stroke-linejoin": "round" }, svg);
+  el("path", { d: rt, fill: "none", stroke: "#F3F3F3", "stroke-width": 5.5, "stroke-linecap": "round", "stroke-linejoin": "round" }, svg);
+  const first = path(m.route.slice(0, m.split));
+  el("path", { d: first, fill: "none", stroke: "#BDBEC2", "stroke-width": 5.5, "stroke-linecap": "round", "stroke-linejoin": "round" }, svg);
+
+  // Drop-off: white pin with a black square, and the small square on the street.
+  const pin = (p, fill, inner) => {
+    const [x, y] = p;
+    el("path", { d: `M${x} ${y - 16}V${y - 4}`, stroke: fill, "stroke-width": 4 }, svg);
+    el("circle", { cx: x, cy: y - 36, r: 20, fill, stroke: "rgba(0,0,0,.25)", "stroke-width": 1 }, svg);
+    inner(x, y - 36);
+  };
+  pin(drop, "#ECECEC", (x, y) => el("rect", { x: x - 5, y: y - 5, width: 10, height: 10, rx: 1.5, fill: "#111" }, svg));
+  el("rect", { x: drop[0] - 7, y: drop[1] - 7, width: 14, height: 14, rx: 2, fill: "#ECECEC" }, svg);
+  el("rect", { x: drop[0] - 3, y: drop[1] - 3, width: 6, height: 6, fill: "#111" }, svg);
+  // Restaurant: green pin with a bag.
+  pin(pick, "#22B455", (x, y) => {
+    el("path", { d: `M${x - 7.5} ${y - 3.5}h15l-1.4 12.5h-12.2z`, fill: "#fff" }, svg);
+    el("path", { d: `M${x - 3.8} ${y - 3.5}v-2.3a3.8 3.8 0 0 1 7.6 0v2.3`, fill: "none", stroke: "#fff", "stroke-width": 1.8 }, svg);
+  });
+  el("circle", { cx: pick[0], cy: pick[1], r: 6.5, fill: "#22B455" }, svg);
+  el("circle", { cx: pick[0], cy: pick[1], r: 2.6, fill: "#fff" }, svg);
+  // Courier: navigation arrow along the first stretch of the route.
+  const a = P(m.route[0]), b = P(m.route[Math.min(4, m.route.length - 1)]);
+  const heading = Math.atan2(b[1] - a[1], b[0] - a[0]) * 180 / Math.PI + 90;
+  el("circle", { cx: cour[0], cy: cour[1], r: 19, fill: "#151515", stroke: "#fff", "stroke-width": 3 }, svg);
+  el("path", { d: "M0 -10L7.5 8L0 4L-7.5 8Z", fill: "#fff", transform: `translate(${cour[0]} ${cour[1]}) rotate(${heading.toFixed(0)})` }, svg);
+}
+
+// ---------------------------------------------------------------- frame
+
+window.draw = function (o, fmtName, formats) {
+  const fmt = formats[fmtName];
+  const [W, H] = fmt;
+  const screen = document.getElementById("screen");
+  screen.style.width = W + "px";
+  screen.style.height = H + "px";
+  screen.innerHTML = "";
+  const svg = el("svg", { id: "map", width: W, height: H, viewBox: `0 0 ${W} ${H}` }, screen);
+
+  const card = offerCard(o.card);
+  const vcard = verdictCard(o);
+  screen.append(card, vcard);
+  let cardTop;
+  if (fmtName === "post") {
+    // A 4:5 crop: the frame ends just under the trip line.
+    const trip = card.querySelector(".trip");
+    cardTop = H - (trip.offsetTop + trip.offsetHeight + 1);
+  } else {
+    cardTop = H - 24 - card.offsetHeight;
+  }
+  card.style.top = cardTop + "px";
+  // Docked like the app: a small gap above the offer card.
+  const vTop = cardTop - 14 - vcard.offsetHeight;
+  vcard.style.top = vTop + "px";
+
+  drawMap(svg, o.map, fmt, W, H, vTop - 8);
+
+  const attrib = h(`<div class="attrib">Map data © OpenStreetMap contributors · Overture Maps</div>`);
+  if (fmtName === "story") {
+    screen.append(statusBar(o.status), h(`<div class="home"></div>`));
+    attrib.style.cssText = `right:14px;top:${vTop - 18}px`;
+  } else {
+    attrib.style.cssText = `right:14px;top:${vTop - 18}px`;
+  }
+  screen.append(attrib);
+  return { W, H, cardTop, vTop, bandBottom: fmt[2] + fmt[3] };
+};
+</script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "name": "nahmeter-social",
+  "private": true,
+  "description": "Instagram images: made-up offers on a real Toronto map",
+  "scripts": {
+    "build": "python3 scripts/build.py",
+    "render": "node render.mjs"
+  },
+  "dependencies": {
+    "@fontsource/inter": "5.1.0"
+  }
+}
