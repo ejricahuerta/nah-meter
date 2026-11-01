@@ -15,7 +15,7 @@
     "render": "npm run prepare-assets && npm run render:vertical && npm run render:wide",
     "showcase-assets": "cd ../social && node render.mjs --layers 05 01 03 06 && node scripts/copy-to-promo.mjs",
     "render:showcase": "npm run audio:showcase && remotion render NahShowcaseVertical out/nahmeter-showcase-vertical.mp4",
-    "audio:showcase": "node scripts/make-timeline.mjs && python3 scripts/make-trap.py && MUSIC=audio/build/music-trap.wav MIX=mix-showcase.wav MUSIC_GAIN=0.4 node scripts/make-audio.mjs"
+    "audio:showcase": "node scripts/make-timeline.mjs && MUSIC=none MIX=mix-showcase.wav node scripts/make-audio.mjs"
   },
   "dependencies": {
     "@remotion/cli": "4.0.539",

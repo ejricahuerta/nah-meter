@@ -1,5 +1,5 @@
-// The showcase cut: the promo's voiceover and clips over its own trap beat (scripts/make-trap.py),
-// with the promo's offer scenes played on the
+// The showcase cut: the promo's voiceover, clips and sound effects (no music), with its offer
+// scenes played on the
 // map photos from social/ (real Toronto streets, made-up offers). Each photo sits in a phone on
 // the white ground; its verdict card snaps on when the clip says it, and the camera leans in on it.
 // The scenes after the offers (money, road, rules, trust, end) are the promo's own.

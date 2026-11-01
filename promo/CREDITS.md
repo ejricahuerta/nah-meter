@@ -29,11 +29,8 @@ the app's neutral stand-in (`StandInOffer`).
 
 ### The showcase cut (`NahShowcaseVertical`)
 
-It uses the promo's voiceover, verdict clips and sound effects over its own music: a dark trap beat
-(140 bpm, F minor). The 808, kick, clap, hi-hats, FM bell and pad are composed and synthesised from
-oscillators and noise in `scripts/make-trap.py` (numpy). It uses no samples, soundfont or General
-MIDI, and has the same licence as the repo. Its offer scenes are the map photos from `social/` (see
-`social/README.md`):
+It uses the promo's voiceover, verdict clips and sound effects, with no music. Its offer scenes are
+the map photos from `social/` (see `social/README.md`):
 
 | What | Source | Licence |
 | --- | --- | --- |

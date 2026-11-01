@@ -1,7 +1,7 @@
 // Builds public/audio/mix.wav: music, sound effects and the spoken verdicts.
 //   - Music: audio/build/music.wav, played by scripts/make-music.mjs (run it first).
-//     MUSIC=<wav> uses another track and MIX=<name> writes public/audio/<name> instead
-//     (the showcase: MUSIC=audio/build/music-trap.wav MIX=mix-showcase.wav MUSIC_GAIN=0.4).
+//     MUSIC=none leaves the music out, and MIX=<name> writes public/audio/<name> instead
+//     (the showcase: MUSIC=none MIX=mix-showcase.wav).
 //   - Sound effects: recorded (Kenney, CC0) in audio/sfx/, shaped below.
 //   - Speech: the owner's voiceover lines and verdict clips, prepared by scripts/make-timeline.mjs
 //     (run it first), placed where src/timeline.json says, never overlapping or cut off.
@@ -15,10 +15,8 @@ import { CANT_READ, DEFAULT_RULES, OFFERS, score } from "../src/nah.ts";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const T = JSON.parse(readFileSync(join(root, "src", "timeline.json"), "utf8"));
 const SR = 48000;
-const MUSIC = process.env.MUSIC ? join(root, process.env.MUSIC) : join(root, "audio", "build", "music.wav");
+const NO_MUSIC = process.env.MUSIC === "none";
 const MIX = process.env.MIX ?? "mix.wav";
-// MUSIC_GAIN sets the music's level in the mix (the trap beat is denser, so the showcase uses less).
-const MUSIC_GAIN = Number(process.env.MUSIC_GAIN ?? 0.7);
 const N = Math.round(T.durationSec * SR);
 
 // ---------- buses ----------
@@ -158,10 +156,10 @@ const speechFile = (id) => {
 const S = T.scenes;
 
 // Music: played by scripts/make-music.mjs (recorded instruments, rendered by FluidSynth), stereo.
-{
+if (!NO_MUSIC) {
   const raw = execFileSync(
     "ffmpeg",
-    ["-hide_banner", "-loglevel", "error", "-i", MUSIC, "-f", "f32le", "-ac", "2", "-ar", String(SR), "pipe:1"],
+    ["-hide_banner", "-loglevel", "error", "-i", join(root, "audio", "build", "music.wav"), "-f", "f32le", "-ac", "2", "-ar", String(SR), "pipe:1"],
     { maxBuffer: 256 * 1024 * 1024 },
   );
   const m = new Float32Array(raw.buffer, raw.byteOffset, raw.byteLength / 4);
@@ -257,7 +255,7 @@ const verbR = reverb(buses.verb[1].map((v, i) => (i > 23 ? buses.verb[1][i - 23]
 const out = new Int16Array(N * 2);
 for (let j = 0; j < N; j++) {
   for (let c = 0; c < 2; c++) {
-    const m = buses.music[c][j] * duck[j] * MUSIC_GAIN;
+    const m = buses.music[c][j] * duck[j] * 0.7;
     const fx = buses.sfx[c][j] * 0.8 * (0.55 + 0.45 * duck[j]);
     const v = m + fx + buses.vo[c][j] + (c ? verbR[j] : verbL[j]);
     const soft = Math.tanh(v * fade(j) * 0.9);
