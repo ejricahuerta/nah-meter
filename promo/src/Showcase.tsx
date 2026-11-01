@@ -1,4 +1,5 @@
-// The showcase cut: the promo's voiceover, clips and music, with its offer scenes played on the
+// The showcase cut: the promo's voiceover and clips over its own trap beat (scripts/make-trap.py),
+// with the promo's offer scenes played on the
 // map photos from social/ (real Toronto streets, made-up offers). Each photo sits in a phone on
 // the white ground; its verdict card snaps on when the clip says it, and the camera leans in on it.
 // The scenes after the offers (money, road, rules, trust, end) are the promo's own.
@@ -184,7 +185,7 @@ export const Showcase: React.FC<{ withAudio?: boolean }> = ({ withAudio = true }
       {inScene("rules") && <RulesField t={t} L={L} />}
       {inScene("trust") && <Trust t={t} L={L} />}
       {t >= S.end[0] && <End t={t} L={L} />}
-      {withAudio && <Audio src={staticFile("audio/mix.wav")} />}
+      {withAudio && <Audio src={staticFile("audio/mix-showcase.wav")} />}
     </AbsoluteFill>
   );
 };
