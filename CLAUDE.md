@@ -83,7 +83,8 @@ core/  pure Kotlin, no Android: what to read and how to score it (unit-tested)
   OfferParser.kt  all text patterns; card texts -> ReadResult; OCR lines -> card texts
   Scorer.kt       the five rules (max km off by default; Thresholds.priority picks the strict rate, $/hr
                   or $/km, the other gives meh.) and the unpaid extra km, exact BigDecimal maths -> Evaluation
-  Model.kt        Offer, ReadResult, Thresholds, Priority, Evaluation, Verdict, Check, OcrLine
+  Model.kt        Offer, ReadResult, Thresholds, Priority, Evaluation, Verdict, Check, OcrLine,
+                  OnlineState/StatusRead, FlaggedPlace and flagFor (restaurant flags, matched like samePlace)
 app/   Android
   service/OfferAccessibilityService.kt  event loop: find Uber windows, read, score, show, log
   service/CardReader.kt    accessibility tree -> the offer card's texts and its top edge
@@ -104,12 +105,13 @@ app/   Android
                            play falls back to TTS
   service/ReadingTileService.kt, PauseReceiver.kt  pause / resume from the shade (tile, notification)
   service/PriorityTileService.kt  "Strict on $/hr / $/km" tile: flips the strict rate from the shade
-  data/                    DataStore settings, Room offer log (last 200), CSV export
+  data/                    DataStore settings (incl. flagged restaurants), Room offer log (last 200), CSV export
   ui/Nah.kt                design tokens (Mono/Daylight), Geist, components
   ui/MainActivity.kt       the four tabs: Home, History (LogScreen), Rules (ThresholdsScreen), Settings
   ui/HomeScreen.kt         power button, today's overview (with time online in Uber), app tiles
                            (DeliveryApps; Uber's says Online or Offline), rules strip
-  ui/SettingsScreen.kt     Settings and its pages; PermissionsScreen.kt holds the setup steps and Diagnostics
+  ui/SettingsScreen.kt     Settings and its pages (incl. Flagged restaurants); PermissionsScreen.kt holds
+                           the setup steps and Diagnostics
   ui/VoiceScreen.kt        Settings → Voice: what it says (3 lines), which verdicts, volume, speed, voice
   ui/SetupScreen.kt        the five setup steps (Welcome, Your apps, Your rules, Permissions, Test it); first run and Settings → Run setup again
 ```
@@ -142,6 +144,10 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
 - The restaurant and drop-off area are the lines between the trip line and the card's button
   (Accept/Match); OCR place lines must start near the trip line's left edge, so map labels beside
   the card stay out. They're stored with each logged offer (Room v2) and shown in the Log's detail sheet.
+- Whether a restaurant is open can't be checked (no internet). Instead the courier flags one from
+  the Log's detail sheet ("Slow pickup", "Was closed"; `PlaceFlag`, kept in DataStore), and later
+  offers whose restaurant matches (`flagFor`: `samePlace`, so OCR slips still match, but each
+  location is its own) show and say the flag. "Flagged: …" never reads back as a place (`NOT_A_PLACE`).
 - The verdict card is excluded from OCR (`badge.screenRect`) so the app never reads itself.
 - The log holds each offer once: a card equal (pay, minutes, km, ×2) to the last logged offer, or
   to one logged in the last 30 min, still gets its verdict but isn't logged again
@@ -195,6 +201,10 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
   "Under $5.50 minimum", "Short on $/km", "Clears your $20"; strict on $/km: "Under your $1/km",
   "Short on $/hr", "Clears your $1/km") and the other rate in its own chip (`cardChip`). Which
   rate goes where comes only from `NahCopy.rates`. Nothing under 15sp.
+- A flagged restaurant adds a white 17sp line under the reason, "Flagged: slow pickup" or
+  "Flagged: was closed" (`NahCopy.flagLine`); the pill puts "slow pickup" after the rate, and the
+  voice says it after the rates in every voice mode. It's the courier's own note: it never changes
+  the verdict word or its colour.
 - Verdict words are lowercase: **nah.**, **meh.**, **bet!** and **can't read.** (bet! is the only
   exclamation mark). In chips the stop or mark becomes a dot before the word; in running text the
   words drop it ("bet, meh or nah"). Use `NahCopy` for every verdict string, never inline text.

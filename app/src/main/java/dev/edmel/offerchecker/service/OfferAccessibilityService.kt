@@ -20,6 +20,7 @@ import dev.edmel.offerchecker.core.ReadResult
 import dev.edmel.offerchecker.core.Scorer
 import dev.edmel.offerchecker.core.StatusRead
 import dev.edmel.offerchecker.core.Verdict
+import dev.edmel.offerchecker.core.flagFor
 import dev.edmel.offerchecker.data.AppSettings
 import dev.edmel.offerchecker.data.OfferDatabase
 import dev.edmel.offerchecker.data.OfferEntry
@@ -346,6 +347,7 @@ class OfferAccessibilityService : AccessibilityService() {
             "rates: ${e.ratesText}",
             e.failedRule?.let { "rule: $it" } ?: "rule: meets all targets",
             o.pickup?.let { "restaurant: $it" },
+            flagFor(o.pickup, settings.flaggedPlaces)?.let { "flag: ${NahCopy.placeFlag(it.flag).lowercase()} (flagged as ${it.name})" },
             o.dropoff?.let { "drop-off: $it" },
         )
     }
@@ -429,9 +431,11 @@ class OfferAccessibilityService : AccessibilityService() {
 
     private fun onNewCard(e: Evaluation, raw: List<String>) {
         val s = settings
-        guarded("verdict card") { badge.show(e, s.thresholds, s.compactBadge, cardTop ?: popupTop) }
+        // The courier's own flag on this restaurant, if any: shown and said, never part of the verdict.
+        val flag = flagFor(e.offer?.pickup, s.flaggedPlaces)?.flag
+        guarded("verdict card") { badge.show(e, s.thresholds, s.compactBadge, cardTop ?: popupTop, flag) }
         if (s.vibration) runCatching { alerts.vibrate(e.verdict) }
-        if (s.voice && e.verdict in s.voiceVerdicts) voice?.say(NahCopy.speechParts(e, s), s)
+        if (s.voice && e.verdict in s.voiceVerdicts) voice?.say(NahCopy.speechParts(e, s, flag), s)
         ServiceState.lastReadFlow.value = LastRead(System.currentTimeMillis(), e, raw)
         val offer = e.offer ?: return
         if (e.verdict == Verdict.GREY) return

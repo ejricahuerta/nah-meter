@@ -173,11 +173,11 @@ object OfferParser {
 
     /**
      * Card furniture that isn't a place, and nahmeter's own verdict card if a screenshot caught it
-     * ("can't read.", "meh.", "Check this offer yourself", "Under your $20 ·").
+     * ("can't read.", "meh.", "Check this offer yourself", "Under your $20 ·", "Flagged: slow pickup").
      */
     private val NOT_A_PLACE = Regex(
         """customer verification|including estimated tip|exclusive|add a delivery|^\W*(delivery|package)\b|\$\s?\d|""" +
-            """^\W*(bet|meh|nah|can'?t read)\W*$|check this offer|under your|clears your|pays the hour|short on \$/km|add-on ·""",
+            """^\W*(bet|meh|nah|can'?t read)\W*$|check this offer|under your|clears your|pays the hour|short on \$/km|add-on ·|flagged:""",
         RegexOption.IGNORE_CASE,
     )
 

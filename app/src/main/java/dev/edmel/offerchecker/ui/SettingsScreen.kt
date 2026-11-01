@@ -33,11 +33,12 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import dev.edmel.offerchecker.data.AppSettings
 import dev.edmel.offerchecker.data.Appearance
 import dev.edmel.offerchecker.data.SettingsRepository
+import dev.edmel.offerchecker.service.NahCopy
 import dev.edmel.offerchecker.service.ServiceState
 import kotlinx.coroutines.launch
 
 /** The pages Settings can show; Home's "Fix in Settings" opens [PERMISSIONS] directly. */
-enum class SettingsPage { MAIN, PERMISSIONS, APPS, VOICE }
+enum class SettingsPage { MAIN, PERMISSIONS, APPS, VOICE, FLAGS }
 
 @Composable
 fun SettingsScreen(
@@ -49,6 +50,7 @@ fun SettingsScreen(
         SettingsPage.PERMISSIONS -> PermissionsScreen(onBack = { onPage(SettingsPage.MAIN) }, modifier = modifier)
         SettingsPage.APPS -> DeliveryAppsScreen(settings, onBack = { onPage(SettingsPage.MAIN) }, modifier = modifier)
         SettingsPage.VOICE -> VoiceScreen(settings, onBack = { onPage(SettingsPage.MAIN) }, modifier = modifier)
+        SettingsPage.FLAGS -> FlaggedPlacesScreen(settings, onBack = { onPage(SettingsPage.MAIN) }, modifier = modifier)
         SettingsPage.MAIN -> SettingsMain(settings, onPage, onRunSetup, modifier)
     }
 }
@@ -144,6 +146,14 @@ private fun SettingsMain(settings: AppSettings, onPage: (SettingsPage) -> Unit, 
         }
 
         Column {
+            SectionLabel("Restaurants")
+            NahGroup {
+                val flagged = settings.flaggedPlaces.size
+                LinkRow("Flagged restaurants", if (flagged == 0) "None" else "$flagged flagged", false) { onPage(SettingsPage.FLAGS) }
+            }
+        }
+
+        Column {
             SectionLabel("About")
             NahGroup {
                 NahRow("nah.meter ${appVersion(ctx)}", "No internet permission · nothing leaves your phone")
@@ -175,6 +185,37 @@ fun SegmentedRow(title: String, desc: String?, options: List<String>, selected: 
             if (desc != null) Text(desc, style = Nah.style(14.sp, 400, 20.sp, color = Nah.c.inkMuted))
         }
         NahSegmented(options, selected, onSelect)
+    }
+}
+
+/**
+ * The restaurants flagged from History, with a way to remove each: flags outlive the offers in
+ * History, which keeps only the last 200.
+ */
+@Composable
+private fun FlaggedPlacesScreen(settings: AppSettings, onBack: () -> Unit, modifier: Modifier = Modifier) {
+    val ctx = LocalContext.current
+    val repo = remember { SettingsRepository(ctx) }
+    val scope = rememberCoroutineScope()
+    val c = Nah.c
+    Column(
+        modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(ScreenPadding),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
+    ) {
+        BackHeader("Flagged restaurants", onBack)
+        Text(
+            "Flag a restaurant from an offer in History. Later offers from it show the flag on the verdict card.",
+            style = Nah.style(14.sp, 400, 20.sp, color = c.inkMuted),
+        )
+        NahGroup {
+            if (settings.flaggedPlaces.isEmpty()) NahRow("No flagged restaurants")
+            settings.flaggedPlaces.forEachIndexed { i, place ->
+                if (i > 0) NahDivider()
+                NahRow(place.name, NahCopy.placeFlag(place.flag)) {
+                    NahButton("Remove", { scope.launch { repo.setPlaceFlag(place.name, null) } }, kind = NahButtonKind.Tertiary)
+                }
+            }
+        }
     }
 }
 

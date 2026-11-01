@@ -51,13 +51,19 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import dev.edmel.offerchecker.core.Check
+import dev.edmel.offerchecker.core.FlaggedPlace
 import dev.edmel.offerchecker.core.Offer
+import dev.edmel.offerchecker.core.PlaceFlag
 import dev.edmel.offerchecker.core.Scorer
 import dev.edmel.offerchecker.core.Thresholds
 import dev.edmel.offerchecker.core.Verdict
+import dev.edmel.offerchecker.core.canFlag
+import dev.edmel.offerchecker.core.flagFor
+import dev.edmel.offerchecker.data.AppSettings
 import dev.edmel.offerchecker.data.OfferCsv
 import dev.edmel.offerchecker.data.OfferDao
 import dev.edmel.offerchecker.data.OfferDatabase
+import dev.edmel.offerchecker.data.SettingsRepository
 import dev.edmel.offerchecker.data.OfferEntry
 import dev.edmel.offerchecker.service.NahCopy
 import kotlinx.coroutines.Dispatchers
@@ -71,7 +77,8 @@ import java.util.Date
 import java.util.Locale
 
 @Composable
-fun LogScreen(thresholds: Thresholds, modifier: Modifier = Modifier) {
+fun LogScreen(settings: AppSettings, modifier: Modifier = Modifier) {
+    val thresholds = settings.thresholds
     val ctx = LocalContext.current
     val dao = remember { OfferDatabase.get(ctx).offers() }
     val scope = rememberCoroutineScope()
@@ -153,7 +160,7 @@ fun LogScreen(thresholds: Thresholds, modifier: Modifier = Modifier) {
         }
     }
 
-    open?.let { OfferDetails(it, thresholds) { open = null } }
+    open?.let { OfferDetails(it, thresholds, settings.flaggedPlaces) { open = null } }
 
     if (confirmClear) {
         AlertDialog(
@@ -218,11 +225,14 @@ private fun OfferRow(e: OfferEntry, onOpen: () -> Unit) {
     }
 }
 
-/** Everything logged about one offer, opened from its row. */
+/** Everything logged about one offer, opened from its row, and a flag for its restaurant. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun OfferDetails(e: OfferEntry, thresholds: Thresholds, onDismiss: () -> Unit) {
+private fun OfferDetails(e: OfferEntry, thresholds: Thresholds, flags: List<FlaggedPlace>, onDismiss: () -> Unit) {
     val c = Nah.c
+    val ctx = LocalContext.current
+    val repo = remember { SettingsRepository(ctx) }
+    val scope = rememberCoroutineScope()
     val verdict = runCatching { Verdict.valueOf(e.verdict) }.getOrDefault(Verdict.GREY)
     val rescored = Scorer.score(
         Offer(BigDecimal.valueOf(e.pay), e.minutes, BigDecimal.valueOf(e.km), e.stacked, orders = e.orders, addOn = e.addOn),
@@ -270,6 +280,17 @@ private fun OfferDetails(e: OfferEntry, thresholds: Thresholds, onDismiss: () ->
                 Detail("Restaurant", e.pickup ?: "Not read")
                 NahDivider()
                 Detail("Drop-off", e.dropoff ?: "Not read")
+            }
+            val pickup = e.pickup
+            if (pickup != null && canFlag(pickup)) {
+                val choices = listOf(null, PlaceFlag.SLOW, PlaceFlag.CLOSED)
+                NahGroup {
+                    SegmentedRow(
+                        "Flag this restaurant", "Later offers from it show the flag",
+                        choices.map { it?.let(NahCopy::placeFlag) ?: "None" },
+                        choices.indexOf(flagFor(pickup, flags)?.flag),
+                    ) { i -> scope.launch { repo.setPlaceFlag(pickup, choices[i]) } }
+                }
             }
         }
     }

@@ -97,6 +97,10 @@ long as the signing secrets below are set, because every build is then signed wi
 - Home's Uber tile says whether Uber last showed you **Online** or **Offline**, and Today shows
   your time online in Uber. It's read from Uber's own screen ("Finding trips", "Go Online"), on
   the phone. Other delivery apps' screens are never read.
+- Restaurant flags: open an offer in History and flag its restaurant **Slow pickup** or **Was
+  closed**. Later offers from that restaurant show the flag on the verdict card and the voice says
+  it; the verdict itself doesn't change. Settings → Flagged restaurants lists them. (nah.meter
+  can't check whether a restaurant is open: it has no internet.)
 
 ## Project layout
 

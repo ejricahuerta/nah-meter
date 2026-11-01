@@ -3,6 +3,7 @@ package dev.edmel.offerchecker.service
 import dev.edmel.offerchecker.core.Check
 import dev.edmel.offerchecker.core.Evaluation
 import dev.edmel.offerchecker.core.OnlineState
+import dev.edmel.offerchecker.core.PlaceFlag
 import dev.edmel.offerchecker.core.Priority
 import dev.edmel.offerchecker.core.Scorer
 import dev.edmel.offerchecker.core.Thresholds
@@ -123,11 +124,26 @@ object NahCopy {
     /** One piece of the spoken verdict: its [text], and the verdict whose recorded line says it instead. */
     data class SpeechPart(val text: String, val clip: Verdict? = null)
 
+    /** A restaurant flag as History and Settings name it: "Slow pickup", "Was closed". */
+    fun placeFlag(f: PlaceFlag) = when (f) {
+        PlaceFlag.SLOW -> "Slow pickup"
+        PlaceFlag.CLOSED -> "Was closed"
+    }
+
     /**
-     * [speech] in the order it's said: "add-on." for an add-on, the word, then the rates. With
-     * [toronto] the word is a recorded line ([SpeechPart.clip]); the rest is always the phone's voice.
+     * On the verdict card under the reason, and said after the rates: "Flagged: slow pickup". The
+     * courier's own note on the restaurant; it never changes the verdict.
      */
-    fun speechParts(e: Evaluation, mode: VoiceMode, priority: Priority, toronto: Boolean): List<SpeechPart> {
+    fun flagLine(f: PlaceFlag) = "Flagged: " + placeFlag(f).lowercase()
+
+    /**
+     * [speech] in the order it's said: "add-on." for an add-on, the word, the rates, then the
+     * restaurant's [flag] ("flagged: slow pickup."). With [toronto] the word is a recorded line
+     * ([SpeechPart.clip]); the rest is always the phone's voice.
+     */
+    fun speechParts(
+        e: Evaluation, mode: VoiceMode, priority: Priority, toronto: Boolean, flag: PlaceFlag? = null,
+    ): List<SpeechPart> {
         if (e.verdict == Verdict.GREY) {
             return listOf(
                 if (toronto) SpeechPart(clipLine(Verdict.GREY), Verdict.GREY)
@@ -137,18 +153,21 @@ object NahCopy {
         val parts = mutableListOf<SpeechPart>()
         if (e.offer?.addOn == true) parts += SpeechPart("add-on.")
         parts += if (toronto) SpeechPart(clipLine(e.verdict), e.verdict) else SpeechPart(word(e.verdict))
-        if (mode == VoiceMode.WORD) return parts
-        val hourly = "${e.hourly?.toBigInteger() ?: 0} an hour"
-        val perKm = e.perKm?.let { spokenPerKm(it) }
-        // With no distance there's no $/km to lead with, so the hour does.
-        val rates = if (priority == Priority.PER_KM && perKm != null) listOf(perKm, hourly) else listOfNotNull(hourly, perKm)
-        parts += SpeechPart((if (mode == VoiceMode.WORD_HOURLY_KM) rates.joinToString(", ") else rates.first()) + ".")
+        if (mode != VoiceMode.WORD) {
+            val hourly = "${e.hourly?.toBigInteger() ?: 0} an hour"
+            val perKm = e.perKm?.let { spokenPerKm(it) }
+            // With no distance there's no $/km to lead with, so the hour does.
+            val rates = if (priority == Priority.PER_KM && perKm != null) listOf(perKm, hourly) else listOfNotNull(hourly, perKm)
+            parts += SpeechPart((if (mode == VoiceMode.WORD_HOURLY_KM) rates.joinToString(", ") else rates.first()) + ".")
+        }
+        // The courier's own warning about the restaurant, in every voice mode.
+        if (flag != null) parts += SpeechPart(flagLine(flag).lowercase() + ".")
         return parts
     }
 
-    /** [speechParts] in the courier's voice mode and voice. */
-    fun speechParts(e: Evaluation, s: AppSettings): List<SpeechPart> =
-        speechParts(e, s.voiceMode, s.thresholds.priority, s.torontoVoice)
+    /** [speechParts] in the courier's voice mode and voice, with the restaurant's [flag] if any. */
+    fun speechParts(e: Evaluation, s: AppSettings, flag: PlaceFlag? = null): List<SpeechPart> =
+        speechParts(e, s.voiceMode, s.thresholds.priority, s.torontoVoice, flag)
 
     /** "53 cents a k", "1 dollar 5 cents a k". */
     private fun spokenPerKm(v: BigDecimal): String {
@@ -177,12 +196,13 @@ object NahCopy {
     /**
      * What TalkBack announces, the card in reading order: "nah. $15.83 per hour. Under your $20,
      * $0.53 per km." With $/km strict the $/km comes first: "nah. $0.53 per km. Under your $1 per
-     * km, $15.83 per hour."
+     * km, $15.83 per hour." A flagged restaurant ends it: "Flagged: slow pickup."
      */
-    fun spoken(e: Evaluation, t: Thresholds): String {
+    fun spoken(e: Evaluation, t: Thresholds, flag: PlaceFlag? = null): String {
         val (big, chip) = rates(e, t) ?: return "can't read. Check this offer yourself."
         return "${word(e.verdict)} ${spokenRate(big)}. " +
             (cardReason(e, t) + (chip?.let { " · $it" } ?: ""))
-                .replace(" · ", ", ").replace("/km", " per km").replace("/hr", " per hour") + "."
+                .replace(" · ", ", ").replace("/km", " per km").replace("/hr", " per hour") + "." +
+            (flag?.let { " ${flagLine(it)}." } ?: "")
     }
 }

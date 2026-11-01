@@ -25,6 +25,7 @@ import android.widget.TextView
 import androidx.core.content.res.ResourcesCompat
 import dev.edmel.offerchecker.R
 import dev.edmel.offerchecker.core.Evaluation
+import dev.edmel.offerchecker.core.PlaceFlag
 import dev.edmel.offerchecker.core.Thresholds
 import dev.edmel.offerchecker.core.Verdict
 
@@ -75,16 +76,17 @@ class BadgeOverlay(private val context: Context) {
 
     /**
      * Shows [e]. The card docks above [cardTop] (the offer card's top edge in screen px); when
-     * that's unknown it sits near the top of the screen like the pill.
+     * that's unknown it sits near the top of the screen like the pill. [flag] is the courier's own
+     * flag on the restaurant ("Flagged: slow pickup"), in neutral text: it never changes the verdict.
      */
-    fun show(e: Evaluation, t: Thresholds, compact: Boolean, cardTop: Int?) {
+    fun show(e: Evaluation, t: Thresholds, compact: Boolean, cardTop: Int?, flag: PlaceFlag? = null) {
         hide(animate = false)
         val screen = context.resources.displayMetrics
-        val v = if (compact) pill(e, t) else card(e, t)
-        v.contentDescription = NahCopy.spoken(e, t)
+        val v = if (compact) pill(e, t, flag) else card(e, t, flag)
+        v.contentDescription = NahCopy.spoken(e, t, flag)
         v.accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
         // Card: tap to dismiss. Pill: tap to expand to the full card.
-        v.setOnClickListener { if (compact) show(e, t, compact = false, cardTop = cardTop) else hide() }
+        v.setOnClickListener { if (compact) show(e, t, compact = false, cardTop = cardTop, flag = flag) else hide() }
 
         if (compact) {
             v.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED)
@@ -140,7 +142,7 @@ class BadgeOverlay(private val context: Context) {
 
     // ---------- Verdict card (nah-card) ----------
 
-    private fun card(e: Evaluation, t: Thresholds): View {
+    private fun card(e: Evaluation, t: Thresholds, flag: PlaceFlag?): View {
         val root = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(20), dp(18), dp(20), dp(18))
@@ -187,12 +189,19 @@ class BadgeOverlay(private val context: Context) {
             )
         }
         root.addView(foot, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) })
+        // The courier's flag on this restaurant: white, like the rates, since colour only means a verdict.
+        flag?.let {
+            root.addView(
+                text(NahCopy.flagLine(it), 17f, font600, Color.WHITE),
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(10) },
+            )
+        }
         return root
     }
 
     // ---------- Compact pill (nah-pill) ----------
 
-    private fun pill(e: Evaluation, t: Thresholds): View {
+    private fun pill(e: Evaluation, t: Thresholds, flag: PlaceFlag?): View {
         val root = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -208,6 +217,14 @@ class BadgeOverlay(private val context: Context) {
                 text(rate(big.amount, big.unit, 13), 22f, font800, Color.WHITE, -0.03f),
                 LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
                     .apply { marginStart = dp(10) },
+            )
+        }
+        // A flagged restaurant: its flag after the rate ("slow pickup"), white like on the card.
+        flag?.let {
+            root.addView(
+                text(NahCopy.placeFlag(it).lowercase(), 17f, font600, Color.WHITE).apply { maxLines = 1 },
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                    .apply { marginStart = dp(12) },
             )
         }
         return root

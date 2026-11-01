@@ -363,6 +363,35 @@ class OfferParserTest {
         }
     }
 
+    /** The verdict card's flag line ("Flagged: slow pickup") must never read back as a place either. */
+    @Test fun ownFlagLineIsNotAPlace() {
+        for (line in listOf("Flagged: slow pickup", "Flagged: was closed")) {
+            val o = read("\$9.40", "22 min (6.8 km) total", "nah.", line, "Kakuya (Yonge St)", "Accept")
+            assertEquals(line, "Kakuya (Yonge St)", o.pickup)
+            assertEquals(line, null, o.dropoff)
+        }
+    }
+
+    /** A flag follows its restaurant through text-recognition slips, but each location is its own. */
+    @Test fun restaurantFlags() {
+        val flags = listOf(
+            FlaggedPlace("Kakuya (Yonge St)", PlaceFlag.SLOW),
+            FlaggedPlace("McDonald's (Steeles & Hilda)", PlaceFlag.CLOSED),
+        )
+        assertEquals(PlaceFlag.SLOW, flagFor("Kakuya (Yonge St.)", flags)?.flag)
+        assertEquals(PlaceFlag.CLOSED, flagFor("McDonald's (Steeles & Hilda)", flags)?.flag)
+        assertEquals(null, flagFor("McDonald's (Yonge St)", flags))
+        assertEquals(null, flagFor("Ono Poke Bar (Yonge & Finch)", flags))
+        // Unknown, or nothing to compare: never a match (samePlace would say yes).
+        assertEquals(null, flagFor(null, flags))
+        assertEquals(null, flagFor("中华牛羊馆", flags))
+        assertEquals(null, flagFor("Kakuya (Yonge St)", listOf(FlaggedPlace("中华牛羊馆", PlaceFlag.SLOW))))
+        assertEquals(null, flagFor("Kakuya (Yonge St)", emptyList()))
+        assertTrue(canFlag("Chinese Halal Restaurant 中华牛羊馆"))
+        assertFalse(canFlag("中华牛羊馆"))
+        assertFalse(canFlag(null))
+    }
+
     // 2026-11-01 3:08: Uber Driver's screens, offline and online, from the courier's screenshots.
     private val offlineMap = listOf(
         "GREENSBOROUGH", "\$124.40", "Today", "Richmond", "Markham", "ROWNRIDGE", "AGINCOURT", "North York",
