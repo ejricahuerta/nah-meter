@@ -129,7 +129,7 @@ private fun App() {
                         onEditRules = { tab = Tab.RULES.ordinal },
                         onOpenPermissions = { settingsPage = SettingsPage.PERMISSIONS.ordinal; tab = Tab.SETTINGS.ordinal },
                     )
-                    Tab.HISTORY -> LogScreen(s.thresholds)
+                    Tab.HISTORY -> LogScreen(s)
                     Tab.RULES -> ThresholdsScreen(s)
                     Tab.SETTINGS -> SettingsScreen(s, SettingsPage.entries[settingsPage], { settingsPage = it.ordinal }, { rerunSetup = true })
                 }

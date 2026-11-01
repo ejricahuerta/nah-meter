@@ -94,6 +94,13 @@ long as the signing secrets below are set, because every build is then signed wi
 - History: the last 200 offers by day (offers and average $/hr per day), filtered by bet, meh or nah,
   with CSV export. Tap an offer for its restaurant, drop-off and rates.
 - Stacked offers are scored on the combined numbers and marked `×2`.
+- Home's Uber tile says whether Uber last showed you **Online** or **Offline**, and Today shows
+  your time online in Uber. It's read from Uber's own screen ("Finding trips", "Go Online"), on
+  the phone. Other delivery apps' screens are never read.
+- Restaurant flags: open an offer in History and flag its restaurant **Slow pickup** or **Was
+  closed**. Later offers from that restaurant show the flag on the verdict card and the voice says
+  it; the verdict itself doesn't change. Settings → Flagged restaurants lists them. (nah.meter
+  can't check whether a restaurant is open: it has no internet.)
 
 ## Project layout
 

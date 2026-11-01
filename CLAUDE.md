@@ -83,7 +83,8 @@ core/  pure Kotlin, no Android: what to read and how to score it (unit-tested)
   OfferParser.kt  all text patterns; card texts -> ReadResult; OCR lines -> card texts
   Scorer.kt       the five rules (max km off by default; Thresholds.priority picks the strict rate, $/hr
                   or $/km, the other gives meh.) and the unpaid extra km, exact BigDecimal maths -> Evaluation
-  Model.kt        Offer, ReadResult, Thresholds, Priority, Evaluation, Verdict, Check, OcrLine
+  Model.kt        Offer, ReadResult, Thresholds, Priority, Evaluation, Verdict, Check, OcrLine,
+                  OnlineState/StatusRead, FlaggedPlace and flagFor (restaurant flags, matched like samePlace)
 app/   Android
   service/OfferAccessibilityService.kt  event loop: find Uber windows, read, score, show, log
   service/CardReader.kt    accessibility tree -> the offer card's texts and its top edge
@@ -93,6 +94,8 @@ app/   Android
   service/ServiceState.kt  in-process state shared with the UI, including the diagnostics log
   service/CrashLog.kt      the last crash's stack trace, saved on the phone, shown in Diagnostics
   service/ReaderWatch.kt   "nah.meter stopped reading" notification if the reader stops mid-shift
+  service/OnlineClock.kt   Uber online or offline (as Uber's screen last said) and today's online
+                           time, kept on the phone; Home shows both
   service/Voice.kt         says the verdict out loud ("nah. 14 an hour"), on-device TTS, on the
                            accessibility volume at the user's level, then restores it (Uber moves the
                            navigation volume, and the media volume during its offer sound);
@@ -102,11 +105,13 @@ app/   Android
                            play falls back to TTS
   service/ReadingTileService.kt, PauseReceiver.kt  pause / resume from the shade (tile, notification)
   service/PriorityTileService.kt  "Strict on $/hr / $/km" tile: flips the strict rate from the shade
-  data/                    DataStore settings, Room offer log (last 200), CSV export
+  data/                    DataStore settings (incl. flagged restaurants), Room offer log (last 200), CSV export
   ui/Nah.kt                design tokens (Mono/Daylight), Geist, components
   ui/MainActivity.kt       the four tabs: Home, History (LogScreen), Rules (ThresholdsScreen), Settings
-  ui/HomeScreen.kt         power button, today's overview, app tiles (DeliveryApps), rules strip
-  ui/SettingsScreen.kt     Settings and its pages; PermissionsScreen.kt holds the setup steps and Diagnostics
+  ui/HomeScreen.kt         power button, today's overview (with time online in Uber), app tiles
+                           (DeliveryApps; Uber's says Online or Offline), rules strip
+  ui/SettingsScreen.kt     Settings and its pages (incl. Flagged restaurants); PermissionsScreen.kt holds
+                           the setup steps and Diagnostics
   ui/VoiceScreen.kt        Settings → Voice: what it says (3 lines), which verdicts, volume, speed, voice
   ui/SetupScreen.kt        the five setup steps (Welcome, Your apps, Your rules, Permissions, Test it); first run and Settings → Run setup again
 ```
@@ -139,6 +144,10 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
 - The restaurant and drop-off area are the lines between the trip line and the card's button
   (Accept/Match); OCR place lines must start near the trip line's left edge, so map labels beside
   the card stay out. They're stored with each logged offer (Room v2) and shown in the Log's detail sheet.
+- Whether a restaurant is open can't be checked (no internet). Instead the courier flags one from
+  the Log's detail sheet ("Slow pickup", "Was closed"; `PlaceFlag`, kept in DataStore), and later
+  offers whose restaurant matches (`flagFor`: `samePlace`, so OCR slips still match, but each
+  location is its own) show and say the flag. "Flagged: …" never reads back as a place (`NOT_A_PLACE`).
 - The verdict card is excluded from OCR (`badge.screenRect`) so the app never reads itself.
 - The log holds each offer once: a card equal (pay, minutes, km, ×2) to the last logged offer, or
   to one logged in the last 30 min, still gets its verdict but isn't logged again
@@ -152,6 +161,15 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
   the card has been gone for 600 ms (closed or accepted), or when tapped. While a card is up the
   reader looks every second even without Uber events (a still screen sends none), or the verdict
   could outlive the card.
+- **Online or offline** comes from Uber's own words (screenshots, 2026-11-01): online is "You're
+  online", "Finding trips" or the Trip Planner's "GO OFFLINE"; offline is "You're offline", "Ready
+  to go?", "Go Online" or the map's big "GO" button (`OfferParser.onlineStatus`, whole lines only;
+  lines saying both give nothing). Read only from Uber's windows (visible accessibility text, or the
+  screenshot when it was cropped to Uber), never while an offer card is read; an offer card itself
+  counts as online. A change counts once two reads agree, and is logged as "Uber: online" with the
+  line that showed it. `OnlineClock` keeps the state and today's online time. Pausing or the reader
+  stopping ends the session (unknown until Uber is seen again). If Uber goes offline by itself while
+  it isn't on screen, the time keeps counting until Uber is next seen offline.
 - Accepted vs passed isn't known yet (nah.meter sees the screen, never the tap). To learn it from
   real text, the log has "After the card (4 s / 12 s)" entries: Uber's text after each read card
   goes. Build accepted/passed tracking from those pastes, not from guesses.
@@ -183,6 +201,10 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
   "Under $5.50 minimum", "Short on $/km", "Clears your $20"; strict on $/km: "Under your $1/km",
   "Short on $/hr", "Clears your $1/km") and the other rate in its own chip (`cardChip`). Which
   rate goes where comes only from `NahCopy.rates`. Nothing under 15sp.
+- A flagged restaurant adds a white 17sp line under the reason, "Flagged: slow pickup" or
+  "Flagged: was closed" (`NahCopy.flagLine`); the pill puts "slow pickup" after the rate, and the
+  voice says it after the rates in every voice mode. It's the courier's own note: it never changes
+  the verdict word or its colour.
 - Verdict words are lowercase: **nah.**, **meh.**, **bet!** and **can't read.** (bet! is the only
   exclamation mark). In chips the stop or mark becomes a dot before the word; in running text the
   words drop it ("bet, meh or nah"). Use `NahCopy` for every verdict string, never inline text.
@@ -203,9 +225,10 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
 ## Debugging an on-phone problem
 
 Ask the user to wait for an offer, then open **Settings → Permissions → Diagnostics → Show → Copy diagnostics**
-and paste it. The log shows Uber coming on screen (its area, and which app it popped up over) and
-leaving, but not other apps opening and closing; the card's lines read by each method; and
-each verdict with its source. A grey verdict logs the card text it saw. Each spoken verdict logs a
+and paste it. Its header says what Uber last showed (`Uber status: online since 15:08 · …`). The
+log shows Uber coming on screen (its area, and which app it popped up over) and leaving, but not
+other apps opening and closing; Uber going online or offline, with the line that showed it; the
+card's lines read by each method; and each verdict with its source. A grey verdict logs the card text it saw. Each spoken verdict logs a
 `Spoke:` entry: recording or phone voice, how long it took, and what got in its way (another app
 taking audio focus, the volume changed under it, cut off by the next verdict). Entries are
 `[yyyy-MM-dd HH:mm:ss] - title` with one `- detail` line each (`LogEntry`); log through

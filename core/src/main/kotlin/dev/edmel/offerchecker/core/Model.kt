@@ -90,6 +90,34 @@ data class Evaluation(
     }
 }
 
+/** Whether the courier is online in Uber, as Uber's own screen says it. */
+enum class OnlineState { ONLINE, OFFLINE }
+
+/** Uber's online or offline state, and the line on its screen that showed it ("Finding trips"). */
+data class StatusRead(val state: OnlineState, val line: String)
+
+/** The courier's note on a restaurant, set from History and shown on later offers from it. */
+enum class PlaceFlag { SLOW, CLOSED }
+
+/** A flagged restaurant: its name as an offer showed it ("Kakuya (Yonge St)"), and the flag. */
+data class FlaggedPlace(val name: String, val flag: PlaceFlag)
+
+/**
+ * The courier's flag for the restaurant [pickup], if any. Names match like [samePlace] (text
+ * recognition varies between reads), but an unknown name, or one with no Latin letters or digits
+ * to compare, never matches. Each location is its own restaurant.
+ */
+fun flagFor(pickup: String?, flags: List<FlaggedPlace>): FlaggedPlace? {
+    if (!canFlag(pickup)) return null
+    return flags.firstOrNull { canFlag(it.name) && samePlace(pickup, it.name) }
+}
+
+/** Whether a flag on this restaurant name could ever match a later offer ([flagFor]). */
+fun canFlag(pickup: String?): Boolean = pickup != null && placeKey(pickup).isNotEmpty()
+
+/** A place name's letters and digits, the part [samePlace] compares. */
+private fun placeKey(s: String) = s.lowercase().filter { it in 'a'..'z' || it in '0'..'9' }
+
 /**
  * Whether two reads of a place name are the same place. Text recognition varies between reads of
  * one card ("ARAİTaiker Taiwanese Fried" / "AITaiker Taiwanese Fried"), so compare letters and
@@ -97,9 +125,8 @@ data class Evaluation(
  */
 fun samePlace(a: String?, b: String?): Boolean {
     if (a == null || b == null) return true
-    fun norm(s: String) = s.lowercase().filter { it in 'a'..'z' || it in '0'..'9' }
-    val x = norm(a)
-    val y = norm(b)
+    val x = placeKey(a)
+    val y = placeKey(b)
     if (x.isEmpty() || y.isEmpty() || x == y) return true
     // Levenshtein distance, allowed up to a quarter of the longer name.
     var prev = IntArray(y.length + 1) { it }

@@ -23,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -46,6 +47,7 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import dev.edmel.offerchecker.core.OnlineState
 import dev.edmel.offerchecker.core.Priority
 import dev.edmel.offerchecker.core.Scorer
 import dev.edmel.offerchecker.core.Verdict
@@ -53,7 +55,10 @@ import dev.edmel.offerchecker.data.AppSettings
 import dev.edmel.offerchecker.data.OfferDatabase
 import dev.edmel.offerchecker.data.OfferEntry
 import dev.edmel.offerchecker.data.SettingsRepository
+import dev.edmel.offerchecker.service.NahCopy
+import dev.edmel.offerchecker.service.OnlineClock
 import dev.edmel.offerchecker.service.ServiceState
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Calendar
 import java.util.Locale
@@ -84,6 +89,17 @@ fun HomeScreen(
     val startOfDay = remember(offers) { startOfToday() }
     val today = offers.filter { it.time >= startOfDay }
 
+    // Uber's online or offline state, and today's online time, re-read every minute.
+    val uber by remember { OnlineClock.status(ctx) }.collectAsState()
+    val minute by produceState(System.currentTimeMillis()) {
+        while (true) {
+            delay(60_000L)
+            value = System.currentTimeMillis()
+        }
+    }
+    val onlineMs = uber.todayMs(maxOf(minute, System.currentTimeMillis()))
+    val onlineToday = if (uber.state == OnlineState.ONLINE || onlineMs > 0) NahCopy.onlineTime(onlineMs) else null
+
     val c = Nah.c
     Column(
         modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(ScreenPadding),
@@ -113,12 +129,12 @@ fun HomeScreen(
 
         Column {
             SectionLabel("Today")
-            Overview(today, Modifier.alpha(if (settings.readingEnabled) 1f else 0.5f))
+            Overview(today, onlineToday, Modifier.alpha(if (settings.readingEnabled) 1f else 0.5f))
         }
 
         Column {
             SectionLabel("Open an app")
-            AppTiles(settings, refresh, verdictsOn = on)
+            AppTiles(settings, refresh, verdictsOn = on, uberState = uber.state)
         }
 
         Row(
@@ -167,15 +183,27 @@ private fun PowerButton(on: Boolean, label: String, active: Boolean, onChange: (
     }
 }
 
-/** Today's numbers: offers read, average $/hr, the bet · meh · nah split, and the best offer. */
+/**
+ * Today's numbers: offers read, average $/hr, the bet · meh · nah split, the best offer, and the
+ * time online in Uber ([online], e.g. "2h 14m"; null before Uber has been seen online today).
+ */
 @Composable
-private fun Overview(today: List<OfferEntry>, modifier: Modifier = Modifier) {
-    val c = Nah.c
+private fun Overview(today: List<OfferEntry>, online: String?, modifier: Modifier = Modifier) {
     NahGroup(modifier) {
-        if (today.isEmpty()) {
-            NahRow("No offers yet today")
-            return@NahGroup
+        if (today.isEmpty()) NahRow("No offers yet today") else OfferStats(today)
+        if (online != null) {
+            NahDivider()
+            NahRow("Online in Uber") {
+                Text(online, style = Nah.style(16.sp, 600, 22.sp, color = Nah.c.ink))
+            }
         }
+    }
+}
+
+@Composable
+private fun OfferStats(today: List<OfferEntry>) {
+    val c = Nah.c
+    Column {
         fun count(v: Verdict) = today.count { it.verdict == v.name }
         fun perHour(v: Double) = buildAnnotatedString {
             append("$" + "%.2f".format(Locale.US, v))
@@ -208,16 +236,21 @@ private fun Stat(label: String, value: AnnotatedString, modifier: Modifier = Mod
     }
 }
 
-/** The delivery apps picked in Settings, two to a row, then a "More apps" tile that isn't built yet. */
+/**
+ * The delivery apps picked in Settings, two to a row, then a "More apps" tile that isn't built yet.
+ * Uber's tile says whether Uber last showed you online or offline ([uberState]).
+ */
 @Composable
-private fun AppTiles(settings: AppSettings, refresh: Int, verdictsOn: Boolean) {
+private fun AppTiles(settings: AppSettings, refresh: Int, verdictsOn: Boolean, uberState: OnlineState?) {
     val ctx = LocalContext.current
     val apps = DeliveryApps.ALL.filter { it.verdicts || it.id in settings.apps }
     val tiles = apps.map { app ->
         val installed = remember(refresh) { SystemSetup.installed(ctx, app.packages) }
         val subtitle = when {
             !installed -> "Not installed"
-            app.verdicts -> if (verdictsOn) "Verdicts on" else "Paused"
+            app.verdicts && !verdictsOn -> "Paused"
+            app.verdicts && uberState != null -> NahCopy.onlineWord(uberState).replaceFirstChar { it.uppercase() }
+            app.verdicts -> "Verdicts on"
             else -> "Verdicts soon"
         }
         Tile(app.name, app.mark, subtitle, enabled = installed, live = installed && app.verdicts && verdictsOn) {

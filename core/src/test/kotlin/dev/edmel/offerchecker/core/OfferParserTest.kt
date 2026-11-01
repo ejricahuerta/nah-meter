@@ -362,4 +362,91 @@ class OfferParserTest {
             assertEquals(word, null, o.dropoff)
         }
     }
+
+    /** The verdict card's flag line ("Flagged: slow pickup") must never read back as a place either. */
+    @Test fun ownFlagLineIsNotAPlace() {
+        for (line in listOf("Flagged: slow pickup", "Flagged: was closed")) {
+            val o = read("\$9.40", "22 min (6.8 km) total", "nah.", line, "Kakuya (Yonge St)", "Accept")
+            assertEquals(line, "Kakuya (Yonge St)", o.pickup)
+            assertEquals(line, null, o.dropoff)
+        }
+    }
+
+    /** A flag follows its restaurant through text-recognition slips, but each location is its own. */
+    @Test fun restaurantFlags() {
+        val flags = listOf(
+            FlaggedPlace("Kakuya (Yonge St)", PlaceFlag.SLOW),
+            FlaggedPlace("McDonald's (Steeles & Hilda)", PlaceFlag.CLOSED),
+        )
+        assertEquals(PlaceFlag.SLOW, flagFor("Kakuya (Yonge St.)", flags)?.flag)
+        assertEquals(PlaceFlag.CLOSED, flagFor("McDonald's (Steeles & Hilda)", flags)?.flag)
+        assertEquals(null, flagFor("McDonald's (Yonge St)", flags))
+        assertEquals(null, flagFor("Ono Poke Bar (Yonge & Finch)", flags))
+        // Unknown, or nothing to compare: never a match (samePlace would say yes).
+        assertEquals(null, flagFor(null, flags))
+        assertEquals(null, flagFor("中华牛羊馆", flags))
+        assertEquals(null, flagFor("Kakuya (Yonge St)", listOf(FlaggedPlace("中华牛羊馆", PlaceFlag.SLOW))))
+        assertEquals(null, flagFor("Kakuya (Yonge St)", emptyList()))
+        assertTrue(canFlag("Chinese Halal Restaurant 中华牛羊馆"))
+        assertFalse(canFlag("中华牛羊馆"))
+        assertFalse(canFlag(null))
+    }
+
+    // 2026-11-01 3:08: Uber Driver's screens, offline and online, from the courier's screenshots.
+    private val offlineMap = listOf(
+        "GREENSBOROUGH", "\$124.40", "Today", "Richmond", "Markham", "ROWNRIDGE", "AGINCOURT", "North York",
+        "Scarborough", "GO", "Uber Eats Pro Platinum", "Unlock Diamond", "100%", "2 / 750 pts", "See driving time", "Waybill",
+    )
+    private val offlineHome = listOf(
+        "You're offline", "Ready to go?", "Richmond", "Markham", "OWNRIDGE", "AGINCOURT", "North York", "Opportunities",
+        "Earnings", "Earnings trends for deliveries in", "Pleasant View/Steeles", "Explore the best times and places to deliver",
+        "Go Online", "Home", "Discover", "Earnings", "Inbox", "Menu",
+    )
+    private val tripPlanner = listOf(
+        "Trip Planner", "Unlock Diamond", "100%", "2 / 750 pts", "Later Today", "See Earnings Trends",
+        "See upcoming promotions", "See driving time", "Waybill", "GO OFFLINE",
+    )
+    private val onlineMapLabels = listOf(
+        "\$124.40", "MILLIKEN WEST", "LESLIE ST", "DENISON ST", "JOHN ST", "GLEN", "STEELES", "Cummer Park", "Community",
+        "Centre", "FINCH AVE E", "ON-404 S", "VICTORIA PARK AVE", "BAYVIEW", "VILLAGE", "SHEPPARD AVE E", "HENRY FARM",
+        "MACDONALD CAR", "SILVER HILLS",
+    )
+
+    @Test fun uberOffline20261101() {
+        // The map with the big GO button: the button is the only sign it's offline.
+        assertEquals(StatusRead(OnlineState.OFFLINE, "GO"), OfferParser.onlineStatus(offlineMap))
+        assertEquals(StatusRead(OnlineState.OFFLINE, "You're offline"), OfferParser.onlineStatus(offlineHome))
+    }
+
+    @Test fun uberOnline20261101() {
+        assertEquals(StatusRead(OnlineState.ONLINE, "GO OFFLINE"), OfferParser.onlineStatus(tripPlanner))
+        assertEquals(
+            StatusRead(OnlineState.ONLINE, "You're online"),
+            OfferParser.onlineStatus(onlineMapLabels + listOf("You're online", "Unlock Diamond", "100%", "2 / 750 pts")),
+        )
+        assertEquals(
+            StatusRead(OnlineState.ONLINE, "Finding trips"),
+            OfferParser.onlineStatus(onlineMapLabels + listOf("Finding trips", "Unlock Diamond", "100%", "2 / 750 pts")),
+        )
+    }
+
+    /** What text recognition may make of the same lines: a curly or missing apostrophe, a button's icon or ring. */
+    @Test fun uberStatusOcrVariants() {
+        assertEquals(OnlineState.ONLINE, OfferParser.onlineStatus(listOf("You’re online"))?.state)
+        assertEquals(OnlineState.ONLINE, OfferParser.onlineStatus(listOf("Youre online"))?.state)
+        assertEquals(OnlineState.ONLINE, OfferParser.onlineStatus(listOf("FINDING TRIPS"))?.state)
+        assertEquals(OnlineState.OFFLINE, OfferParser.onlineStatus(listOf("You’re offline"))?.state)
+        assertEquals(OnlineState.OFFLINE, OfferParser.onlineStatus(listOf("@ Go Online"))?.state)
+        assertEquals(OnlineState.OFFLINE, OfferParser.onlineStatus(listOf("(GO)"))?.state)
+        assertEquals(OnlineState.ONLINE, OfferParser.onlineStatus(listOf("GO  OFFLINE"))?.state)
+    }
+
+    @Test fun uberStatusNeedsAWholeLine() {
+        // An offer card, and lines that only contain the words, say nothing about the status.
+        assertEquals(null, OfferParser.onlineStatus(listOf("Delivery", "\$6.07", "including estimated tip", "23 min (11.5 km) total", "Accept")))
+        assertEquals(null, OfferParser.onlineStatus(listOf("Go to Earnings", "Gordon St", "Explore the best times to go online", "GOLF RD")))
+        assertEquals(null, OfferParser.onlineStatus(emptyList()))
+        // Both at once (a screen changing over): no guess.
+        assertEquals(null, OfferParser.onlineStatus(listOf("You're online", "GO")))
+    }
 }

@@ -9,9 +9,12 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import dev.edmel.offerchecker.core.FlaggedPlace
+import dev.edmel.offerchecker.core.PlaceFlag
 import dev.edmel.offerchecker.core.Priority
 import dev.edmel.offerchecker.core.Thresholds
 import dev.edmel.offerchecker.core.Verdict
+import dev.edmel.offerchecker.core.flagFor
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.math.BigDecimal
@@ -52,7 +55,17 @@ data class AppSettings(
     val appearance: Appearance = Appearance.MONO,
     /** The delivery apps the courier drives for ("uber", "doordash", "skip"): the tiles Home shows. */
     val apps: Set<String> = setOf("uber", "doordash", "skip"),
+    /** Restaurants flagged from History ("Slow pickup", "Was closed"), A to Z; later offers from them say so. */
+    val flaggedPlaces: List<FlaggedPlace> = emptyList(),
 )
+
+/** A flag as stored: "SLOW\tKakuya (Yonge St)". */
+private fun encode(f: FlaggedPlace) = f.flag.name + "\t" + f.name
+
+private fun decode(s: String): FlaggedPlace? {
+    val flag = PlaceFlag.entries.firstOrNull { it.name == s.substringBefore('\t') } ?: return null
+    return s.substringAfter('\t', "").takeIf { it.isNotBlank() }?.let { FlaggedPlace(it, flag) }
+}
 
 private val Context.dataStore by preferencesDataStore(name = "settings")
 
@@ -82,6 +95,7 @@ class SettingsRepository(context: Context) {
         val onboarded = booleanPreferencesKey("onboarded")
         val appearance = stringPreferencesKey("appearance")
         val apps = stringSetPreferencesKey("apps")
+        val flaggedPlaces = stringSetPreferencesKey("flagged_places")
     }
 
     val settings: Flow<AppSettings> = store.data.map { it.toSettings() }
@@ -115,6 +129,7 @@ class SettingsRepository(context: Context) {
             onboarded = this[Keys.onboarded] ?: d.onboarded,
             appearance = this[Keys.appearance]?.let { v -> Appearance.entries.firstOrNull { it.name == v } } ?: d.appearance,
             apps = this[Keys.apps] ?: d.apps,
+            flaggedPlaces = this[Keys.flaggedPlaces]?.mapNotNull(::decode)?.sortedBy { it.name.lowercase() } ?: d.flaggedPlaces,
         )
     }
 
@@ -148,4 +163,16 @@ class SettingsRepository(context: Context) {
     suspend fun setOnboarded() = store.edit { it[Keys.onboarded] = true }
     suspend fun setAppearance(v: Appearance) = store.edit { it[Keys.appearance] = v.name }
     suspend fun setApps(v: Set<String>) = store.edit { it[Keys.apps] = v }
+
+    /**
+     * Flags the restaurant [name], or clears its flag when [flag] is null. Any flag already on the
+     * same place, however an earlier offer read its name, is replaced.
+     */
+    suspend fun setPlaceFlag(name: String, flag: PlaceFlag?) = store.edit { prefs ->
+        val kept = (prefs[Keys.flaggedPlaces] ?: emptySet()).filter { s ->
+            val f = decode(s)
+            f != null && f.name != name && flagFor(name, listOf(f)) == null
+        }.toSet()
+        prefs[Keys.flaggedPlaces] = if (flag == null) kept else kept + encode(FlaggedPlace(name.trim(), flag))
+    }
 }
