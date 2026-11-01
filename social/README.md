@@ -48,7 +48,8 @@ The post is a 4:5 crop that ends just under the trip line.
 
 ## Showcase video
 
-`node render.mjs --layers 05 01 03 06` renders four offers as phone-shaped layers in `layers/`:
+`node render.mjs --layers --scale=2 05 01 03 06` renders four offers as phone-shaped layers in
+`layers/`, at 2160 px wide so the 4K cut stays sharp:
 
 - the screen without its verdict card or the Accept timer's fill
 - the button's word alone

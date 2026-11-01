@@ -33,6 +33,7 @@ Vertical only: the same audio, with the offers on map photos.
 (cd ../social && npm install && python3 scripts/build.py)   # the photos' data (see social/README.md)
 npm run showcase-assets      # phone layers → public/showcase/, positions → src/showcase.json
 npm run render:showcase      # its mix (no music; audio:showcase), then out/nahmeter-showcase-vertical.mp4
+npm run render:showcase:4k   # the same at 2160×3840 (out/nahmeter-showcase-4k.mp4); the layers are rendered at 2× for it
 ```
 
 ## How it fits together
