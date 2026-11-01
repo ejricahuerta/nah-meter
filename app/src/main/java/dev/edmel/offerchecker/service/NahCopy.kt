@@ -2,6 +2,7 @@ package dev.edmel.offerchecker.service
 
 import dev.edmel.offerchecker.core.Check
 import dev.edmel.offerchecker.core.Evaluation
+import dev.edmel.offerchecker.core.OnlineState
 import dev.edmel.offerchecker.core.Priority
 import dev.edmel.offerchecker.core.Scorer
 import dev.edmel.offerchecker.core.Thresholds
@@ -159,6 +160,18 @@ object NahCopy {
             if (rest > 0 || dollars == 0) add(if (rest == 1) "1 cent" else "$rest cents")
         }
         return parts.joinToString(" ") + " a k"
+    }
+
+    /** Uber's state as the app writes it: "online", "offline". */
+    fun onlineWord(s: OnlineState) = when (s) {
+        OnlineState.ONLINE -> "online"
+        OnlineState.OFFLINE -> "offline"
+    }
+
+    /** Time online: "14 min", "2h 14m". */
+    fun onlineTime(ms: Long): String {
+        val min = (ms / 60_000L).coerceAtLeast(0L)
+        return if (min < 60) "$min min" else "${min / 60}h ${min % 60}m"
     }
 
     /**

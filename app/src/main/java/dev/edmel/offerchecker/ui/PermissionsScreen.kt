@@ -35,6 +35,7 @@ import dev.edmel.offerchecker.data.AppSettings
 import dev.edmel.offerchecker.data.SettingsRepository
 import dev.edmel.offerchecker.service.CrashLog
 import dev.edmel.offerchecker.service.NahCopy
+import dev.edmel.offerchecker.service.OnlineClock
 import dev.edmel.offerchecker.service.ServiceState
 import kotlinx.coroutines.launch
 import java.text.DateFormat
@@ -139,10 +140,17 @@ private fun Diagnostics(a11y: Boolean, running: Boolean) {
     val lastScreen by ServiceState.lastScreen.collectAsState()
     val windows by ServiceState.windows.collectAsState()
     val log by ServiceState.log.collectAsState()
+    val uber by remember { OnlineClock.status(ctx) }.collectAsState()
     var crash by remember { mutableStateOf(CrashLog.read(ctx)) }
     val diag = buildString {
         appendLine("nah.meter ${appVersion(ctx)}, Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}), ${Build.MANUFACTURER} ${Build.MODEL}")
         appendLine("Accessibility enabled: $a11y, reader running: $running")
+        appendLine(
+            "Uber status: " +
+                (uber.state?.let { "${NahCopy.onlineWord(it)} since ${SimpleDateFormat("HH:mm", Locale.US).format(Date(uber.since))}" }
+                    ?: "not seen since the reader started or was paused") +
+                " · ${NahCopy.onlineTime(uber.todayMs(System.currentTimeMillis()))} online today",
+        )
         appendLine("Uber screen events received: $uberEvents")
         appendLine("Windows at last scan: ${windows.joinToString().ifEmpty { "none" }}")
         val ls = lastScreen

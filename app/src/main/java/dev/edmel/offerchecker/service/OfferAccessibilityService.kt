@@ -15,8 +15,10 @@ import dev.edmel.offerchecker.core.Evaluation
 import dev.edmel.offerchecker.core.OcrLine
 import dev.edmel.offerchecker.core.Offer
 import dev.edmel.offerchecker.core.OfferParser
+import dev.edmel.offerchecker.core.OnlineState
 import dev.edmel.offerchecker.core.ReadResult
 import dev.edmel.offerchecker.core.Scorer
+import dev.edmel.offerchecker.core.StatusRead
 import dev.edmel.offerchecker.core.Verdict
 import dev.edmel.offerchecker.data.AppSettings
 import dev.edmel.offerchecker.data.OfferDatabase
@@ -74,8 +76,12 @@ class OfferAccessibilityService : AccessibilityService() {
     private var ocrBusy = false
     private var lastOcrAt = 0L
 
+    /** The last online or offline line read, waiting for the next read to agree ([onStatusRead]). */
+    private var pendingStatus: OnlineState? = null
+
     override fun onServiceConnected() {
         CrashLog.install(this)
+        OnlineClock.started(this)
         settingsRepo = SettingsRepository(this)
         alerts = Alerts(this)
         voice = runCatching { Voice(this) }.getOrNull()
@@ -87,7 +93,12 @@ class OfferAccessibilityService : AccessibilityService() {
                     StatusNotification.show(this@OfferAccessibilityService, it.readingEnabled)
                 }
                 settings = it
-                if (!it.readingEnabled) badge.hide()
+                if (!it.readingEnabled) {
+                    badge.hide()
+                    // Paused, nah.meter can't see Uber: the online time stops here.
+                    OnlineClock.stopped(this@OfferAccessibilityService)
+                    pendingStatus = null
+                }
             }
         }
         ServiceState.service = this
@@ -159,6 +170,8 @@ class OfferAccessibilityService : AccessibilityService() {
         }
         val read = scan?.cardTexts?.let(OfferParser::parse) ?: ReadResult.NoOffer
         if (read is ReadResult.Read) cardTop = scan?.cardTop
+        // Uber's "You're online" / "Go Online", if it shares them (an offer card says online itself).
+        if (scan != null && scan.cardTexts == null) onStatusRead(OfferParser.onlineStatus(scan.visibleTexts), "accessibility")
         if (read !is ReadResult.Read && uber.present && Build.VERSION.SDK_INT >= 30) {
             // Uber is on screen but shares no (or only part of the) offer text: read a screenshot
             // instead, keeping a partial accessibility read as the grey fallback.
@@ -186,7 +199,7 @@ class OfferAccessibilityService : AccessibilityService() {
         try {
             ScreenReader.capture(this, bounds) { allLines, screenHeight ->
                 ocrBusy = false
-                guarded("screenshot") { onScreenRead(allLines, screenHeight, accessibilityRead) }
+                guarded("screenshot") { onScreenRead(allLines, screenHeight, accessibilityRead, onlyUber = bounds != null) }
             }
         } catch (e: Throwable) {
             ocrBusy = false
@@ -194,7 +207,8 @@ class OfferAccessibilityService : AccessibilityService() {
         }
     }
 
-    private fun onScreenRead(allLines: List<OcrLine>?, screenHeight: Int, accessibilityRead: ReadResult) {
+    /** [onlyUber]: the screenshot was cropped to Uber's windows (not the whole screen). */
+    private fun onScreenRead(allLines: List<OcrLine>?, screenHeight: Int, accessibilityRead: ReadResult, onlyUber: Boolean) {
         if (allLines == null) {
             logIfChanged("ocr", "Screenshot failed", listOf("no screenshot, or text recognition found nothing"))
             return
@@ -204,6 +218,8 @@ class OfferAccessibilityService : AccessibilityService() {
         val lines = if (badgeArea == null) allLines
         else allLines.filter { it.bottom <= badgeArea.top || it.top >= badgeArea.bottom }
         val card = OfferParser.cardFromOcr(lines, screenHeight)
+        // Uber's "Finding trips" / "GO", only from Uber's own windows; an offer card says online itself.
+        if (card == null && onlyUber) onStatusRead(OfferParser.onlineStatus(lines.map { it.text }), "screenshot")
         // Only the card's own lines: map labels and whatever app is behind the pop-up stay out.
         if (card != null) logIfChanged("ocr", "Uber card text (screenshot)", card.take(MAX_LOG_LINES))
         cardTop = OfferParser.ocrCardTop(lines, screenHeight)
@@ -224,6 +240,9 @@ class OfferAccessibilityService : AccessibilityService() {
         cardMissingSince = 0L
         cardUp = true
         keepWatching()
+        // Uber only sends offers to couriers who are online.
+        pendingStatus = OnlineState.ONLINE
+        statusSeen(OnlineState.ONLINE, "an offer card")
         val raw = when (read) {
             is ReadResult.Read -> read.raw
             is ReadResult.Unreadable -> read.raw
@@ -249,6 +268,29 @@ class OfferAccessibilityService : AccessibilityService() {
         lastKeyAt = now
         ServiceState.log("Offer: ${NahCopy.word(evaluation.verdict)} ($source)", *offerDetails(evaluation, raw).toTypedArray())
         onNewCard(evaluation, raw)
+    }
+
+    /**
+     * An online or offline line from Uber's screen ([OfferParser.onlineStatus]). It counts once the
+     * next read agrees, so one misread "GO" never flips it; reads with no such line don't break the
+     * pair. Each change goes in the diagnostics log with the line that showed it.
+     */
+    private fun onStatusRead(read: StatusRead?, source: String) {
+        if (read == null) return
+        if (read.state != pendingStatus) {
+            pendingStatus = read.state
+            // Look again soon to confirm a change, even if Uber's screen sends no more events.
+            if (OnlineClock.status(this).value.state != read.state && !scanPending) {
+                scanPending = true
+                handler.postDelayed(scan, OCR_INTERVAL_MS)
+            }
+            return
+        }
+        statusSeen(read.state, "${read.line} ($source)")
+    }
+
+    private fun statusSeen(state: OnlineState, seen: String) {
+        if (OnlineClock.seen(this, state)) ServiceState.log("Uber: ${NahCopy.onlineWord(state)}", "seen: $seen")
     }
 
     /**
@@ -438,6 +480,7 @@ class OfferAccessibilityService : AccessibilityService() {
     private fun shutdown() {
         if (ServiceState.service !== this) return
         ServiceState.log("Reader stopped", "the accessibility service was turned off or closed")
+        OnlineClock.stopped(this)
         ServiceState.service = null
         ServiceState.runningFlow.value = false
         handler.removeCallbacksAndMessages(null)

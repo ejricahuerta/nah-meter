@@ -62,6 +62,35 @@ object OfferParser {
             .map { it.replace(' ', ' ').trim() }
             .filter { it.isNotEmpty() }
 
+    /**
+     * Uber Driver's own words for online and offline (screenshots, 2026-11-01): "You're online",
+     * "Finding trips" and the Trip Planner's "GO OFFLINE"; "You're offline", "Ready to go?", the
+     * home screen's "Go Online" button and the map's big "GO" button. Whole lines only, so a
+     * sentence or street name with "go" in it never counts.
+     */
+    private val ONLINE_LINE = Regex("""you'?re online|finding trips|go offline""", RegexOption.IGNORE_CASE)
+    private val OFFLINE_LINE = Regex("""you'?re offline|ready to go\??|go online|go""", RegexOption.IGNORE_CASE)
+
+    /**
+     * Whether Uber's screen says the courier is online or offline, and the line that says it.
+     * Null when no line says, or when lines say both (a screen changing over): never a guess.
+     * Text recognition may curl or drop the apostrophe, and read a button's icon or ring as a
+     * symbol at either end ("@ Go Online", "(GO)").
+     */
+    fun onlineStatus(texts: List<String>): StatusRead? {
+        val found = lines(texts).mapNotNull { line ->
+            val l = line.replace('’', '\'').replace('‘', '\'').replace(Regex("""\s+"""), " ")
+                .trim { !it.isLetterOrDigit() && it != '?' }
+            when {
+                ONLINE_LINE.matches(l) -> StatusRead(OnlineState.ONLINE, line)
+                OFFLINE_LINE.matches(l) -> StatusRead(OnlineState.OFFLINE, line)
+                else -> null
+            }
+        }
+        val state = found.firstOrNull()?.state ?: return null
+        return if (found.all { it.state == state }) found.first() else null
+    }
+
     /** True if this text contains an offer's "min (… km) total" line, readable or not. */
     fun isTripLine(text: String): Boolean = lines(listOf(text)).any { TRIP_LIKE.containsMatchIn(it) }
 

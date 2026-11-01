@@ -24,10 +24,19 @@ object CardReader {
         val screenTexts: List<String>,
         /** The card's top edge in screen px, to dock the verdict card above it. */
         val cardTop: Int? = null,
-    )
+        /** The texts of Uber's screen that are visible now, for its online or offline line. */
+        val visibleTexts: List<String> = emptyList(),
+    ) {
+        fun withVisible(texts: List<String>) = Scan(cardTexts, screenTexts, cardTop, texts)
+    }
 
     fun scan(roots: List<AccessibilityNodeInfo>): Scan {
-        val screen = roots.flatMap { collectTexts(it) }.distinct()
+        val visible = mutableListOf<String>()
+        val screen = roots.flatMap { collectTexts(it, visible) }.distinct()
+        return findCard(roots, screen).withVisible(visible.distinct())
+    }
+
+    private fun findCard(roots: List<AccessibilityNodeInfo>, screen: List<String>): Scan {
         for (root in roots) {
             val finder = TripFinder()
             finder.visit(root, 0)
@@ -81,7 +90,8 @@ object CardReader {
         }
     }
 
-    private fun collectTexts(root: AccessibilityNodeInfo): List<String> {
+    /** Every text under [root]; those on screen now are also added to [visible], when given. */
+    private fun collectTexts(root: AccessibilityNodeInfo, visible: MutableList<String>? = null): List<String> {
         val out = mutableListOf<String>()
         val stack = ArrayDeque<Pair<AccessibilityNodeInfo, Int>>()
         stack.addLast(root to 0)
@@ -89,7 +99,9 @@ object CardReader {
         while (stack.isNotEmpty() && visited < MAX_NODES) {
             val (n, depth) = stack.removeLast()
             visited++
-            out += nodeTexts(n)
+            val texts = nodeTexts(n)
+            out += texts
+            if (visible != null && texts.isNotEmpty() && n.isVisibleToUser) visible += texts
             if (depth < MAX_DEPTH) {
                 for (i in n.childCount - 1 downTo 0) n.getChild(i)?.let { stack.addLast(it to depth + 1) }
             }

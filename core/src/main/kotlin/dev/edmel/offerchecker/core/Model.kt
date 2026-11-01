@@ -90,6 +90,12 @@ data class Evaluation(
     }
 }
 
+/** Whether the courier is online in Uber, as Uber's own screen says it. */
+enum class OnlineState { ONLINE, OFFLINE }
+
+/** Uber's online or offline state, and the line on its screen that showed it ("Finding trips"). */
+data class StatusRead(val state: OnlineState, val line: String)
+
 /**
  * Whether two reads of a place name are the same place. Text recognition varies between reads of
  * one card ("ARAİTaiker Taiwanese Fried" / "AITaiker Taiwanese Fried"), so compare letters and

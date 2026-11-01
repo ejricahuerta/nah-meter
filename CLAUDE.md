@@ -93,6 +93,8 @@ app/   Android
   service/ServiceState.kt  in-process state shared with the UI, including the diagnostics log
   service/CrashLog.kt      the last crash's stack trace, saved on the phone, shown in Diagnostics
   service/ReaderWatch.kt   "nah.meter stopped reading" notification if the reader stops mid-shift
+  service/OnlineClock.kt   Uber online or offline (as Uber's screen last said) and today's online
+                           time, kept on the phone; Home shows both
   service/Voice.kt         says the verdict out loud ("nah. 14 an hour"), on-device TTS, on the
                            accessibility volume at the user's level, then restores it (Uber moves the
                            navigation volume, and the media volume during its offer sound);
@@ -105,7 +107,8 @@ app/   Android
   data/                    DataStore settings, Room offer log (last 200), CSV export
   ui/Nah.kt                design tokens (Mono/Daylight), Geist, components
   ui/MainActivity.kt       the four tabs: Home, History (LogScreen), Rules (ThresholdsScreen), Settings
-  ui/HomeScreen.kt         power button, today's overview, app tiles (DeliveryApps), rules strip
+  ui/HomeScreen.kt         power button, today's overview (with time online in Uber), app tiles
+                           (DeliveryApps; Uber's says Online or Offline), rules strip
   ui/SettingsScreen.kt     Settings and its pages; PermissionsScreen.kt holds the setup steps and Diagnostics
   ui/VoiceScreen.kt        Settings → Voice: what it says (3 lines), which verdicts, volume, speed, voice
   ui/SetupScreen.kt        the five setup steps (Welcome, Your apps, Your rules, Permissions, Test it); first run and Settings → Run setup again
@@ -152,6 +155,15 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
   the card has been gone for 600 ms (closed or accepted), or when tapped. While a card is up the
   reader looks every second even without Uber events (a still screen sends none), or the verdict
   could outlive the card.
+- **Online or offline** comes from Uber's own words (screenshots, 2026-11-01): online is "You're
+  online", "Finding trips" or the Trip Planner's "GO OFFLINE"; offline is "You're offline", "Ready
+  to go?", "Go Online" or the map's big "GO" button (`OfferParser.onlineStatus`, whole lines only;
+  lines saying both give nothing). Read only from Uber's windows (visible accessibility text, or the
+  screenshot when it was cropped to Uber), never while an offer card is read; an offer card itself
+  counts as online. A change counts once two reads agree, and is logged as "Uber: online" with the
+  line that showed it. `OnlineClock` keeps the state and today's online time. Pausing or the reader
+  stopping ends the session (unknown until Uber is seen again). If Uber goes offline by itself while
+  it isn't on screen, the time keeps counting until Uber is next seen offline.
 - Accepted vs passed isn't known yet (nah.meter sees the screen, never the tap). To learn it from
   real text, the log has "After the card (4 s / 12 s)" entries: Uber's text after each read card
   goes. Build accepted/passed tracking from those pastes, not from guesses.
@@ -203,9 +215,10 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
 ## Debugging an on-phone problem
 
 Ask the user to wait for an offer, then open **Settings → Permissions → Diagnostics → Show → Copy diagnostics**
-and paste it. The log shows Uber coming on screen (its area, and which app it popped up over) and
-leaving, but not other apps opening and closing; the card's lines read by each method; and
-each verdict with its source. A grey verdict logs the card text it saw. Each spoken verdict logs a
+and paste it. Its header says what Uber last showed (`Uber status: online since 15:08 · …`). The
+log shows Uber coming on screen (its area, and which app it popped up over) and leaving, but not
+other apps opening and closing; Uber going online or offline, with the line that showed it; the
+card's lines read by each method; and each verdict with its source. A grey verdict logs the card text it saw. Each spoken verdict logs a
 `Spoke:` entry: recording or phone voice, how long it took, and what got in its way (another app
 taking audio focus, the volume changed under it, cut off by the next verdict). Entries are
 `[yyyy-MM-dd HH:mm:ss] - title` with one `- detail` line each (`LogEntry`); log through
