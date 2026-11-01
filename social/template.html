@@ -61,6 +61,10 @@
   .btn.match { background: #E7E7E7; color: #141414; }
   .btn span { position: relative; }
 
+  /* The "label" layer for the video: just the button's word */
+  #screen.label-only * { visibility: hidden; background: transparent !important; border-color: transparent !important; box-shadow: none !important; }
+  #screen.label-only .btn span { visibility: visible; }
+
   /* Map labels */
   .lbl { font-family: Inter; paint-order: stroke; stroke: var(--map); stroke-width: 3px; stroke-linejoin: round; }
   .hood { font-weight: 700; font-size: 12.5px; letter-spacing: 0.17em; fill: #A3ACCF; }
@@ -274,12 +278,23 @@ function drawMap(svg, m, fmt, W, H, labelFloor) {
 
 // ---------------------------------------------------------------- frame
 
-window.draw = function (o, fmtName, formats) {
+// Story: the cards end at Instagram's safe-area line (340 of 1920 px), clear of its reply bar.
+// Phone: a plain 9:20 screen with the cards at the bottom (the showcase video's layers).
+const CARD_BOTTOM = { story: 170, phone: 24 };
+
+/**
+ * Draw one offer in a format. `layer` is for the showcase video: "screen" leaves out the verdict
+ * card and the Accept timer's fill; "verdict" is the verdict card alone on a clear ground.
+ */
+window.draw = function (o, fmtName, formats, layer) {
   const fmt = formats[fmtName];
   const [W, H] = fmt;
   const screen = document.getElementById("screen");
   screen.style.width = W + "px";
   screen.style.height = H + "px";
+  screen.style.background = "";
+  document.body.style.background = "";
+  screen.classList.remove("label-only");
   screen.innerHTML = "";
   const svg = el("svg", { id: "map", width: W, height: H, viewBox: `0 0 ${W} ${H}` }, screen);
 
@@ -292,7 +307,7 @@ window.draw = function (o, fmtName, formats) {
     const trip = card.querySelector(".trip");
     cardTop = H - (trip.offsetTop + trip.offsetHeight + 1);
   } else {
-    cardTop = H - 24 - card.offsetHeight;
+    cardTop = H - CARD_BOTTOM[fmtName] - card.offsetHeight;
   }
   card.style.top = cardTop + "px";
   // Docked like the app: a small gap above the offer card.
@@ -302,14 +317,31 @@ window.draw = function (o, fmtName, formats) {
   drawMap(svg, o.map, fmt, W, H, vTop - 8);
 
   const attrib = h(`<div class="attrib">Map data © OpenStreetMap contributors · Overture Maps</div>`);
-  if (fmtName === "story") {
-    screen.append(statusBar(o.status), h(`<div class="home"></div>`));
-    attrib.style.cssText = `right:14px;top:${vTop - 18}px`;
-  } else {
-    attrib.style.cssText = `right:14px;top:${vTop - 18}px`;
-  }
+  if (fmtName !== "post") screen.append(statusBar(o.status), h(`<div class="home"></div>`));
+  attrib.style.cssText = `right:14px;top:${vTop - 18}px`;
   screen.append(attrib);
-  return { W, H, cardTop, vTop, bandBottom: fmt[2] + fmt[3] };
+
+  const btn = card.querySelector(".btn");
+  const rect = (e) => { const r = e.getBoundingClientRect(), b = screen.getBoundingClientRect(); return [r.left - b.left, r.top - b.top, r.width, r.height]; };
+  const info = { W, H, cardTop, vTop, verdict: rect(vcard), button: rect(btn), exclusive: o.card.exclusive, timer: o.card.timer };
+
+  if (layer === "screen") {
+    vcard.remove();
+    const fill = card.querySelector(".fill");
+    if (fill) fill.remove();
+  } else if (layer === "label") {
+    // Only the button's word, so the video can run the timer's fill under it.
+    vcard.remove();
+    svg.remove();
+    screen.style.background = "transparent";
+    document.body.style.background = "transparent";
+    screen.classList.add("label-only");
+  } else if (layer === "verdict") {
+    for (const c of [...screen.children]) if (c !== vcard) c.remove();
+    screen.style.background = "transparent";
+    document.body.style.background = "transparent";
+  }
+  return info;
 };
 </script>
 </body>

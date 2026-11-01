@@ -279,8 +279,9 @@ def map_layers(box_ll, proj, rect_km, detail):
 # ---------------------------------------------------------------- per offer
 
 # Page sizes (CSS px) and the band above the cards the route must fit in; template.html uses the same.
-# 468 px wide is a phone at a slightly smaller display size, so the map shows more above the cards.
-FORMATS = {"story": (468, 832, 40, 226), "post": (468, 585, 4, 200)}
+# Story: 540 px wide (rendered at 2×), the cards above Instagram's reply bar, so the band is the
+# space above them. Phone: a 9:20 screen for the showcase video's layers.
+FORMATS = {"story": (540, 960, 30, 284), "post": (468, 585, 4, 200), "phone": (412, 892, 40, 260)}
 
 
 def fit(route_bbox, fmt, shorter=0):
