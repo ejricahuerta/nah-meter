@@ -65,6 +65,26 @@
   #screen.label-only * { visibility: hidden; background: transparent !important; border-color: transparent !important; box-shadow: none !important; }
   #screen.label-only .btn span { visibility: visible; }
 
+  /* Carousel slides: a headline over the map */
+  .sl-shade { position: absolute; left: 0; right: 0; top: 0; }
+  .sl-dim { position: absolute; inset: 0; background: #000; }
+  .sl-top { position: absolute; left: 30px; right: 30px; top: 46px; }
+  .sl-page { position: absolute; right: 24px; top: 20px; font: 700 12px Geist; letter-spacing: 0.04em; color: rgba(255,255,255,.55); }
+  .sl-head { font: 900 36px/1.04 Geist; letter-spacing: -0.04em; color: #fff; }
+  .sl-sub { margin-top: 12px; font: 600 17px/1.32 Geist; color: #DEDEDE; }
+  .sl-chips { margin-top: 16px; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+  .sl-chip { height: 34px; padding: 0 14px; border-radius: 999px; background: #000; border: 1px solid #2A2A2A; display: flex; align-items: center; gap: 6px; font: 600 15px Geist; color: #DEDEDE; font-feature-settings: "tnum"; }
+  .sl-chip b { font-weight: 800; color: #fff; }
+  .sl-list { margin-top: 34px; display: flex; flex-direction: column; gap: 22px; }
+  .sl-item { display: flex; align-items: baseline; gap: 14px; font: 700 21px/1.25 Geist; letter-spacing: -0.01em; color: #fff; }
+  .sl-item i { flex: none; width: 11px; height: 11px; background: #FF3B30; transform: translateY(-2px); }
+  .sl-end { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 0 30px; }
+  .wordmark { display: flex; align-items: flex-end; font: 900 76px/1 Geist; letter-spacing: -0.055em; color: #fff; }
+  .wordmark i { display: block; width: 15px; height: 15px; background: #FF3B30; margin: 0 4px 9px; }
+  .sl-tag { margin-top: 26px; font: 900 27px/1.1 Geist; letter-spacing: -0.04em; color: #fff; }
+  .sl-tag i { display: inline-block; width: 6px; height: 6px; margin-left: 1px; background: #FF3B30; }
+  .sl-foot { margin-top: 30px; font: 600 16px Geist; color: #A8A8A8; }
+
   /* Map labels */
   .lbl { font-family: Inter; paint-order: stroke; stroke: var(--map); stroke-width: 3px; stroke-linejoin: round; }
   .hood { font-weight: 700; font-size: 12.5px; letter-spacing: 0.17em; fill: #A3ACCF; }
@@ -146,9 +166,10 @@ function drawMap(svg, m, fmt, W, H, labelFloor) {
   const [x0, y0, x1, y1] = m.routeBox;
   const rw = Math.max(x1 - x0, 0.3), rh = Math.max(y1 - y0, 0.3);
   // Same fit as scripts/build.py: 62 px headroom for the pins, 40 below for the map credit.
-  const s = Math.min((W - 96) / rw, (bandH - 102) / rh);
+  const room = Math.max(bandH - 102, 40);
+  const s = Math.min((W - 96) / rw, room / rh);
   const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
-  const cxp = W / 2, cyp = bandTop + 62 + (bandH - 102) / 2;
+  const cxp = W / 2, cyp = bandTop + 62 + room / 2;
   const P = ([x, y]) => [cxp + (x - cx) * s, cyp - (y - cy) * s];
   const path = (pts) => "M" + pts.map((p) => P(p).map((v) => v.toFixed(1)).join(" ")).join("L");
   const ring = (rings) => rings.map((r) => path(r) + "Z").join("");
@@ -278,6 +299,53 @@ function drawMap(svg, m, fmt, W, H, labelFloor) {
 
 // ---------------------------------------------------------------- frame
 
+// ---------------------------------------------------------------- carousel slides
+
+/**
+ * One carousel slide (carousel.json): the offer's screen in the "slide" format, a headline over the
+ * map, and per mode: the cards ("offer"), the cards and the sums behind the verdict ("math"), the
+ * features over a dimmed map ("features"), or the wordmark ("end").
+ */
+window.drawSlide = function (sl, o, formats, page) {
+  const [W, H] = formats.slide;
+  const colour = (v) => VERDICT_COLOUR[v] || "#fff";
+  const lead = sl.lead ? `<span style="color:${colour(sl.leadVerdict)}">${esc(sl.lead)}</span> ` : "";
+  const top = h(`<div class="sl-top" style="width:${W - 60}px">
+    ${sl.headline ? `<div class="sl-head">${lead}${esc(sl.headline)}</div>` : ""}
+    ${sl.sub ? `<div class="sl-sub">${esc(sl.sub)}</div>` : ""}
+    ${sl.chips ? `<div class="sl-chips">${sl.chips.map((c) => `<div class="sl-chip">${esc(c[0])} <b>${esc(c[1])}</b></div>`).join("")}</div>` : ""}
+    ${sl.lines ? `<div class="sl-list">${sl.lines.map((l) => `<div class="sl-item"><i></i><span>${esc(l)}</span></div>`).join("")}</div>` : ""}
+  </div>`);
+  // Measure the headline first, so the route starts below it.
+  document.body.append(top);
+  const textBottom = 46 + top.offsetHeight;
+  top.remove();
+  const f = { ...formats, slide: [W, H, Math.max(formats.slide[2], textBottom + 4), formats.slide[3]] };
+  draw(o, "slide", f);
+
+  const screen = document.getElementById("screen");
+  const cardsOut = sl.mode === "features" || sl.mode === "end";
+  if (cardsOut) {
+    screen.querySelector(".ocard").remove();
+    screen.querySelector(".vcard").remove();
+    const attrib = screen.querySelector(".attrib");
+    attrib.style.cssText = "right:14px;bottom:12px";
+    screen.insertBefore(h(`<div class="sl-dim" style="opacity:${sl.mode === "end" ? 0.72 : 0.58}"></div>`), attrib);
+  }
+  const shadeH = sl.mode === "end" ? 0 : textBottom + 70;
+  if (shadeH) screen.insertBefore(h(`<div class="sl-shade" style="height:${shadeH}px;background:linear-gradient(rgba(0,0,0,.9), rgba(0,0,0,.72) 60%, rgba(0,0,0,0))"></div>`), screen.querySelector(".ocard") || screen.querySelector(".attrib"));
+  if (sl.mode === "end") {
+    screen.append(h(`<div class="sl-end">
+      <div class="wordmark"><span>nah</span><i></i><span>meter</span></div>
+      <div class="sl-tag">Bad offer? Just say nah<i></i></div>
+      <div class="sl-foot">${esc(sl.foot)}</div>
+    </div>`));
+  } else {
+    screen.append(top);
+  }
+  screen.append(h(`<div class="sl-page">${page}</div>`));
+};
+
 // Story: the cards end at Instagram's safe-area line (340 of 1920 px), clear of its reply bar.
 // Phone: a plain 9:20 screen with the cards at the bottom (the showcase video's layers).
 const CARD_BOTTOM = { story: 170, phone: 24 };
@@ -303,7 +371,7 @@ window.draw = function (o, fmtName, formats, layer) {
   const vcard = verdictCard(o);
   screen.append(card, vcard);
   let cardTop;
-  if (fmtName === "post") {
+  if (fmtName === "post" || fmtName === "slide") {
     // A 4:5 crop: the frame ends just under the trip line.
     const trip = card.querySelector(".trip");
     cardTop = H - (trip.offsetTop + trip.offsetHeight + 1);
@@ -318,7 +386,7 @@ window.draw = function (o, fmtName, formats, layer) {
   drawMap(svg, o.map, fmt, W, H, vTop - 8);
 
   const attrib = h(`<div class="attrib">Map data © OpenStreetMap contributors · Overture Maps</div>`);
-  if (fmtName !== "post") screen.append(statusBar(o.status), h(`<div class="home"></div>`));
+  if (fmtName !== "post" && fmtName !== "slide") screen.append(statusBar(o.status), h(`<div class="home"></div>`));
   attrib.style.cssText = `right:14px;top:${vTop - 18}px`;
   screen.append(attrib);
 

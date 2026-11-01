@@ -1,0 +1,40 @@
+{
+  "slides": [
+    {
+      "offer": "05",
+      "mode": "offer",
+      "headline": "$5.53 for 21 minutes?",
+      "sub": "nah.meter does the math before the timer runs out."
+    },
+    {
+      "offer": "01",
+      "mode": "math",
+      "headline": "It does the math.",
+      "chips": [["$8.11 ÷ 16 min =", "$30.41/hr"], ["$8.11 ÷ 3.6 km =", "$2.25/km"]]
+    },
+    {
+      "offer": "03",
+      "mode": "offer",
+      "lead": "meh.",
+      "leadVerdict": "YELLOW",
+      "headline": "Pays the hour, long drive.",
+      "sub": "$0.92/km over 13 km. Your call."
+    },
+    {
+      "offer": "04",
+      "mode": "features",
+      "headline": "Your rules. Your call.",
+      "lines": [
+        "Set your $/hr, $/km and minimum.",
+        "Says the verdict out loud. Eyes on the road.",
+        "Never taps anything. You decide.",
+        "No internet. No account."
+      ]
+    },
+    {
+      "offer": "02",
+      "mode": "end",
+      "foot": "For Android · Link in bio"
+    }
+  ]
+}

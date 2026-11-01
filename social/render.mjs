@@ -1,5 +1,6 @@
 // Render the images from data/offers.out.json (run scripts/build.py first).
 //   node render.mjs [ids…]            out/story-NN.png (1080×1920) and out/post-NN.png (1080×1350)
+//   node render.mjs --carousel [--scale=2]       out/carousel-1..5.png (1080×1350), from carousel.json
 //   node render.mjs --layers [--scale=2] [ids…]  layers/NN-screen.png, NN-label.png, NN-verdict.png, NN.json:
 //                                     a phone screen without its verdict card or timer fill, the
 //                                     button's word alone, the verdict card alone, and where things
@@ -15,6 +16,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const data = JSON.parse(fs.readFileSync(path.join(here, "data/offers.out.json"), "utf8"));
 const args = process.argv.slice(2);
 const layers = args.includes("--layers");
+const carousel = args.includes("--carousel");
 // --scale=2 renders the pixels twice as dense (2160 px wide, for a 4K video); positions in
 // NN.json stay in 1080-wide units either way.
 const density = Number(args.find((a) => a.startsWith("--scale="))?.split("=")[1] ?? 1);
@@ -23,6 +25,27 @@ const out = path.join(here, layers ? "layers" : "out");
 fs.mkdirSync(out, { recursive: true });
 
 const browser = await chromium.launch();
+
+if (carousel) {
+  // The carousel: carousel.json's five slides, 1080×1350 (2160×2700 with --scale=2).
+  const { slides } = JSON.parse(fs.readFileSync(path.join(here, "carousel.json"), "utf8"));
+  const [W, H] = data.formats.slide;
+  const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: (1080 / W) * density });
+  const page = await ctx.newPage();
+  page.on("pageerror", (e) => { console.error(e); process.exitCode = 1; });
+  await page.goto(pathToFileURL(path.join(here, "template.html")).href);
+  for (const [i, sl] of slides.entries()) {
+    const o = data.offers.find((x) => x.id === sl.offer);
+    await page.evaluate(([sl, o, formats, n]) => window.drawSlide(sl, o, formats, n), [sl, o, data.formats, `${i + 1}/${slides.length}`]);
+    await page.evaluate(() => document.fonts.ready);
+    const file = path.join(out, `carousel-${i + 1}.png`);
+    await page.locator("#screen").screenshot({ path: file });
+    console.log(file);
+  }
+  await browser.close();
+  process.exit();
+}
+
 const formats = layers ? ["phone"] : ["story", "post"];
 for (const fmt of formats) {
   const [W, H] = data.formats[fmt];

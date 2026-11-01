@@ -281,7 +281,8 @@ def map_layers(box_ll, proj, rect_km, detail):
 # Page sizes (CSS px) and the band above the cards the route must fit in; template.html uses the same.
 # Story: 540 px wide (rendered at 2×), the cards above Instagram's reply bar, so the band is the
 # space above them. Phone: a 9:20 screen for the showcase video's layers.
-FORMATS = {"story": (540, 960, 30, 284), "post": (468, 585, 4, 200), "phone": (412, 892, 40, 260)}
+# Slide: the carousel (540 px wide at 2x for 1080x1350); its headline sits over the top of the map.
+FORMATS = {"story": (540, 960, 30, 284), "post": (468, 585, 4, 200), "phone": (412, 892, 40, 260), "slide": (540, 675, 130, 165)}
 
 
 def fit(route_bbox, fmt, shorter=0):
@@ -293,8 +294,10 @@ def fit(route_bbox, fmt, shorter=0):
     x0, y0, x1, y1 = route_bbox
     rw, rh = max(x1 - x0, 0.3), max(y1 - y0, 0.3)
     # Pins stand 56 px above their point: 62 px of headroom; 40 below keeps the map credit clear.
-    s = min((W - 96) / rw, (band_h - 102) / rh)
-    return s, (W / 2, band_top + 62 + (band_h - 102) / 2)
+    # At least 40 px for the route itself, even when the band is short (the carousel).
+    room = max(band_h - 102, 40)
+    s = min((W - 96) / rw, room / rh)
+    return s, (W / 2, band_top + 62 + room / 2)
 
 
 def build_offer(o, t):
@@ -372,7 +375,8 @@ def build_offer(o, t):
         cx, cy = (rb[0] + rb[2]) / 2, (rb[1] + rb[3]) / 2
         ext = [min(ext[0], cx - cx_px / s - 0.3), min(ext[1], cy - (H - cy_px) / s - 0.3),
                max(ext[2], cx + (W - cx_px) / s + 0.3), max(ext[3], cy + cy_px / s + 0.3)]
-        detail = detail and s > 16  # side streets only when zoomed in enough to read them
+        if fmt != "slide":
+            detail = detail and s > 16  # side streets only when zoomed in enough to read them
     rect_km = shp_box(*ext)
     w, s_ = proj.lonlat(ext[0], ext[1])
     e, n = proj.lonlat(ext[2], ext[3])
