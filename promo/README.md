@@ -25,6 +25,16 @@ Renders go to `out/`, which is gitignored. Remotion uses the Chromium at
 `/opt/pw-browsers/chromium` (set in `remotion.config.ts`); point `REMOTION_BROWSER` at another
 Chrome or Chromium, or add `--browser-executable`, to use a different one.
 
+### The showcase cut
+
+Vertical only: the same audio, with the offers on map photos.
+
+```
+(cd ../social && npm install && python3 scripts/build.py)   # the photos' data (see social/README.md)
+npm run showcase-assets      # phone layers → public/showcase/, positions → src/showcase.json
+npm run render:showcase      # out/nahmeter-showcase-vertical.mp4
+```
+
 ## How it fits together
 
 | File | What it does |

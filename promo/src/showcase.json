@@ -1,0 +1,82 @@
+{
+  "01": {
+    "id": "01",
+    "width": 1080,
+    "height": 2338,
+    "verdict": [
+      42,
+      852,
+      996,
+      369
+    ],
+    "button": [
+      87,
+      2083,
+      907,
+      147
+    ],
+    "exclusive": false,
+    "timer": 0.18,
+    "word": "bet!"
+  },
+  "03": {
+    "id": "03",
+    "width": 1080,
+    "height": 2338,
+    "verdict": [
+      42,
+      800,
+      996,
+      369
+    ],
+    "button": [
+      87,
+      2084,
+      907,
+      147
+    ],
+    "exclusive": false,
+    "timer": 0.52,
+    "word": "meh."
+  },
+  "05": {
+    "id": "05",
+    "width": 1080,
+    "height": 2338,
+    "verdict": [
+      42,
+      726,
+      996,
+      369
+    ],
+    "button": [
+      89,
+      2081,
+      902,
+      147
+    ],
+    "exclusive": true,
+    "timer": 0.61,
+    "word": "nah."
+  },
+  "06": {
+    "id": "06",
+    "width": 1080,
+    "height": 2338,
+    "verdict": [
+      42,
+      800,
+      996,
+      369
+    ],
+    "button": [
+      87,
+      2084,
+      907,
+      147
+    ],
+    "exclusive": false,
+    "timer": 0.12,
+    "word": "nah."
+  }
+}

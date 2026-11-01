@@ -4,6 +4,7 @@ import { loadFont } from "@remotion/fonts";
 import timeline from "./timeline.json";
 import { GEIST } from "./tokens";
 import { Minimal } from "./Minimal";
+import { Showcase } from "./Showcase";
 
 // Geist from the app (app/src/main/res/font, SIL OFL 1.1); scripts/copy-fonts.mjs puts it in public/.
 for (const weight of [400, 500, 600, 700, 800, 900]) {
@@ -31,6 +32,16 @@ export const Root: React.FC = () => (
       width={1920}
       height={1080}
       defaultProps={{ aspect: "wide" as const, withAudio: true }}
+    />
+    {/* The showcase: the same audio and timeline, with the offers on map photos (social/). */}
+    <Composition
+      id="NahShowcaseVertical"
+      component={Showcase}
+      durationInFrames={frames}
+      fps={timeline.fps}
+      width={1080}
+      height={1920}
+      defaultProps={{ withAudio: true }}
     />
   </>
 );

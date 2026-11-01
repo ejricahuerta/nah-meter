@@ -46,6 +46,25 @@ node render.mjs             # out/story-NN.png and out/post-NN.png
 
 The post is a 4:5 crop that ends just under the trip line.
 
+## Showcase video
+
+`node render.mjs --layers 05 01 03 06` renders four offers as phone-shaped layers in `layers/`:
+
+- the screen without its verdict card or the Accept timer's fill
+- the button's word alone
+- the verdict card alone
+- where each of them sits
+
+`node scripts/copy-to-promo.mjs` hands the layers to `promo/`, where `src/Showcase.tsx` animates
+them over the promo's audio (`npm run showcase-assets` in `promo/` runs both). Each of these offers
+has a rate matching what its verdict clip says ("15", "30", "21 an hour"), so keep those rates if
+you change them.
+
+## Story layout
+
+Stories keep the offer card 340 px above the bottom and the cards below 250 px from the top, so
+Instagram's name row and reply bar don't cover them. The map fills the rest of the frame.
+
 ## Data and licences
 
 - Map data: [Overture Maps Foundation](https://overturemaps.org), release `2026-10-21.0`, read

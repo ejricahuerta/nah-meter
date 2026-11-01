@@ -29,7 +29,7 @@ type Layout = {
   text: number;
 };
 
-const LAYOUTS: Record<"vertical" | "wide", Layout> = {
+export const LAYOUTS: Record<"vertical" | "wide", Layout> = {
   vertical: { W: 1080, H: 1920, k: 2.35, stackX: 540, stackTop: 560, wordsY: 1420, text: 104 },
   wide: { W: 1920, H: 1080, k: 2.0, stackX: 960, stackTop: 150, wordsY: 840, text: 96 },
 };
@@ -39,13 +39,13 @@ const VERDICT_H = 130;
 const DOCK_GAP = 20;
 
 /** A fast, clean entrance: 0 → 1 with a little settle. */
-const useSnap = () => {
+export const useSnap = () => {
   const { fps } = useVideoConfig();
   return (t: number, at: number) => spring({ frame: Math.max(0, (t - at) * fps), fps, config: { damping: 18, stiffness: 260, mass: 0.7 } });
 };
 
 /** Words that snap in at `at`. */
-const Words: React.FC<{ t: number; at: number; size: number; color: string; children: React.ReactNode; style?: React.CSSProperties }> = ({
+export const Words: React.FC<{ t: number; at: number; size: number; color: string; children: React.ReactNode; style?: React.CSSProperties }> = ({
   t,
   at,
   size,
@@ -117,7 +117,7 @@ const Stack: React.FC<{ t: number; o: OfferScene; L: Layout; question?: React.Re
  * A benefit on black: the red square, then a line or two, each arriving when it's said. With
  * `wave`, a waveform drawn from that voiceover line's own loudness (src/voice.json).
  */
-const Benefit: React.FC<{ t: number; L: Layout; lines: { text: string; at: number }[]; wave?: { at: number; env: number[] } }> = ({ t, L, lines, wave }) => {
+export const Benefit: React.FC<{ t: number; L: Layout; lines: { text: string; at: number }[]; wave?: { at: number; env: number[] } }> = ({ t, L, lines, wave }) => {
   const { fps } = useVideoConfig();
   const snap = useSnap();
   const wide = L.W > L.H;
@@ -149,7 +149,7 @@ const Benefit: React.FC<{ t: number; L: Layout; lines: { text: string; at: numbe
 };
 
 /** Your rules: the Per hour field, huge, stepping up with taps on +. */
-const RulesField: React.FC<{ t: number; L: Layout }> = ({ t, L }) => {
+export const RulesField: React.FC<{ t: number; L: Layout }> = ({ t, L }) => {
   const snap = useSnap();
   const steps = timeline.rulesStepsSec;
   const done = steps.filter((s) => t >= s).length;
@@ -204,7 +204,7 @@ const RulesField: React.FC<{ t: number; L: Layout }> = ({ t, L }) => {
 };
 
 /** Trust, on black: what it never does, then what it doesn't need, each when it's said. */
-const Trust: React.FC<{ t: number; L: Layout }> = ({ t, L }) => {
+export const Trust: React.FC<{ t: number; L: Layout }> = ({ t, L }) => {
   const [a, b] = timeline.trustLinesSec;
   const size = L.W > L.H ? 120 : 112;
   return (
@@ -232,7 +232,7 @@ const Trust: React.FC<{ t: number; L: Layout }> = ({ t, L }) => {
 };
 
 /** The end: the wordmark, the red square landing, the tagline. */
-const End: React.FC<{ t: number; L: Layout }> = ({ t, L }) => {
+export const End: React.FC<{ t: number; L: Layout }> = ({ t, L }) => {
   const { fps } = useVideoConfig();
   const snap = useSnap();
   const e = timeline.endCue;

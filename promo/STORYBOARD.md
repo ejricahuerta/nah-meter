@@ -44,3 +44,22 @@ benefits shown are earning more (skip bad offers) and keeping eyes on the road (
 - Lowercase verdicts from the app: **nah.**, **meh.**, **bet!**. No emoji; the only exclamation
   mark is in **bet!**. Verdict words on white use the app's Daylight inks for contrast.
 - Android only.
+
+## Showcase cut (vertical only)
+
+`NahShowcaseVertical` (`src/Showcase.tsx`, `npm run render:showcase`) uses the same audio and
+timeline as the promo. Its offer scenes play on the map photos from `social/`: real Toronto streets
+and restaurants, made-up offers, and each photo's rate matches what its clip says. Each photo sits in
+a phone on white. Its verdict card lands at the same moment as the clip, the camera leans in on the
+card, and a caption on a white pill sits above the phone.
+
+| Time | Photo | Verdict | Caption |
+| --- | --- | --- | --- |
+| 0.0–11.4 s | Hyderabad Biryani Hut (Ellesmere Rd) → McLevin Ave & Hupfield Trl, Scarborough. $5.53, 21 min; the Accept timer runs down | **nah.** $15.80/hr at 4.6 s | "For delivery drivers." · "New offer. 15 seconds." · "Worth it?" · "nah.meter does the math." |
+| 11.4–15.9 s | Kinton Ramen (Queen St W) → Hanna Ave & Liberty St | **bet!** $30.41/hr | "bet! Pays your rate." |
+| 15.9–23.7 s | La Carnita (Square One) → Rayside Dr & Stevenharris Dr, Etobicoke | **meh.** $21.19/hr | "meh. Pays the hour, long drive." |
+| 23.7–26.5 s | Dave's Hot Chicken (Yonge St) → Keewatin Ave & Mount Pleasant Rd | **nah.** Under $5.50 minimum | "nah. Not worth your time." |
+| 26.5–45.7 s | The promo's money, road, rules, trust and end scenes, unchanged | | |
+
+The photos come from `npm run showcase-assets`, which needs `social/` built first (see
+`social/README.md`).

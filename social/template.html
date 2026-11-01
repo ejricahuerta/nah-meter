@@ -294,6 +294,7 @@ window.draw = function (o, fmtName, formats, layer) {
   screen.style.height = H + "px";
   screen.style.background = "";
   document.body.style.background = "";
+  document.documentElement.style.background = "";
   screen.classList.remove("label-only");
   screen.innerHTML = "";
   const svg = el("svg", { id: "map", width: W, height: H, viewBox: `0 0 ${W} ${H}` }, screen);
@@ -335,11 +336,13 @@ window.draw = function (o, fmtName, formats, layer) {
     svg.remove();
     screen.style.background = "transparent";
     document.body.style.background = "transparent";
+    document.documentElement.style.background = "transparent";
     screen.classList.add("label-only");
   } else if (layer === "verdict") {
     for (const c of [...screen.children]) if (c !== vcard) c.remove();
     screen.style.background = "transparent";
     document.body.style.background = "transparent";
+    document.documentElement.style.background = "transparent";
   }
   return info;
 };

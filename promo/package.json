@@ -12,7 +12,9 @@
     "stills": "npm run fonts && node scripts/stills.mjs",
     "render:vertical": "remotion render NahPromoVertical out/nahmeter-promo-vertical.mp4",
     "render:wide": "remotion render NahPromoWide out/nahmeter-promo-wide.mp4",
-    "render": "npm run prepare-assets && npm run render:vertical && npm run render:wide"
+    "render": "npm run prepare-assets && npm run render:vertical && npm run render:wide",
+    "showcase-assets": "cd ../social && node render.mjs --layers 05 01 03 06 && node scripts/copy-to-promo.mjs",
+    "render:showcase": "remotion render NahShowcaseVertical out/nahmeter-showcase-vertical.mp4"
   },
   "dependencies": {
     "@remotion/cli": "4.0.539",

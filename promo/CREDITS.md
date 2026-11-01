@@ -24,8 +24,22 @@ of those are in this project.
 | Geist (all weights) | `app/src/main/res/font/geist_*.ttf`, copied into `public/fonts` at build time (not committed twice) | SIL Open Font License 1.1 |
 | UI (verdict card, stand-in offer card, the Per hour stepper, wordmark) | Redrawn in code from `ui/Nah.kt`, `ui/SetupScreen.kt`, `ui/ThresholdsScreen.kt` | Same licence as the repo |
 
-No third-party brand marks, logos, colours or screenshots appear. The offer card is the app's
-neutral stand-in (`StandInOffer`).
+No third-party brand marks, logos, colours or screenshots appear in the promo. The offer card is
+the app's neutral stand-in (`StandInOffer`).
+
+### The showcase cut (`NahShowcaseVertical`)
+
+It uses the same audio as the promo. Its offer scenes are the map photos from `social/` (see
+`social/README.md`):
+
+| What | Source | Licence |
+| --- | --- | --- |
+| Map: roads, water, parks and neighbourhood names | [Overture Maps Foundation](https://overturemaps.org), release `2026-10-21.0`; the roads and water come from OpenStreetMap | ODbL (OpenStreetMap). Credited on every photo: "Map data © OpenStreetMap contributors · Overture Maps" |
+| Restaurant names and places | Overture Maps places | CDLA Permissive 2.0 |
+| Inter, on the offer card | `@fontsource/inter` | SIL Open Font License 1.1 |
+
+The offers are made up. Their card copies the layout and colours of the one couriers see (the
+owner's choice for these images). No app name or logo is shown.
 
 ## Tools
 
