@@ -10,14 +10,23 @@
       "offer": "01",
       "mode": "math",
       "headline": "It does the math.",
-      "chips": [["$8.11 ÷ 16 min =", "$30.41/hr"], ["$8.11 ÷ 3.6 km =", "$2.25/km"]]
+      "chips": [
+        [
+          "$8.11 ÷ 16 min =",
+          "$30.41/hr"
+        ],
+        [
+          "$8.11 ÷ 3.6 km =",
+          "$2.25/km"
+        ]
+      ]
     },
     {
       "offer": "03",
       "mode": "offer",
       "lead": "meh.",
       "leadVerdict": "YELLOW",
-      "headline": "Pays the hour, long drive.",
+      "headline": "Pays the hour,\nlong drive.",
       "sub": "$0.92/km over 13 km. Your call."
     },
     {

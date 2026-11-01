@@ -204,7 +204,8 @@ function drawMap(svg, m, fmt, W, H, labelFloor) {
   ];
   // Labels stay off the route line too.
   for (let i = 0; i < m.route.length; i += 2) { const [x, y] = P(m.route[i]); taken.push([x - 7, y - 7, 14, 14]); }
-  const free = (r) => r[0] > 6 && r[0] + r[2] < W - 6 && r[1] > 40 && r[1] + r[3] < labelFloor &&
+  // Labels stay below the band's top (on a slide, the headline sits above it).
+  const free = (r) => r[0] > 6 && r[0] + r[2] < W - 6 && r[1] > Math.max(40, bandTop - 6) && r[1] + r[3] < labelFloor &&
     !taken.some((t) => r[0] < t[0] + t[2] && r[0] + r[2] > t[0] && r[1] < t[1] + t[3] && r[1] + r[3] > t[1]);
   const ctx = document.createElement("canvas").getContext("2d");
   const measure = (text, font, spacing) => { ctx.font = font; return ctx.measureText(text).width + spacing * text.length; };
@@ -266,7 +267,8 @@ function drawMap(svg, m, fmt, W, H, labelFloor) {
     taken.push(r);
   }
 
-  // Route: courier → restaurant → drop-off.
+  // Route: courier → restaurant → drop-off (and the pins), in their own group.
+  svg = el("g", { class: "route" }, svg);
   const rt = path(m.route);
   el("path", { d: rt, fill: "none", stroke: "#8E9198", "stroke-width": 9.5, "stroke-linecap": "round", "stroke-linejoin": "round" }, svg);
   el("path", { d: rt, fill: "none", stroke: "#F3F3F3", "stroke-width": 5.5, "stroke-linecap": "round", "stroke-linejoin": "round" }, svg);
@@ -311,7 +313,7 @@ window.drawSlide = function (sl, o, formats, page) {
   const colour = (v) => VERDICT_COLOUR[v] || "#fff";
   const lead = sl.lead ? `<span style="color:${colour(sl.leadVerdict)}">${esc(sl.lead)}</span> ` : "";
   const top = h(`<div class="sl-top" style="width:${W - 60}px">
-    ${sl.headline ? `<div class="sl-head">${lead}${esc(sl.headline)}</div>` : ""}
+    ${sl.headline ? `<div class="sl-head">${lead}${esc(sl.headline).replace(/\n/g, "<br>")}</div>` : ""}
     ${sl.sub ? `<div class="sl-sub">${esc(sl.sub)}</div>` : ""}
     ${sl.chips ? `<div class="sl-chips">${sl.chips.map((c) => `<div class="sl-chip">${esc(c[0])} <b>${esc(c[1])}</b></div>`).join("")}</div>` : ""}
     ${sl.lines ? `<div class="sl-list">${sl.lines.map((l) => `<div class="sl-item"><i></i><span>${esc(l)}</span></div>`).join("")}</div>` : ""}
@@ -328,6 +330,8 @@ window.drawSlide = function (sl, o, formats, page) {
   if (cardsOut) {
     screen.querySelector(".ocard").remove();
     screen.querySelector(".vcard").remove();
+    screen.querySelector(".route").remove();
+    for (const t of screen.querySelectorAll("#map text")) t.remove(); // no names behind the words
     const attrib = screen.querySelector(".attrib");
     attrib.style.cssText = "right:14px;bottom:12px";
     screen.insertBefore(h(`<div class="sl-dim" style="opacity:${sl.mode === "end" ? 0.72 : 0.58}"></div>`), attrib);
@@ -371,8 +375,14 @@ window.draw = function (o, fmtName, formats, layer) {
   const vcard = verdictCard(o);
   screen.append(card, vcard);
   let cardTop;
-  if (fmtName === "post" || fmtName === "slide") {
+  if (fmtName === "post") {
     // A 4:5 crop: the frame ends just under the trip line.
+    const trip = card.querySelector(".trip");
+    cardTop = H - (trip.offsetTop + trip.offsetHeight + 1);
+  } else if (fmtName === "slide") {
+    // A slide ends under the trip line too, and drops the tip line so the route gets more room.
+    card.querySelector(".tip").style.display = "none";
+    card.querySelector(".pay").style.marginBottom = "14px";
     const trip = card.querySelector(".trip");
     cardTop = H - (trip.offsetTop + trip.offsetHeight + 1);
   } else {

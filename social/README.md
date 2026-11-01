@@ -46,6 +46,20 @@ node render.mjs             # out/story-NN.png and out/post-NN.png
 
 The post is a 4:5 crop that ends just under the trip line.
 
+## Carousel
+
+`node render.mjs --carousel` writes `out/carousel-1.png` … `carousel-5.png` (1080×1350) from
+`carousel.json`: a headline over the dark map on every slide. With `--scale=2` it writes 2160×2700.
+
+1. "$5.53 for 21 minutes?" with offer 05's **nah.** card
+2. "It does the math." with the sums behind offer 01's **bet!**
+3. "**meh.** Pays the hour, long drive." with offer 03
+4. "Your rules. Your call." with four features, over a dimmed map
+5. The wordmark, "Bad offer? Just say nah." and "For Android · Link in bio"
+
+A caption to go with it: "Sample offers, made-up numbers. nah.meter isn't affiliated with any
+delivery app. Android only, link in bio."
+
 ## Showcase video
 
 `node render.mjs --layers --scale=2 05 01 03 06` renders four offers as phone-shaped layers in
