@@ -38,7 +38,7 @@ if (carousel) {
     const o = data.offers.find((x) => x.id === sl.offer);
     await page.evaluate(([sl, o, formats, n]) => window.drawSlide(sl, o, formats, n), [sl, o, data.formats, `${i + 1}/${slides.length}`]);
     await page.evaluate(() => document.fonts.ready);
-    const file = path.join(out, `carousel-${i + 1}.png`);
+    const file = path.join(out, `carousel-${i + 1}${density === 1 ? "" : `@${density}x`}.png`);
     await page.locator("#screen").screenshot({ path: file });
     console.log(file);
   }

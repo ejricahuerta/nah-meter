@@ -49,7 +49,8 @@ The post is a 4:5 crop that ends just under the trip line.
 ## Carousel
 
 `node render.mjs --carousel` writes `out/carousel-1.png` … `carousel-5.png` (1080×1350) from
-`carousel.json`: a headline over the dark map on every slide. With `--scale=2` it writes 2160×2700.
+`carousel.json`: a headline over the dark map on every slide. With `--scale=2` it writes 2160×2700
+as `carousel-N@2x.png`, next to the 1080 files for posting.
 
 1. "$5.53 for 21 minutes?" with offer 05's **nah.** card
 2. "It does the math." with the sums behind offer 01's **bet!**
