@@ -48,7 +48,7 @@ benefits shown are earning more (skip bad offers) and keeping eyes on the road (
 ## Showcase cut (vertical only)
 
 `NahShowcaseVertical` (`src/Showcase.tsx`, `npm run render:showcase`) uses the promo's timeline,
-voiceover, clips and sound effects, with no music (the owner's choice). Its offer scenes play on the map photos from `social/`: real Toronto streets
+voiceover, clips and sound effects, with no music and no timer ticks (the owner's choice). Its offer scenes play on the map photos from `social/`: real Toronto streets
 and restaurants, made-up offers, and each photo's rate matches what its clip says. Each photo sits in
 a phone on white. Its verdict card lands at the same moment as the clip, the camera leans in on the
 card, and a caption on a white pill sits above the phone.

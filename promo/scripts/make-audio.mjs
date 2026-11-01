@@ -1,7 +1,8 @@
 // Builds public/audio/mix.wav: music, sound effects and the spoken verdicts.
 //   - Music: audio/build/music.wav, played by scripts/make-music.mjs (run it first).
-//     MUSIC=none leaves the music out, and MIX=<name> writes public/audio/<name> instead
-//     (the showcase: MUSIC=none MIX=mix-showcase.wav).
+//     MUSIC=none leaves the music out, TICKS=none the timer ticks under the opening offer, and
+//     MIX=<name> writes public/audio/<name> instead (the showcase: MUSIC=none TICKS=none
+//     MIX=mix-showcase.wav).
 //   - Sound effects: recorded (Kenney, CC0) in audio/sfx/, shaped below.
 //   - Speech: the owner's voiceover lines and verdict clips, prepared by scripts/make-timeline.mjs
 //     (run it first), placed where src/timeline.json says, never overlapping or cut off.
@@ -16,6 +17,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const T = JSON.parse(readFileSync(join(root, "src", "timeline.json"), "utf8"));
 const SR = 48000;
 const NO_MUSIC = process.env.MUSIC === "none";
+const NO_TICKS = process.env.TICKS === "none";
 const MIX = process.env.MIX ?? "mix.wav";
 const N = Math.round(T.durationSec * SR);
 
@@ -173,7 +175,7 @@ if (!NO_MUSIC) {
 }
 
 // The question: the offer's timer ticking every 0.5 s until the answer lands; a swell into it.
-for (let t = 0, k = 0; t < T.musicInSec - 0.05; t += 0.5, k++) add("sfx", t, tick(k), 0.45, k % 2 ? 0.3 : -0.3, 0.1);
+if (!NO_TICKS) for (let t = 0, k = 0; t < T.musicInSec - 0.05; t += 0.5, k++) add("sfx", t, tick(k), 0.45, k % 2 ? 0.3 : -0.3, 0.1);
 for (const s of T.hookLinesSec) add("sfx", s, thump(), 0.45, 0, 0.15);
 add("sfx", T.musicInSec - 1.0, riser(1.0), 0.4, 0, 0.3);
 
