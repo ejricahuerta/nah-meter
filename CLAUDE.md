@@ -138,12 +138,17 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
   `l hr 3 min` (Uber's "1" reads as l or I). Uber always shows cents. A trip line with an hours word
   but no readable hours number is `can't read.`: the minutes alone once scored 63 min as 3
   ($270.80/hr), and "1 hr12 min" as 2 ($190.40/hr). A trip faster than 100 km/h is a misread
-  time, also `can't read.`
+  time, also `can't read.`, and so is one over 4 hours (`MAX_HOURS`): a glyph against the "1"
+  once made "1 hr 4 min" 11 hr 4 min ($1.72/hr, 2026-11-01).
 - **Pay is the dollar amount in the tallest text** in the band above the trip line, never the
   largest value: pages behind the pop-up have their own dollar amounts.
 - The restaurant and drop-off area are the lines between the trip line and the card's button
-  (Accept/Match); OCR place lines must start near the trip line's left edge, so map labels beside
-  the card stay out. They're stored with each logged offer (Room v2) and shown in the Log's detail sheet.
+  (Accept/Match); OCR place lines must start between just left of the trip line's left edge and its
+  middle, so map labels beside the card stay out on both sides ("ort" left, "brt"/"Pai" right, which
+  were once logged as the restaurant). Uber wraps long restaurant names; the following lines with a
+  bracket belong to the name ("(Yonge" / "Street)", "(Richmond Hill)"), since the area never has
+  one. The route icon read as a letter ("9 ", "P ", "o ", "b ") and Uber's "Orders have the same
+  drop-off" are dropped. They're stored with each logged offer and shown in the Log's detail sheet.
 - Whether a restaurant is open can't be checked (no internet). Instead the courier flags one from
   the Log's detail sheet ("Slow pickup", "Was closed"; `PlaceFlag`, kept in DataStore), and later
   offers whose restaurant matches (`flagFor`: `samePlace`, so OCR slips still match, but each
