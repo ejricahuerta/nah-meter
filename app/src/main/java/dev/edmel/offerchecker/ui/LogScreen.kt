@@ -236,7 +236,8 @@ private fun OfferDetails(e: OfferEntry, thresholds: Thresholds, flags: List<Flag
     val verdict = runCatching { Verdict.valueOf(e.verdict) }.getOrDefault(Verdict.GREY)
     val rescored = Scorer.score(
         Offer(BigDecimal.valueOf(e.pay), e.minutes, BigDecimal.valueOf(e.km), e.stacked, orders = e.orders, addOn = e.addOn),
-        thresholds.copy(waitBufferMin = 0),
+        // The logged minutes already include the wait buffer and the pickup wait for several orders.
+        thresholds.copy(waitBufferMin = 0, perOrderWaitMin = 0),
     )
     val sameVerdict = rescored.verdict == verdict
     // The logged rates, the strict one big as on the card. The reason comes from today's rules, so

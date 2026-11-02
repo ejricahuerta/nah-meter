@@ -51,7 +51,9 @@ fun ThresholdsScreen(settings: AppSettings, modifier: Modifier = Modifier) {
     val lastRead by ServiceState.lastRead.collectAsState()
     val logged by remember { OfferDatabase.get(ctx).offers().observeAll() }.collectAsState(initial = emptyList())
     val sample: Offer = lastRead?.evaluation?.offer
-        ?: logged.firstOrNull()?.let { Offer(BigDecimal.valueOf(it.pay), it.minutes, BigDecimal.valueOf(it.km), it.stacked) }
+        ?: logged.firstOrNull()?.let {
+            Offer(BigDecimal.valueOf(it.pay), it.minutes, BigDecimal.valueOf(it.km), it.stacked, orders = it.orders, addOn = it.addOn)
+        }
         ?: Offer(BigDecimal("6.07"), 23, BigDecimal("11.5"))
     val isExample = lastRead == null && logged.isEmpty()
     val preview = Scorer.score(sample, t)
@@ -67,12 +69,18 @@ fun ThresholdsScreen(settings: AppSettings, modifier: Modifier = Modifier) {
             VerdictCard(preview, t)
             Text(
                 (if (isExample) "An example offer" else "Your last offer") +
-                    " · $${sample.pay.toPlainString()} · ${sample.minutes} min · ${sample.km.toPlainString()} km",
+                    " · $${sample.pay.toPlainString()} · ${sample.minutes} min · ${sample.km.toPlainString()} km" +
+                    (if (sample.addOn) " · add-on" else if (sample.orders > 1) " · ${sample.orders} orders" else ""),
                 style = Nah.style(14.sp, 400, 20.sp, color = c.inkMuted),
             )
         }
 
         NahGroup { RuleSteppers(t, showExtras = true) }
+
+        Column {
+            SectionLabel("Minimum pay")
+            NahGroup { MinPaySteppers(t) }
+        }
 
         Column {
             SectionLabel("Per app (optional)")
@@ -93,8 +101,9 @@ private fun step(v: BigDecimal, delta: String, lo: String, hi: String) =
     (v + BigDecimal(delta)).max(BigDecimal(lo)).min(BigDecimal(hi)).setScale(2, RoundingMode.HALF_UP)
 
 /**
- * The rule steppers, as rows to put in a [NahGroup]: which rate is strict, minimum pay, per hour,
- * per km and, with [showExtras], max km, the unpaid extra km and the wait buffer.
+ * The rule steppers, as rows to put in a [NahGroup]: which rate is strict, per hour, per km and,
+ * with [showExtras], max km, the unpaid extra km and the wait buffer. Without [showExtras] (Setup)
+ * it also has the one-order minimum pay; the Rules tab has every minimum in [MinPaySteppers].
  */
 @Composable
 fun RuleSteppers(t: Thresholds, showExtras: Boolean) {
@@ -106,13 +115,12 @@ fun RuleSteppers(t: Thresholds, showExtras: Boolean) {
         "Strict on", "The other one only gives meh.", listOf("$/hr", "$/km"), if (perKmFirst) 1 else 0,
     ) { i -> scope.launch { repo.setPriority(if (i == 1) Priority.PER_KM else Priority.HOURLY) } }
     NahDivider()
-    ThresholdField(
-        "Minimum pay", money(t.minPay), null, "Below this is always nah.",
-        "Decrease minimum pay by $0.25", "Increase minimum pay by $0.25",
-        { scope.launch { repo.setMinPay(step(t.minPay, "-0.25", "0", "50")) } },
-        { scope.launch { repo.setMinPay(step(t.minPay, "0.25", "0", "50")) } },
-    )
-    NahDivider()
+    if (!showExtras) {
+        MoneyStepper(
+            "Minimum pay", "minimum pay", t.minPay, hint = "For one order. Below this is nah.", max = "80",
+        ) { repo.setMinPay(it) }
+        NahDivider()
+    }
     ThresholdField(
         "Per hour", money(t.minHourly), "/hr", if (perKmFirst) "Under this is meh." else "Under this is nah.",
         "Decrease per hour by $0.50", "Increase per hour by $0.50",
@@ -167,6 +175,48 @@ fun RuleSteppers(t: Thresholds, showExtras: Boolean) {
             { scope.launch { repo.setWaitBuffer((t.waitBufferMin + 1).coerceIn(0, 30)) } },
         )
     }
+}
+
+/**
+ * Minimum pay by the card's orders (1, 2, 3 or more, an add-on), and the tip cushion that comes off
+ * each order's pay first, as rows to put in a [NahGroup].
+ */
+@Composable
+fun MinPaySteppers(t: Thresholds) {
+    val ctx = LocalContext.current
+    val repo = remember { SettingsRepository(ctx) }
+    MoneyStepper("1 order", "minimum pay for 1 order", t.minPay, max = "80") { repo.setMinPay(it) }
+    NahDivider()
+    MoneyStepper("2 orders", "minimum pay for 2 orders", t.minPay2, max = "80") { repo.setMinPay2(it) }
+    NahDivider()
+    MoneyStepper("3+ orders", "minimum pay for 3 or more orders", t.minPay3, max = "80") { repo.setMinPay3(it) }
+    NahDivider()
+    MoneyStepper(
+        "Add-on", "the add-on minimum", t.minAddOn, hint = "What an \"Add a delivery\" card adds.",
+        max = "50", offAtZero = true,
+    ) { repo.setMinAddOn(it) }
+    NahDivider()
+    MoneyStepper(
+        "Tip cushion", "the tip cushion", t.tipCushion, unit = "/order",
+        hint = "Pay includes the tip. Taken off per order, in case one doesn't come.",
+        max = "10", offAtZero = true,
+    ) { repo.setTipCushion(it) }
+}
+
+/** A dollar amount in $0.25 steps, from $0 to [max]; "Off" at $0 when [offAtZero]. */
+@Composable
+private fun MoneyStepper(
+    label: String, spokenLabel: String, value: BigDecimal, unit: String? = null, hint: String? = null,
+    max: String, offAtZero: Boolean = false, set: suspend (BigDecimal) -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    val off = offAtZero && value.signum() == 0
+    ThresholdField(
+        label, if (off) "Off" else money(value), if (off) null else unit, hint,
+        "Decrease $spokenLabel by $0.25", "Increase $spokenLabel by $0.25",
+        { scope.launch { set(step(value, "-0.25", "0", max)) } },
+        { scope.launch { set(step(value, "0.25", "0", max)) } },
+    )
 }
 
 private fun money(v: BigDecimal) = "$" + v.setScale(2, RoundingMode.HALF_UP).toPlainString()

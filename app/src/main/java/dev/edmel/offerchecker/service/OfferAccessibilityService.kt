@@ -344,6 +344,10 @@ class OfferAccessibilityService : AccessibilityService() {
                 (if (o.orders > 1) " · ${o.orders} orders" else ""),
             if (wait > 0) "scored as ${e.effectiveMinutes} min (+$wait min)" else null,
             e.extraKm?.let { "extra: ${Scorer.km(it)} km back, unpaid" },
+            e.tipCushion?.let {
+                "tip cushion: −${Scorer.money(it)}" + (if (o.orders > 1) " (${o.orders} × ${Scorer.money(it.divide(BigDecimal(o.orders)))})" else "") +
+                    ", scored on ${Scorer.money((o.pay - it).max(BigDecimal.ZERO))}"
+            },
             "rates: ${e.ratesText}",
             e.failedRule?.let { "rule: $it" } ?: "rule: meets all targets",
             o.pickup?.let { "restaurant: $it" },
