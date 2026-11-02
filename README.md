@@ -33,21 +33,30 @@ The scoring rules and offer patterns in `core/` carry over to either route.
 
 `$/hr = pay ÷ minutes × 60` · `$/km = pay ÷ km` · minutes = Uber's total + optional wait buffer.
 
-| Order | Check                  | Default        | If it fails |
-|-------|------------------------|----------------|-------------|
-| 1     | Minimum pay            | pay ≥ $5.50    | nah.        |
-| 2     | Strict rate            | ≥ $20.00/hr    | nah.        |
-| 3     | The other rate         | ≥ $1.00/km     | meh.        |
-| 4     | All passed             | —              | bet!        |
+| Order | Check                  | Default                                              | If it fails |
+|-------|------------------------|------------------------------------------------------|-------------|
+| 1     | Minimum pay            | 1 order $5.50 · 2 orders $9 · 3+ $12 · add-on $4     | nah.        |
+| 2     | Max km                 | off                                                  | nah.        |
+| 3     | Strict rate            | ≥ $20.00/hr                                          | nah.        |
+| 4     | The other rate         | ≥ $1.00/km                                           | meh.        |
+| 5     | All passed             | —                                                    | bet!        |
 
 $/hr is the strict rate by default. **Strict on $/km** (Rules, or the "Strict on" tile in the
 notification shade) swaps them for busy times, when traffic stretches the minutes but not the km:
 then missing $1.00/km is nah. and missing $20.00/hr is meh.
 
-"Add a delivery" add-ons skip the minimum-pay check: their pay is only what they add to a trip
-you already have, so they're judged on $/hr and $/km. The first check that fails sets the colour. Exactly meeting a target passes. If a number
-can't be read, the card says **can't read.**, never a guess. Every threshold is editable
-in Settings.
+The minimum depends on the card: a stack of 2 or 3+ orders has its own, and so does an "Add a
+delivery" add-on, whose pay is only what it adds to a trip you already have ($0 skips the add-on
+minimum). A stack under its minimum says "Under $9 for 2 orders".
+
+**Tip cushion** (Rules, off by default): Uber's pay includes the estimated tip, and the card
+doesn't say how much of it is tip. A customer who doesn't tip, or takes the tip back, makes the
+offer worth less. Set a cushion, say $1 per order, and every offer is scored as if its pay were
+that much lower for each order (a 3-order card at $1 = $3 off): the minimum, $/hr and $/km all
+use the lower pay. It's a big lever: at $2 per order most offers turn nah.
+
+The first check that fails sets the colour. Exactly meeting a target passes. If a number can't be
+read, the card says **can't read.**, never a guess. Every threshold is editable on the Rules tab.
 
 Example: $6.07, 23 min, 11.5 km → **nah.** `$15.83/hr`, with "Under your $20 · $0.53/km" underneath.
 
@@ -87,13 +96,15 @@ long as the signing secrets below are set, because every build is then signed wi
   Uber's windows with on-device text recognition (Android 11+).
 - Floating badge (accessibility overlay: no "draw over apps" permission needed).
 - Four tabs: **Home** (a power button for reading on or off, today's offers, the delivery apps to
-  open, your rules in one line), **History** (the offer log), **Rules** (which rate is strict, min pay, $/hr, $/km, max km,
-  unpaid extra km for the drive back, wait buffer) and **Settings** (permissions, verdict card, voice, haptics, appearance, delivery apps).
+  open, your rules in one line), **History** (the offer log), **Rules** (which rate is strict, $/hr, $/km, max km,
+  unpaid extra km for the drive back, wait buffer, and minimum pay for 1, 2 and 3+ orders and add-ons, with the
+  tip cushion) and **Settings** (permissions, verdict card, voice, haptics, appearance, delivery apps).
 - Settings → Permissions: each setup step with a one-tap link, and Diagnostics with the **raw
   text** it saw (for diagnosing a grey badge).
 - History: the last 200 offers by day (offers and average $/hr per day), filtered by bet, meh or nah,
   with CSV export. Tap an offer for its restaurant, drop-off and rates.
-- Stacked offers are scored on the combined numbers and marked `×2`.
+- Stacked offers are scored on the combined numbers, with 2 min per order for waiting on food,
+  against the minimum for their number of orders.
 - Home's Uber tile says whether Uber last showed you **Online** or **Offline**, and Today shows
   your time online in Uber. It's read from Uber's own screen ("Finding trips", "Go Online"), on
   the phone. Other delivery apps' screens are never read.
