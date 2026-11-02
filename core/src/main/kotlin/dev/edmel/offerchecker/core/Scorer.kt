@@ -5,11 +5,12 @@ import java.math.RoundingMode
 
 /**
  * The five decision rules, run in order; the first that fails sets the colour.
- *   1. pay ≥ min pay        else Red
+ *   1. pay ≥ min pay        else Red     (by orders: 1, 2 or 3+; add-ons have their own)
  *   2. km ≤ max km          else Red (when a max is set)
  *   3. the strict rate      else Red     ($/hr ≥ min hourly by default, or $/km ≥ min per km)
  *   4. the other rate       else Yellow  ([Thresholds.priority] picks which is strict)
  *   5. otherwise            Green
+ * The tip cushion ([Thresholds.tipCushion] per order) comes off the pay before every rule.
  * The unpaid drive back ([Thresholds.extraKmPercent], on trips over [Thresholds.extraKmOverKm]) adds km
  * and minutes to the rates, not to the max.
  * Comparisons are exact (no rounding); rates are rounded to 2 decimals for display only.
@@ -38,20 +39,24 @@ object Scorer {
         if (minutes <= 0) return Evaluation.CANT_READ
         val m = BigDecimal(minutes)
         val totalKm = offer.km + extraKm
-        val hourly = offer.pay.multiply(SIXTY).divide(m, 2, RoundingMode.HALF_UP)
-        val perKm = if (totalKm.signum() > 0) offer.pay.divide(totalKm, 2, RoundingMode.HALF_UP) else null
+        // Uber's pay includes the estimated tip: score it as if each order's tip came up short.
+        val cushion = t.tipCushion.max(BigDecimal.ZERO).multiply(BigDecimal(offer.orders.coerceAtLeast(1)))
+        val pay = (offer.pay - cushion).max(BigDecimal.ZERO)
+        val hourly = pay.multiply(SIXTY).divide(m, 2, RoundingMode.HALF_UP)
+        val perKm = if (totalKm.signum() > 0) pay.divide(totalKm, 2, RoundingMode.HALF_UP) else null
 
         // Exact checks: pay*60 ≥ minHourly*minutes  ⇔  pay/minutes*60 ≥ minHourly.
-        val shortHourly = offer.pay.multiply(SIXTY) < t.minHourly.multiply(m)
-        val shortPerKm = totalKm.signum() > 0 && offer.pay < t.minPerKm.multiply(totalKm)
+        val shortHourly = pay.multiply(SIXTY) < t.minHourly.multiply(m)
+        val shortPerKm = totalKm.signum() > 0 && pay < t.minPerKm.multiply(totalKm)
         val (strict, soft) = when (t.priority) {
             Priority.HOURLY -> (shortHourly to Check.HOURLY) to (shortPerKm to Check.PER_KM)
             Priority.PER_KM -> (shortPerKm to Check.PER_KM) to (shortHourly to Check.HOURLY)
         }
+        val minPay = t.minPayFor(offer)
         val (verdict, check) = when {
-            // An add-on's pay is only what it adds to a trip already accepted, so the minimum
-            // (meant for a whole trip) doesn't apply; it's judged on $/hr and $/km alone.
-            !offer.addOn && offer.pay < t.minPay -> Verdict.RED to Check.MIN_PAY
+            // By the card's orders; an add-on's pay is only what it adds to a trip already
+            // accepted, so it has its own (smaller) minimum, and 0 skips it.
+            pay < minPay -> Verdict.RED to Check.MIN_PAY
             // The max is about how far Uber sends you: the card's km, without the drive back.
             t.maxKm != null && offer.km > t.maxKm -> Verdict.RED to Check.MAX_KM
             strict.first -> Verdict.RED to strict.second
@@ -59,13 +64,20 @@ object Scorer {
             else -> Verdict.GREEN to null
         }
         val rule = when (check) {
-            Check.MIN_PAY -> "Under ${money(t.minPay)} minimum"
+            Check.MIN_PAY -> when {
+                offer.addOn -> "Under ${money(minPay)} add-on minimum"
+                offer.orders > 1 -> "Under ${money(minPay)} for ${offer.orders} orders"
+                else -> "Under ${money(minPay)} minimum"
+            }
             Check.MAX_KM -> "Over ${km(t.maxKm!!)} km max"
             Check.HOURLY -> "Under ${money(t.minHourly)}/hr target"
             Check.PER_KM -> "Under ${money(t.minPerKm)}/km target"
             null -> null
         }
-        return Evaluation(verdict, offer, minutes, hourly, perKm, rule, check, extraKm.takeIf { it.signum() > 0 })
+        return Evaluation(
+            verdict, offer, minutes, hourly, perKm, rule, check,
+            extraKm.takeIf { it.signum() > 0 }, cushion.takeIf { it.signum() > 0 },
+        )
     }
 
     /** "15" for whole km, "12.5" otherwise. */
