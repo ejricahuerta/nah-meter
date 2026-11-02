@@ -81,8 +81,9 @@ never a push to `main`.
 ```
 core/  pure Kotlin, no Android: what to read and how to score it (unit-tested)
   OfferParser.kt  all text patterns; card texts -> ReadResult; OCR lines -> card texts
-  Scorer.kt       the five rules (max km off by default; Thresholds.priority picks the strict rate, $/hr
-                  or $/km, the other gives meh.) and the unpaid extra km, exact BigDecimal maths -> Evaluation
+  Scorer.kt       the five rules (minimum pay by orders: 1, 2, 3+ or add-on; max km off by default;
+                  Thresholds.priority picks the strict rate, $/hr or $/km, the other gives meh.), the tip
+                  cushion and the unpaid extra km, exact BigDecimal maths -> Evaluation
   Model.kt        Offer, ReadResult, Thresholds, Priority, Evaluation, Verdict, Check, OcrLine,
                   OnlineState/StatusRead, FlaggedPlace and flagFor (restaurant flags, matched like samePlace)
 app/   Android
@@ -134,10 +135,18 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
   recognition, then `OfferParser.cardFromOcr`. It runs at most about once a second.
 - Trip lines come as "23 min (11.5 km) total", "1 hr 1 min (14.6 km) total" and, on "Add a
   delivery" add-on cards, "+ 13 min (+ 3.5 km) total" with "+ $5.10": the add-on's numbers are what
-  it adds, flagged `Offer.addOn`; the minimum-pay rule skips add-ons (decided 2026-10-28), so
-  they're judged on $/hr and $/km only. "Delivery (3)" sets `Offer.orders`; a multi-order offer
+  it adds, flagged `Offer.addOn`. "Delivery (3)" sets `Offer.orders`; a multi-order offer
   adds 2 min per order for waiting on food (`Thresholds.perOrderWaitMin`, decided 2026-10-29), so
   2 orders score 4 min longer than Uber's time. The verdict card doesn't show "×2".
+- Minimum pay goes by the card (decided 2026-11-02, `Thresholds.minPayFor`): 1 order $5.50,
+  2 orders $9, 3 or more $12, and add-ons their own $4 ($0 skips it; until then add-ons skipped the
+  minimum, decided 2026-10-28). A stack under its minimum reads "Under $9 for 2 orders".
+- Uber's pay always includes the estimated tip ("including estimated tip") and the card never says
+  how much of it is tip, so the app can't know it. The **tip cushion** (`Thresholds.tipCushion`,
+  $ per order, off by default, decided 2026-11-02) is the courier's own allowance for a tip that
+  doesn't come or gets taken back: that much per order comes off the pay before every rule and
+  rate, like the unpaid extra km. It's a big lever (on the 2026-10-30/31 log, $2 per order cut the
+  median 2-order offer from $13.88/hr to $8.83/hr), so it stays off unless the courier sets it.
 - OCR mangles text. The parser tolerates: `$1l.59` and `$1159` (look-alike letters, dropped decimal
   point), stray symbols before `$`, `(` read as `C`, missing spaces or brackets (`1 hr12 min`),
   `l hr 3 min` (Uber's "1" reads as l or I). Uber always shows cents. A trip line with an hours word
@@ -154,11 +163,14 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
   bracket belong to the name ("(Yonge" / "Street)", "(Richmond Hill)"), since the area never has
   one. The route icon read as a letter ("9 ", "P ", "o ", "b ") and Uber's "Orders have the same
   drop-off" are dropped. They're stored with each logged offer and shown in the Log's detail sheet.
-- The log (Room v4) keeps Uber's own minutes (`cardMinutes`) and the drive-back km (`extraKm`)
-  beside the scored `minutes`. History shows Uber's minutes and a "Scored as" line, and rescores
-  from `cardMinutes`, never from the scored minutes (that added the drive back twice). CSV:
-  `minutes`/`km` as on Uber's card, `scored_minutes`/`extra_km` what the rates use
-  (`dollars_per_hr = pay × 60 / scored_minutes`, `dollars_per_km = pay / (km + extra_km)`).
+- The log (Room v4) keeps Uber's own minutes (`cardMinutes`), the drive-back km (`extraKm`) and
+  the tip cushion taken off (`tipCushion`) beside the scored `minutes`. History shows Uber's
+  minutes and a "Scored as 70 min · 26.6 km · on $23.48" line, and rescores from `cardMinutes`,
+  never from the scored minutes (that added the drive back twice). CSV: `minutes`/`km` as on
+  Uber's card, `scored_minutes`/`extra_km`/`tip_cushion` what the rates use
+  (`dollars_per_hr = (pay − tip_cushion) × 60 / scored_minutes`,
+  `dollars_per_km = (pay − tip_cushion) / (km + extra_km)`). Offers logged before v4 leave the
+  new columns blank.
 - Whether a restaurant is open can't be checked (no internet). Instead the courier flags one from
   the Log's detail sheet ("Slow pickup", "Was closed"; `PlaceFlag`, kept in DataStore), and later
   offers whose restaurant matches (`flagFor`: `samePlace`, so OCR slips still match, but each
@@ -213,7 +225,8 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
   and pill are black in both themes; colour only ever means a verdict.
 - The verdict card: the word and the strict rate on top ($/hr, or $/km when strict on $/km; the
   pill shows the same); under them the reason (17sp semibold, `cardSoft`: "Under your $20",
-  "Under $5.50 minimum", "Short on $/km", "Clears your $20"; strict on $/km: "Under your $1/km",
+  "Under $5.50 minimum", "Under $9 for 2 orders", "Add-on · Under $4 minimum", "Short on $/km",
+  "Clears your $20"; strict on $/km: "Under your $1/km",
   "Short on $/hr", "Clears your $1/km") and the other rate in its own chip (`cardChip`). Which
   rate goes where comes only from `NahCopy.rates`. Nothing under 15sp.
 - A flagged restaurant adds a white 17sp line under the reason, "Flagged: slow pickup" or

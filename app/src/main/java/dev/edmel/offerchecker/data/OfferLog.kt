@@ -40,6 +40,8 @@ data class OfferEntry(
     val cardMinutes: Int? = null,
     /** The unpaid km added for the drive back; null when none, or logged before v4. */
     val extraKm: Double? = null,
+    /** The dollars taken off the pay for tips that may not come; null when none, or logged before v4. */
+    val tipCushion: Double? = null,
 ) {
     /**
      * Same offer: same pay, minutes, km and order count (time and verdict aside), and the same
@@ -100,11 +102,12 @@ abstract class OfferDatabase : RoomDatabase() {
     companion object {
         @Volatile private var instance: OfferDatabase? = null
 
-        /** v4: Uber's own minutes and the drive-back km. Existing offers have neither (null). */
+        /** v4: Uber's own minutes, the drive-back km and the tip cushion. Existing offers have none (null). */
         private val MIGRATION_3_4 = object : Migration(3, 4) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE offers ADD COLUMN cardMinutes INTEGER")
                 db.execSQL("ALTER TABLE offers ADD COLUMN extraKm REAL")
+                db.execSQL("ALTER TABLE offers ADD COLUMN tipCushion REAL")
             }
         }
 
@@ -135,19 +138,22 @@ abstract class OfferDatabase : RoomDatabase() {
 
 /**
  * The offer log as CSV. minutes and km are Uber's, as on the card (minutes is blank for offers
- * logged before v4); scored_minutes and extra_km are what the rates were worked out on, so
- * dollars_per_hr = pay × 60 / scored_minutes and dollars_per_km = pay / (km + extra_km).
+ * logged before v4); scored_minutes, extra_km and tip_cushion are what the rates were worked out
+ * on, so dollars_per_hr = (pay − tip_cushion) × 60 / scored_minutes and
+ * dollars_per_km = (pay − tip_cushion) / (km + extra_km).
  */
 object OfferCsv {
     /** Quotes a text field; addresses have commas. */
     private fun csv(s: String?): String = if (s == null) "" else "\"" + s.replace("\"", "\"\"") + "\""
 
     fun write(entries: List<OfferEntry>): String = buildString {
-        appendLine("time,pay,minutes,km,scored_minutes,extra_km,dollars_per_hr,dollars_per_km,verdict,orders,add_on,restaurant,dropoff")
+        appendLine("time,pay,minutes,km,scored_minutes,extra_km,tip_cushion,dollars_per_hr,dollars_per_km,verdict,orders,add_on,restaurant,dropoff")
         val fmt = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US)
         for (e in entries) {
-            // Offers logged before v4 don't know their drive back, so it stays blank, not 0.
-            val extraKm = e.extraKm ?: if (e.cardMinutes != null) 0.0 else null
+            // Offers logged before v4 don't know their drive back or cushion, so those stay blank, not 0.
+            val v4 = e.cardMinutes != null
+            val extraKm = e.extraKm ?: if (v4) 0.0 else null
+            val cushion = e.tipCushion ?: if (v4) 0.0 else null
             appendLine(
                 listOf(
                     fmt.format(java.util.Date(e.time)),
@@ -156,6 +162,7 @@ object OfferCsv {
                     e.km,
                     e.minutes,
                     extraKm?.let { "%.2f".format(java.util.Locale.US, it) } ?: "",
+                    cushion?.let { "%.2f".format(java.util.Locale.US, it) } ?: "",
                     "%.2f".format(java.util.Locale.US, e.hourly),
                     e.perKm?.let { "%.2f".format(java.util.Locale.US, it) } ?: "",
                     e.verdict,

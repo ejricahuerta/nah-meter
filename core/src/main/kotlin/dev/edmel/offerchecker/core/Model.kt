@@ -45,6 +45,7 @@ sealed interface ReadResult {
 
 /** Thresholds from Settings. All are inclusive: meeting the threshold exactly passes. */
 data class Thresholds(
+    /** Minimum pay for a single order; stacks and add-ons have their own ([minPayFor]). */
     val minPay: BigDecimal = BigDecimal("5.50"),
     val minHourly: BigDecimal = BigDecimal("20.00"),
     val minPerKm: BigDecimal = BigDecimal("1.00"),
@@ -62,7 +63,27 @@ data class Thresholds(
     val extraKmOverKm: Int = 10,
     /** The strict rate (red when missed); the other one only gives yellow. */
     val priority: Priority = Priority.HOURLY,
-)
+    /** Minimum pay for a card with 2 orders ("Delivery (2)"). */
+    val minPay2: BigDecimal = BigDecimal("9.00"),
+    /** Minimum pay for a card with 3 or more orders. */
+    val minPay3: BigDecimal = BigDecimal("12.00"),
+    /** Minimum for an "Add a delivery" add-on (what it adds to the trip); 0 skips the check. */
+    val minAddOn: BigDecimal = BigDecimal("4.00"),
+    /**
+     * Uber's pay includes the estimated tip, and a tip can fail to come or be taken back: this much
+     * per order is taken off the pay before every check and rate. 0 is off.
+     */
+    val tipCushion: BigDecimal = BigDecimal.ZERO,
+) {
+    /** The minimum pay for this card: by its number of orders, or the add-on minimum. */
+    fun minPayFor(offer: Offer?): BigDecimal = when {
+        offer == null -> minPay
+        offer.addOn -> minAddOn
+        offer.orders >= 3 -> minPay3
+        offer.orders == 2 -> minPay2
+        else -> minPay
+    }
+}
 
 data class Evaluation(
     val verdict: Verdict,
@@ -79,6 +100,8 @@ data class Evaluation(
     val failed: Check? = null,
     /** The unpaid km added for the drive back ([Thresholds.extraKmPercent]); null when none. */
     val extraKm: BigDecimal? = null,
+    /** The dollars taken off the pay for tips that may not come ([Thresholds.tipCushion]); null when none. */
+    val tipCushion: BigDecimal? = null,
 ) {
     /** "$15.83/hr · $0.53/km", or "Can't read" for grey. */
     val ratesText: String

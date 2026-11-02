@@ -68,8 +68,11 @@ class ScorerTest {
         assertEquals("Under \$22.50/hr target", Scorer.score(offer("8.00", 24, "5.0"), t).failedRule)
     }
 
-    /** 2026-10-28 6:21: a $5.10 add-on is under the $5.50 minimum, but the minimum skips add-ons. */
-    @Test fun addOnSkipsMinimumPay() {
+    /**
+     * 2026-10-28 6:21: a $5.10 add-on is under the $5.50 minimum for a whole trip, but add-ons have
+     * their own minimum ($4 by default, decided 2026-11-02); 0 skips it.
+     */
+    @Test fun addOnHasItsOwnMinimum() {
         val addOn = Offer(BigDecimal("5.10"), 13, BigDecimal("3.5"), addOn = true)
         val e = Scorer.score(addOn, defaults)
         assertEquals(Verdict.GREEN, e.verdict)
@@ -78,6 +81,79 @@ class ScorerTest {
         assertEquals(Check.HOURLY, Scorer.score(addOn.copy(minutes = 20), defaults).failed)
         // The same numbers as a whole trip are under the minimum.
         assertEquals(Check.MIN_PAY, Scorer.score(addOn.copy(addOn = false), defaults).failed)
+
+        // Under the add-on minimum.
+        val small = Offer(BigDecimal("3.50"), 8, BigDecimal("2.0"), addOn = true)
+        check(small, Verdict.RED, "26.25", "1.75", "Under \$4 add-on minimum")
+        // 0 skips it, as add-ons did before.
+        check(small, Verdict.GREEN, "26.25", "1.75", null, defaults.copy(minAddOn = BigDecimal.ZERO))
+        // 2026-10-31 01:56 add-on, $5.47 for 15 min and 5.5 km: clears $4, short of a $6 add-on minimum.
+        val real = Offer(BigDecimal("5.47"), 15, BigDecimal("5.5"), addOn = true)
+        assertEquals(Check.PER_KM, Scorer.score(real, defaults).failed)
+        assertEquals("Under \$6 add-on minimum", Scorer.score(real, defaults.copy(minAddOn = BigDecimal("6"))).failedRule)
+    }
+
+    /**
+     * Each stack has its own minimum: 1 order $5.50, 2 orders $9, 3 or more $12 (decided 2026-11-02).
+     * Offers from the 2026-10-30/31 log; their logged minutes include the 2 min per order of
+     * waiting for food, so Uber's own minutes are 4 (2 orders) or 6 (3 orders) fewer.
+     */
+    @Test fun minimumPerStack() {
+        // 2026-10-30 13:09: $6.09, 2 orders, 35 min logged, 7.0 km.
+        check(
+            Offer(BigDecimal("6.09"), 31, BigDecimal("7.0"), orders = 2),
+            Verdict.RED, "10.44", "0.87", "Under \$9 for 2 orders",
+        )
+        // Exactly the minimum passes.
+        assertEquals(Verdict.GREEN, Scorer.score(Offer(BigDecimal("9.00"), 20, BigDecimal("5"), orders = 2), defaults).verdict)
+        assertEquals(Check.MIN_PAY, Scorer.score(Offer(BigDecimal("8.99"), 20, BigDecimal("5"), orders = 2), defaults).failed)
+
+        // 2026-10-31 02:57: $14.02, 3 orders, 56 min logged, 9.9 km: clears $12, short on $/hr.
+        val three = Offer(BigDecimal("14.02"), 50, BigDecimal("9.9"), orders = 3)
+        check(three, Verdict.RED, "15.02", "1.42", "Under \$20/hr target")
+        check(three, Verdict.RED, "15.02", "1.42", "Under \$15 for 3 orders", defaults.copy(minPay3 = BigDecimal("15")))
+        // 4 orders use the 3+ minimum.
+        val four = three.copy(orders = 4)
+        assertEquals("Under \$15 for 4 orders", Scorer.score(four, defaults.copy(minPay3 = BigDecimal("15"))).failedRule)
+
+        // A single order still uses $5.50: $8, 24 min, 5 km is under the 2-order $9 but passes.
+        assertEquals(Verdict.GREEN, Scorer.score(offer("8.00", 24, "5.0"), defaults).verdict)
+
+        assertEquals(BigDecimal("5.50"), defaults.minPayFor(offer("1", 1, "1")))
+        assertEquals(BigDecimal("9.00"), defaults.minPayFor(three.copy(orders = 2)))
+        assertEquals(BigDecimal("12.00"), defaults.minPayFor(three))
+        assertEquals(BigDecimal("4.00"), defaults.minPayFor(three.copy(orders = 1, addOn = true)))
+    }
+
+    /** The tip cushion comes off the pay for each order before every rule (decided 2026-11-02, off by default). */
+    @Test fun tipCushion() {
+        // PRD case 3, $9.40 for 22 min and 6.8 km: scored on $7.40 it still makes $20/hr.
+        val case3 = offer("9.40", 22, "6.8")
+        check(case3, Verdict.GREEN, "20.18", "1.09", null, defaults.copy(tipCushion = BigDecimal("2")))
+        assertEquals(0, BigDecimal("2").compareTo(Scorer.score(case3, defaults.copy(tipCushion = BigDecimal("2"))).tipCushion))
+        // On $6.90 it doesn't.
+        check(case3, Verdict.RED, "18.82", "1.01", "Under \$20/hr target", defaults.copy(tipCushion = BigDecimal("2.50")))
+
+        // 2026-10-30 11:50: $11.05, 2 orders, 37 min logged, 7.7 km. Two tips at $2 → scored on $7.05.
+        val two = Scorer.score(Offer(BigDecimal("11.05"), 33, BigDecimal("7.7"), orders = 2), defaults.copy(tipCushion = BigDecimal("2")))
+        assertEquals(Verdict.RED to "Under \$9 for 2 orders", two.verdict to two.failedRule)
+        assertEquals(BigDecimal("11.43"), two.hourly)
+        assertEquals(0, BigDecimal("4").compareTo(two.tipCushion))
+
+        // An add-on is one order.
+        val addOn = Scorer.score(Offer(BigDecimal("5.10"), 13, BigDecimal("3.5"), addOn = true), defaults.copy(tipCushion = BigDecimal("1")))
+        assertEquals(0, BigDecimal("1").compareTo(addOn.tipCushion))
+        // $4.10 clears the $4 add-on minimum, but at $18.92/hr it's under $20.
+        assertEquals(Check.HOURLY, addOn.failed)
+        assertEquals(BigDecimal("18.92"), addOn.hourly)
+
+        // More cushion than pay scores $0, never less.
+        val none = Scorer.score(offer("5.00", 8, "2.0"), defaults.copy(tipCushion = BigDecimal("10")))
+        assertEquals(BigDecimal("0.00"), none.hourly)
+        assertEquals(Check.MIN_PAY, none.failed)
+
+        // Off by default.
+        assertEquals(null, Scorer.score(case3, defaults).tipCushion)
     }
 
     /** Multi-order offers count 2 min of waiting for food per order; single orders and add-ons don't. */
@@ -167,11 +243,11 @@ class ScorerTest {
         assertEquals(Check.MAX_KM, Scorer.score(offer("10.00", 25, "16"), perKm.copy(maxKm = BigDecimal("15"))).failed)
     }
 
-    /** Strict on $/km with the other rules: add-ons still skip the minimum, and the drive back counts in the $/km. */
+    /** Strict on $/km with the other rules: add-ons still have their own minimum, and the drive back counts in the $/km. */
     @Test fun priorityWithAddOnsAndDriveBack() {
         val perKm = defaults.copy(priority = Priority.PER_KM)
 
-        // 2026-10-28 add-on, $5.10 for 13 min and 3.5 km: under the minimum, but add-ons skip it.
+        // 2026-10-28 add-on, $5.10 for 13 min and 3.5 km: under the $5.50 minimum, but clears the $4 add-on minimum.
         val addOn = Offer(BigDecimal("5.10"), 13, BigDecimal("3.5"), addOn = true)
         assertEquals(Verdict.GREEN, Scorer.score(addOn, perKm).verdict)
         // The same add-on stretched to 6 km is short per km: red when $/km is strict.

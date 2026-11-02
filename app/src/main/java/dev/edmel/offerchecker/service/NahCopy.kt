@@ -64,7 +64,7 @@ object NahCopy {
     // your $1/km". Missed in yellow it's the other one: "Short on $/hr" or "Short on $/km".
     private fun baseReason(e: Evaluation, t: Thresholds): String = when {
         e.verdict == Verdict.GREY -> "Check this offer yourself"
-        e.failed == Check.MIN_PAY -> "Under ${Scorer.money(t.minPay)} minimum"
+        e.failed == Check.MIN_PAY -> "Under ${minimum(e, t)}"
         e.failed == Check.MAX_KM -> "Over your ${t.maxKm?.let { Scorer.km(it) } ?: "max"} km"
         e.failed == Check.HOURLY && e.verdict == Verdict.RED -> "Under your ${hourlyTarget(t)}"
         e.failed == Check.HOURLY -> "Short on $/hr"
@@ -76,13 +76,23 @@ object NahCopy {
     /** The short reason after the offer's numbers: "$6.07 · 23 min · 11.5 km · under your $20". */
     fun shortReason(e: Evaluation, t: Thresholds): String = when {
         e.verdict == Verdict.GREY -> "check it yourself"
-        e.failed == Check.MIN_PAY -> "under your ${Scorer.money(t.minPay)} min"
+        e.failed == Check.MIN_PAY -> "under your ${minimum(e, t)}"
         e.failed == Check.MAX_KM -> "over your ${t.maxKm?.let { Scorer.km(it) } ?: "max"} km"
         e.failed == Check.HOURLY && e.verdict == Verdict.RED -> "under your ${hourlyTarget(t)}"
         e.failed == Check.HOURLY -> "short on $/hr"
         e.failed == Check.PER_KM && e.verdict == Verdict.RED -> "under your ${perKmTarget(t)}"
         e.failed == Check.PER_KM -> "short on $/km"
         else -> "clears your ${strictTarget(t)}"
+    }
+
+    /**
+     * The minimum this card missed, by its orders: "$5.50 minimum", "$9 for 2 orders", or for an
+     * add-on (whose reason already starts "Add-on ·") "$4 minimum".
+     */
+    private fun minimum(e: Evaluation, t: Thresholds): String {
+        val o = e.offer
+        val min = Scorer.money(t.minPayFor(o))
+        return if (o != null && !o.addOn && o.orders > 1) "$min for ${o.orders} orders" else "$min minimum"
     }
 
     /** "$20": the hourly target reads as plain dollars, as it always has. */

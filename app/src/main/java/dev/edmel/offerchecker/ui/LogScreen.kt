@@ -200,15 +200,18 @@ private fun numsText(e: OfferEntry) =
         (if (e.orders > 1) " · ×${e.orders}" else "")
 
 /**
- * What the rates were worked out on, "70 min · 26.6 km", when it differs from Uber's numbers
- * (wait buffer, pickup waits, drive back); null otherwise, or for offers logged before v4.
+ * What the rates were worked out on, "70 min · 26.6 km", and "· on $23.48" when a tip cushion came
+ * off the pay, when it differs from Uber's numbers (wait buffer, pickup waits, drive back, cushion);
+ * null otherwise, or for offers logged before v4.
  */
 private fun scoredText(e: OfferEntry): String? {
     val card = e.cardMinutes ?: return null
     val extra = e.extraKm
-    if (e.minutes == card && extra == null) return null
+    val cushion = e.tipCushion
+    if (e.minutes == card && extra == null && cushion == null) return null
     val km = BigDecimal.valueOf(e.km).add(BigDecimal.valueOf(extra ?: 0.0)).setScale(1, RoundingMode.HALF_UP)
-    return "${e.minutes} min · ${Scorer.km(km)} km"
+    val pay = cushion?.let { BigDecimal.valueOf(e.pay).subtract(BigDecimal.valueOf(it)).max(BigDecimal.ZERO) }
+    return "${e.minutes} min · ${Scorer.km(km)} km" + (pay?.let { " · on ${Scorer.money(it.setScale(2, RoundingMode.HALF_UP))}" } ?: "")
 }
 
 /** OfferRow: the offer's numbers over its time and rates, and a verdict chip. Tap for details. */

@@ -74,6 +74,10 @@ class SettingsRepository(context: Context) {
 
     private object Keys {
         val minPay = stringPreferencesKey("min_pay")
+        val minPay2 = stringPreferencesKey("min_pay_2")
+        val minPay3 = stringPreferencesKey("min_pay_3")
+        val minAddOn = stringPreferencesKey("min_add_on")
+        val tipCushion = stringPreferencesKey("tip_cushion")
         val minHourly = stringPreferencesKey("min_hourly")
         val minPerKm = stringPreferencesKey("min_per_km")
         val maxKm = stringPreferencesKey("max_km")
@@ -114,6 +118,10 @@ class SettingsRepository(context: Context) {
                 extraKmPercent = (this[Keys.extraKmPercent] ?: d.thresholds.extraKmPercent).coerceIn(0, 100),
                 extraKmOverKm = (this[Keys.extraKmOverKm] ?: d.thresholds.extraKmOverKm).coerceIn(0, 50),
                 priority = priority(),
+                minPay2 = dec(Keys.minPay2, d.thresholds.minPay2),
+                minPay3 = dec(Keys.minPay3, d.thresholds.minPay3),
+                minAddOn = dec(Keys.minAddOn, d.thresholds.minAddOn),
+                tipCushion = dec(Keys.tipCushion, d.thresholds.tipCushion),
             ),
             readingEnabled = this[Keys.readingEnabled] ?: d.readingEnabled,
             vibration = this[Keys.vibration] ?: d.vibration,
@@ -137,6 +145,12 @@ class SettingsRepository(context: Context) {
         this[Keys.priority]?.let { v -> Priority.entries.firstOrNull { it.name == v } } ?: Thresholds().priority
 
     suspend fun setMinPay(v: BigDecimal) = store.edit { it[Keys.minPay] = v.toPlainString() }
+    suspend fun setMinPay2(v: BigDecimal) = store.edit { it[Keys.minPay2] = v.toPlainString() }
+    suspend fun setMinPay3(v: BigDecimal) = store.edit { it[Keys.minPay3] = v.toPlainString() }
+    /** 0 skips the minimum for add-ons. */
+    suspend fun setMinAddOn(v: BigDecimal) = store.edit { it[Keys.minAddOn] = v.toPlainString() }
+    /** Dollars per order; 0 is off. */
+    suspend fun setTipCushion(v: BigDecimal) = store.edit { it[Keys.tipCushion] = v.toPlainString() }
     suspend fun setMinHourly(v: BigDecimal) = store.edit { it[Keys.minHourly] = v.toPlainString() }
     suspend fun setMinPerKm(v: BigDecimal) = store.edit { it[Keys.minPerKm] = v.toPlainString() }
     /** null turns the limit off. */
