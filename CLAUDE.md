@@ -97,9 +97,14 @@ app/   Android
   service/OnlineClock.kt   Uber online or offline (as Uber's screen last said) and today's online
                            time, kept on the phone; Home shows both
   service/Voice.kt         says the verdict out loud ("nah. 14 an hour"), on-device TTS, on the
-                           accessibility volume at the user's level, then restores it (Uber moves the
-                           navigation volume, and the media volume during its offer sound);
-                           speed, voice and ducking from the settings; silent at 0% and on calls.
+                           accessibility volume (Uber moves the navigation volume, and the media
+                           volume during its offer sound). The user's level is a gain on the voice
+                           itself (Android's media volume curve, `gain`); while the reader is on the
+                           accessibility volume goes to its top for the verdict, then back. Setting
+                           only the stream level did nothing over Bluetooth (absolute volume plays
+                           every step above 3 at full strength) or with the reader off. Test buttons
+                           pass `restart = true`; speed, voice and ducking from the settings; silent
+                           at 0% and on calls.
                            With the Toronto voice on (default), the word is a recorded line from res/raw
                            (ElevenLabs, "nah fam.") played before the TTS rates; a clip that won't
                            play falls back to TTS

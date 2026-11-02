@@ -311,7 +311,7 @@ private fun TestStep(settings: AppSettings) {
         }
         NahButton(
             "Play the test verdict",
-            { voice.say(NahCopy.speechParts(preview, settings), settings) },
+            { voice.say(NahCopy.speechParts(preview, settings), settings, restart = true) },
             modifier = Modifier.fillMaxWidth(), kind = NahButtonKind.Secondary,
         )
     }
