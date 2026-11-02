@@ -21,7 +21,7 @@ data class OfferEntry(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val time: Long,
     val pay: Double,
-    /** Uber's minutes plus the wait buffer, as scored. */
+    /** The minutes the rates were worked out on: Uber's, plus the wait buffer, pickup waits and drive back. */
     val minutes: Int,
     val km: Double,
     val hourly: Double,
@@ -36,6 +36,10 @@ data class OfferEntry(
     @ColumnInfo(defaultValue = "1") val orders: Int = if (stacked) 2 else 1,
     /** An "Add a delivery" card: pay, minutes and km are what it adds to the current trip. */
     @ColumnInfo(defaultValue = "0") val addOn: Boolean = false,
+    /** Uber's own minutes, as the card showed them; null on offers logged before v4. */
+    val cardMinutes: Int? = null,
+    /** The unpaid km added for the drive back; null when none, or logged before v4. */
+    val extraKm: Double? = null,
 ) {
     /**
      * Same offer: same pay, minutes, km and order count (time and verdict aside), and the same
@@ -89,12 +93,20 @@ abstract class OfferDao {
     }
 }
 
-@Database(entities = [OfferEntry::class], version = 3, exportSchema = false)
+@Database(entities = [OfferEntry::class], version = 4, exportSchema = false)
 abstract class OfferDatabase : RoomDatabase() {
     abstract fun offers(): OfferDao
 
     companion object {
         @Volatile private var instance: OfferDatabase? = null
+
+        /** v4: Uber's own minutes and the drive-back km. Existing offers have neither (null). */
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE offers ADD COLUMN cardMinutes INTEGER")
+                db.execSQL("ALTER TABLE offers ADD COLUMN extraKm REAL")
+            }
+        }
 
         /** v3: order count and add-on flag. Existing stacked offers count as 2 orders. */
         private val MIGRATION_2_3 = object : Migration(2, 3) {
@@ -115,26 +127,35 @@ abstract class OfferDatabase : RoomDatabase() {
 
         fun get(context: Context): OfferDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(context.applicationContext, OfferDatabase::class.java, "offers.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .build().also { instance = it }
         }
     }
 }
 
+/**
+ * The offer log as CSV. minutes and km are Uber's, as on the card (minutes is blank for offers
+ * logged before v4); scored_minutes and extra_km are what the rates were worked out on, so
+ * dollars_per_hr = pay × 60 / scored_minutes and dollars_per_km = pay / (km + extra_km).
+ */
 object OfferCsv {
     /** Quotes a text field; addresses have commas. */
     private fun csv(s: String?): String = if (s == null) "" else "\"" + s.replace("\"", "\"\"") + "\""
 
     fun write(entries: List<OfferEntry>): String = buildString {
-        appendLine("time,pay,minutes,km,dollars_per_hr,dollars_per_km,verdict,orders,add_on,restaurant,dropoff")
+        appendLine("time,pay,minutes,km,scored_minutes,extra_km,dollars_per_hr,dollars_per_km,verdict,orders,add_on,restaurant,dropoff")
         val fmt = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US)
         for (e in entries) {
+            // Offers logged before v4 don't know their drive back, so it stays blank, not 0.
+            val extraKm = e.extraKm ?: if (e.cardMinutes != null) 0.0 else null
             appendLine(
                 listOf(
                     fmt.format(java.util.Date(e.time)),
                     "%.2f".format(java.util.Locale.US, e.pay),
-                    e.minutes,
+                    e.cardMinutes?.toString() ?: "",
                     e.km,
+                    e.minutes,
+                    extraKm?.let { "%.2f".format(java.util.Locale.US, it) } ?: "",
                     "%.2f".format(java.util.Locale.US, e.hourly),
                     e.perKm?.let { "%.2f".format(java.util.Locale.US, it) } ?: "",
                     e.verdict,

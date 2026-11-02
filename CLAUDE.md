@@ -105,7 +105,7 @@ app/   Android
                            play falls back to TTS
   service/ReadingTileService.kt, PauseReceiver.kt  pause / resume from the shade (tile, notification)
   service/PriorityTileService.kt  "Strict on $/hr / $/km" tile: flips the strict rate from the shade
-  data/                    DataStore settings (incl. flagged restaurants), Room offer log (last 200), CSV export
+  data/                    DataStore settings (incl. flagged restaurants), Room offer log (last 200, v4), CSV export
   ui/Nah.kt                design tokens (Mono/Daylight), Geist, components
   ui/MainActivity.kt       the four tabs: Home, History (LogScreen), Rules (ThresholdsScreen), Settings
   ui/HomeScreen.kt         power button, today's overview (with time online in Uber), app tiles
@@ -149,6 +149,11 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
   bracket belong to the name ("(Yonge" / "Street)", "(Richmond Hill)"), since the area never has
   one. The route icon read as a letter ("9 ", "P ", "o ", "b ") and Uber's "Orders have the same
   drop-off" are dropped. They're stored with each logged offer and shown in the Log's detail sheet.
+- The log (Room v4) keeps Uber's own minutes (`cardMinutes`) and the drive-back km (`extraKm`)
+  beside the scored `minutes`. History shows Uber's minutes and a "Scored as" line, and rescores
+  from `cardMinutes`, never from the scored minutes (that added the drive back twice). CSV:
+  `minutes`/`km` as on Uber's card, `scored_minutes`/`extra_km` what the rates use
+  (`dollars_per_hr = pay × 60 / scored_minutes`, `dollars_per_km = pay / (km + extra_km)`).
 - Whether a restaurant is open can't be checked (no internet). Instead the courier flags one from
   the Log's detail sheet ("Slow pickup", "Was closed"; `PlaceFlag`, kept in DataStore), and later
   offers whose restaurant matches (`flagFor`: `samePlace`, so OCR slips still match, but each

@@ -47,11 +47,14 @@ fun ThresholdsScreen(settings: AppSettings, modifier: Modifier = Modifier) {
     val t = settings.thresholds
     val c = Nah.c
 
-    // The offer to preview: the last one read, else the last logged, else the PRD's example.
+    // The offer to preview: the last one read, else the last logged, else the PRD's example. A
+    // logged offer is rescored from Uber's minutes (cardMinutes), so the rules aren't added twice.
     val lastRead by ServiceState.lastRead.collectAsState()
     val logged by remember { OfferDatabase.get(ctx).offers().observeAll() }.collectAsState(initial = emptyList())
     val sample: Offer = lastRead?.evaluation?.offer
-        ?: logged.firstOrNull()?.let { Offer(BigDecimal.valueOf(it.pay), it.minutes, BigDecimal.valueOf(it.km), it.stacked) }
+        ?: logged.firstOrNull()?.let {
+            Offer(BigDecimal.valueOf(it.pay), it.cardMinutes ?: it.minutes, BigDecimal.valueOf(it.km), it.stacked, orders = it.orders, addOn = it.addOn)
+        }
         ?: Offer(BigDecimal("6.07"), 23, BigDecimal("11.5"))
     val isExample = lastRead == null && logged.isEmpty()
     val preview = Scorer.score(sample, t)

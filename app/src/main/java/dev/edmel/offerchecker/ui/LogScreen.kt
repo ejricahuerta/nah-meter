@@ -196,8 +196,20 @@ private fun dayLabel(day: Long, today: Long): String {
 private fun perKmText(e: OfferEntry) = (e.perKm?.let { "$" + "%.2f".format(Locale.US, it) } ?: "—") + "/km"
 
 private fun numsText(e: OfferEntry) =
-    (if (e.addOn) "+" else "") + "$" + "%.2f".format(Locale.US, e.pay) + " · ${e.minutes} min · ${e.km} km" +
+    (if (e.addOn) "+" else "") + "$" + "%.2f".format(Locale.US, e.pay) + " · ${e.cardMinutes ?: e.minutes} min · ${e.km} km" +
         (if (e.orders > 1) " · ×${e.orders}" else "")
+
+/**
+ * What the rates were worked out on, "70 min · 26.6 km", when it differs from Uber's numbers
+ * (wait buffer, pickup waits, drive back); null otherwise, or for offers logged before v4.
+ */
+private fun scoredText(e: OfferEntry): String? {
+    val card = e.cardMinutes ?: return null
+    val extra = e.extraKm
+    if (e.minutes == card && extra == null) return null
+    val km = BigDecimal.valueOf(e.km).add(BigDecimal.valueOf(extra ?: 0.0)).setScale(1, RoundingMode.HALF_UP)
+    return "${e.minutes} min · ${Scorer.km(km)} km"
+}
 
 /** OfferRow: the offer's numbers over its time and rates, and a verdict chip. Tap for details. */
 @Composable
@@ -234,9 +246,12 @@ private fun OfferDetails(e: OfferEntry, thresholds: Thresholds, flags: List<Flag
     val repo = remember { SettingsRepository(ctx) }
     val scope = rememberCoroutineScope()
     val verdict = runCatching { Verdict.valueOf(e.verdict) }.getOrDefault(Verdict.GREY)
+    // Rescored from Uber's minutes with today's rules. Offers logged before v4 kept only the scored
+    // minutes, which already hold the buffer, pickup waits and drive back, so none is added again.
+    val cardMinutes = e.cardMinutes
     val rescored = Scorer.score(
-        Offer(BigDecimal.valueOf(e.pay), e.minutes, BigDecimal.valueOf(e.km), e.stacked, orders = e.orders, addOn = e.addOn),
-        thresholds.copy(waitBufferMin = 0),
+        Offer(BigDecimal.valueOf(e.pay), cardMinutes ?: e.minutes, BigDecimal.valueOf(e.km), e.stacked, orders = e.orders, addOn = e.addOn),
+        if (cardMinutes != null) thresholds else thresholds.copy(waitBufferMin = 0, perOrderWaitMin = 0, extraKmPercent = 0),
     )
     val sameVerdict = rescored.verdict == verdict
     // The logged rates, the strict one big as on the card. The reason comes from today's rules, so
@@ -260,9 +275,13 @@ private fun OfferDetails(e: OfferEntry, thresholds: Thresholds, flags: List<Flag
             NahGroup {
                 Detail("Pay", "$" + "%.2f".format(Locale.US, e.pay))
                 NahDivider()
-                Detail("Time", "${e.minutes} min")
+                Detail("Time", "${cardMinutes ?: e.minutes} min")
                 NahDivider()
                 Detail("Distance", "${e.km} km")
+                scoredText(e)?.let {
+                    NahDivider()
+                    Detail("Scored as", it)
+                }
                 NahDivider()
                 Detail("Per hour", "$hourly/hr")
                 NahDivider()
