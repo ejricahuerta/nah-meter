@@ -78,7 +78,8 @@ fun VoiceScreen(settings: AppSettings, onBack: () -> Unit, modifier: Modifier = 
     val preview = Scorer.score(EXAMPLE_OFFER, settings.thresholds)
     val line = NahCopy.speech(preview, settings)
     // Settings are saved a moment after a tap, so a test passes the new value along itself.
-    fun test(s: AppSettings) = voice.say(NahCopy.speechParts(preview, s), s)
+    // Each tap starts over, so a new volume, speed or voice is heard at once.
+    fun test(s: AppSettings) = voice.say(NahCopy.speechParts(preview, s), s, restart = true)
 
     Column(
         modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(ScreenPadding),
@@ -220,7 +221,7 @@ fun VoiceScreen(settings: AppSettings, onBack: () -> Unit, modifier: Modifier = 
 
         Text(
             "Volume is nah.meter's own level, set just for the verdict. Uber can't change it. " +
-                "Nothing is spoken during a phone call.",
+                "Over Bluetooth, the car or headphones set how loud 100% is. Nothing is spoken during a phone call.",
             style = Nah.style(13.sp, 400, 18.sp, color = c.inkMuted),
         )
     }

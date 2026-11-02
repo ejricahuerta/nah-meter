@@ -228,6 +228,111 @@ class OfferParserTest {
         assertEquals("Yonge St, Toronto", o.dropoff)
     }
 
+    /**
+     * The 2026-11-01 Khorak Supermarket offer, from the courier's screenshot and the CSV export: Uber
+     * says 57 min and 22.2 km; the card's $21.84/hr and $0.96/km include the 20% drive back over
+     * 10 km (+11 min, +4.4 km) and the 2 min wait buffer, so 70 min. "St)" is cut off by Uber's
+     * floating buttons and reads "Sy".
+     */
+    @Test fun khorakOfferFromScreenshot20261101() {
+        val o = read(
+            "Delivery", "Exclusive", "\$25.48", "including estimated tip", "57 min (22.2 km) total",
+            "Khorak Supermarket (6125 Yonge Sy", "Annette St & Indian Road Cres,", "Toronto", "Accept",
+        )
+        assertEquals(57, o.minutes)
+        assertEquals("Khorak Supermarket (6125 Yonge Sy", o.pickup)
+        assertEquals("Annette St & Indian Road Cres, Toronto", o.dropoff)
+        val e = Scorer.score(
+            o,
+            Thresholds(waitBufferMin = 2, maxKm = BigDecimal(20), extraKmPercent = 20, priority = Priority.PER_KM),
+        )
+        assertEquals(Verdict.RED, e.verdict)
+        assertEquals(Check.MAX_KM, e.failed)
+        assertEquals(70, e.effectiveMinutes)
+        assertEquals("\$21.84/hr · \$0.96/km", e.ratesText)
+    }
+
+    /**
+     * Restaurant names Uber wraps over two lines, as logged in the 2026-11-02 CSV export: the
+     * second part went to the drop-off ("Street) Fennell St & Sheppard Ave W, North York"). The
+     * second part has a bracket; the area never does.
+     */
+    @Test fun wrappedRestaurantNames20261101() {
+        for ((lines, want) in listOf(
+            listOf("Khaki Restaurant North York (Yonge", "Street)", "Fennell St & Sheppard Ave W, North York") to
+                ("Khaki Restaurant North York (Yonge Street)" to "Fennell St & Sheppard Ave W, North York"),
+            listOf("aRAİTaiker Taiwanese Fried", "Chicken (North York)", "Esther Shiner Blvd & McMahon Dr, North York") to
+                ("aRAİTaiker Taiwanese Fried Chicken (North York)" to "Esther Shiner Blvd & McMahon Dr, North York"),
+            listOf("Millstone Rice Rolls", "(Richmond Hill)", "Manorheights St & Martini Dr, Richmond Hill") to
+                ("Millstone Rice Rolls (Richmond Hill)" to "Manorheights St & Martini Dr, Richmond Hill"),
+            listOf("Popeyes Louisiana Kitchen (7163", "Yonge St Unit 124A)", "b Yonge St, Markham") to
+                ("Popeyes Louisiana Kitchen (7163 Yonge St Unit 124A)" to "Yonge St, Markham"),
+            listOf("Yang's Braised Chicken Rice(North", "York)aiTNKt", "o Olive Ave & Wilfred Ave, North York") to
+                ("Yang's Braised Chicken Rice(North York)aiTNKt" to "Olive Ave & Wilfred Ave, North York"),
+            listOf("Hoja Lamb Clay Pot & Stir-fry (unit", "61-550 Highway 7)", "Bathford Cres & Chase Rd, North York") to
+                ("Hoja Lamb Clay Pot & Stir-fry (unit 61-550 Highway 7)" to "Bathford Cres & Chase Rd, North York"),
+            // Cut short with no closing line: the area stays the drop-off.
+            listOf("3 Mariachis Express (", "Liverpool Rd & Londo Newmarket") to
+                ("3 Mariachis Express (" to "Liverpool Rd & Londo Newmarket"),
+        )) {
+            val o = read("\$12.08", "Delivery (2)", "34 min (10.2 km) total", *lines.toTypedArray(), "Accept")
+            assertEquals(lines.first(), want, o.pickup to o.dropoff)
+        }
+    }
+
+    /**
+     * The route icon left of the place lines, read as a letter (2026-11-02 CSV export): the
+     * restaurant's pin as "9", "P" or "t", the drop-off's square as "o" or "b".
+     */
+    @Test fun routeIconIsNotPartOfAPlace20261101() {
+        for ((lines, want) in listOf(
+            listOf("9 Shawarma Royale (320l Yonge St)", "o Harlow Ave & Kirknewton Rd, York") to
+                ("Shawarma Royale (320l Yonge St)" to "Harlow Ave & Kirknewton Rd, York"),
+            listOf("P Ramona's Kitchen (Bayview)", "Fleming Cres & Parkhurst Blvd, East York") to
+                ("Ramona's Kitchen (Bayview)" to "Fleming Cres & Parkhurst Blvd, East York"),
+            listOf("t Charlie's Tea · North York", "Ridge Rd, Aurora") to ("Charlie's Tea · North York" to "Ridge Rd, Aurora"),
+            listOf("AFRAA RESTAURANT", "b Gandhi Ln, Markham") to ("AFRAA RESTAURANT" to "Gandhi Ln, Markham"),
+        )) {
+            val o = read("\$6.02", "28 min (9.0 km) total", *lines.toTypedArray(), "Accept")
+            assertEquals(lines.first(), want, o.pickup to o.dropoff)
+        }
+    }
+
+    /** Uber's "Orders have the same drop-off" note was glued onto the drop-off (2026-11-01 21:58). */
+    @Test fun sameDropoffNoteIsNotAPlace() {
+        val o = read(
+            "Delivery (2)", "\$21.07", "including estimated tip", "57 min (32.7 km) total",
+            "OnOff Toronto Restaurant & Bar", "King St E& Sherbourne St, Toronto", "Orders have the same drop-off", "Accept",
+        )
+        assertEquals("OnOff Toronto Restaurant & Bar", o.pickup)
+        assertEquals("King St E& Sherbourne St, Toronto", o.dropoff)
+    }
+
+    /**
+     * 2026-11-02 00:13: "brt" was logged as the restaurant and "Little Caesars (370 Steeles Ave W)"
+     * as part of the drop-off. Map labels show in the strip right of the card ("brt", "Pai", "ark",
+     * "Air"), and their line starts just above the restaurant's. Positions follow the courier's
+     * screenshot (891 × 2000): text column at 140, the card's right edge at 855.
+     */
+    @Test fun mapLabelRightOfTheCardIsNotTheRestaurant() {
+        val lines = listOf(
+            OcrLine("Delivery (2)", 1130, 1170, 88, 330),
+            OcrLine("\$16.02", 1215, 1290, 72, 360),
+            OcrLine("including estimated tip", 1335, 1370, 88, 460),
+            OcrLine("O 53 min (25.7 km) total", 1450, 1490, 72, 525),
+            OcrLine("brt", 1545, 1580, 856, 891),
+            OcrLine("Little Caesars (370 Steeles Ave W)", 1550, 1590, 140, 800),
+            OcrLine("o Black Creek Blvd & Jane St, York", 1615, 1655, 85, 700),
+            OcrLine("Accept", 1800, 1840, 383, 510),
+            OcrLine("Sunnybrook Park", 1905, 1930, 300, 555),
+        )
+        val r = OfferParser.parse(OfferParser.cardFromOcr(lines, 2000)!!) as ReadResult.Read
+        assertEquals("Little Caesars (370 Steeles Ave W)", r.offer.pickup)
+        assertEquals("Black Creek Blvd & Jane St, York", r.offer.dropoff)
+        assertEquals(53, r.offer.minutes)
+        assertEquals(2, r.offer.orders)
+    }
+
     @Test fun noPlacesWhenCardEndsAtTripLine() {
         val o = read("$6.07", "23 min (11.5 km) total")
         assertEquals(null, o.pickup)
@@ -314,6 +419,28 @@ class OfferParserTest {
         assertEquals("\$13.76/hr · \$0.69/km", e.ratesText)
         // An hours word whose number was lost is can't read., never "2 min".
         assertTrue(OfferParser.parse(listOf(*card, "hr12 min (25.0 km) total")) is ReadResult.Unreadable)
+    }
+
+    /**
+     * 2026-11-01 14:54: the Shamshiri Thornhill offer ($23.02, Delivery (2), 31.0 km) was logged at
+     * 83 min, then 3 s later at 803 min ($1.72/hr). At the courier's rules (20% drive back, 2 min
+     * buffer, 2 orders) 803 is 664 of Uber's minutes, 11 hr 4 min, where 83 is 1 hr 4 min: a glyph
+     * read against the "1". The exact line wasn't in the export, so these are what it could have been.
+     */
+    @Test fun elevenHourTripIsUnreadable() {
+        val card = arrayOf("Delivery (2)", "\$23.02", "including estimated tip")
+        val places = arrayOf("Shamshiri Thornhill", "Butterfly Hts & McMichael Ave, Kleinburg", "Accept")
+        for (trip in listOf("l1 hr 4 min (31.0 km) total", "|1 hr 4 min (31.0 km) total", "11 hr 4 min (31.0 km) total")) {
+            assertTrue(trip, OfferParser.parse(listOf(*card, trip, *places)) is ReadResult.Unreadable)
+        }
+        val o = read(*card, "1 hr 4 min (31.0 km) total", *places)
+        assertEquals(64, o.minutes)
+        val e = Scorer.score(o, Thresholds(waitBufferMin = 2, extraKmPercent = 20, priority = Priority.PER_KM))
+        assertEquals(83, e.effectiveMinutes)
+        assertEquals("\$16.64/hr · \$0.62/km", e.ratesText)
+        // Up to 4 hours is a trip Uber could offer.
+        assertEquals(240, read("\$60.00", "4 hr (90 km) total").minutes)
+        assertTrue(OfferParser.parse(listOf("\$60.00", "5 hr (90 km) total")) is ReadResult.Unreadable)
     }
 
     /** A time too short for the distance (over 100 km/h) is a misread: can't read., not $190.40/hr. */

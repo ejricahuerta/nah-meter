@@ -456,6 +456,9 @@ class OfferAccessibilityService : AccessibilityService() {
             addOn = offer.addOn,
             pickup = offer.pickup,
             dropoff = offer.dropoff,
+            cardMinutes = offer.minutes,
+            extraKm = e.extraKm?.toDouble(),
+            tipCushion = e.tipCushion?.toDouble(),
         )
         // The verdict always shows; the log only gets offers it doesn't already have.
         scope.launch {

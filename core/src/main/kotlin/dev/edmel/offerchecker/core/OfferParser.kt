@@ -35,6 +35,12 @@ object OfferParser {
     /** Faster than this (km/h, over the whole trip) is a misread time, not a real offer. */
     private val MAX_KMH = BigDecimal(100)
 
+    /**
+     * More hours than this is a misread time: an Uber Eats trip doesn't take half a day. The clock
+     * icon read as "l" or "|" against the "1" turns "1 hr 4 min" into 11 hr 4 min (2026-11-01).
+     */
+    private const val MAX_HOURS = 4
+
     /** "l" → 1, "O" → 0: a time number as text recognition may have read it. */
     private fun timeNumber(s: String): Int? =
         s.map { LOOKALIKES[it] ?: it }.joinToString("").takeIf { it.isNotEmpty() }?.toIntOrNull()
@@ -144,6 +150,8 @@ object OfferParser {
         if (hours == null && HOURS_WORD.containsMatchIn(tripLine.substringBefore("km"))) {
             return ReadResult.Unreadable(lines)
         }
+        // "l1 hr 4 min": a stray glyph joined the hours. 11 hours would be a guess, and a wildly bad one.
+        if (hours != null && hours > MAX_HOURS) return ReadResult.Unreadable(lines)
         val minutes = if (hours == null && mins == null) null else (hours ?: 0) * 60 + (mins ?: 0)
         val km = trip.groupValues[4].replace(',', '.').toBigDecimalOrNull()
         if (minutes == null || minutes <= 0 || km == null || km < BigDecimal.ZERO) {
@@ -174,28 +182,45 @@ object OfferParser {
     /**
      * Card furniture that isn't a place, and nahmeter's own verdict card if a screenshot caught it
      * ("can't read.", "meh.", "Check this offer yourself", "Under your $20 ·", "Flagged: slow pickup").
+     * "Orders have the same drop-off" is Uber's note under the area on some multi-order cards.
      */
     private val NOT_A_PLACE = Regex(
         """customer verification|including estimated tip|exclusive|add a delivery|^\W*(delivery|package)\b|\$\s?\d|""" +
-            """^\W*(bet|meh|nah|can'?t read)\W*$|check this offer|under your|clears your|pays the hour|short on \$/km|add-on ·|flagged:""",
+            """^\W*(bet|meh|nah|can'?t read)\W*$|check this offer|under your|clears your|pays the hour|short on \$/km|add-on ·|flagged:|""" +
+            """orders have the same|same drop-?off""",
         RegexOption.IGNORE_CASE,
     )
 
     /**
+     * The route icon left of the place lines, as text recognition reads it: the restaurant's circle
+     * with its stem down ("9 Shawarma Royale", "P Ramona's Kitchen", "t Charlie's Tea") and the
+     * drop-off's square with the stem up ("o Finch Ave W", "b Yonge St"). Not "3": "3 Mariachis".
+     */
+    private val ROUTE_ICON = Regex("""^[obPpqt69]\s+(?=\S)""")
+
+    /**
      * The restaurant and the drop-off area: the lines between the trip line and the card's button.
-     * The first is the restaurant; the rest (Uber wraps the area over two lines) the drop-off.
+     * The restaurant comes first; Uber wraps a long name over two lines, and the second part has a
+     * bracket in it ("Khaki Restaurant North York (Yonge" / "Street)", "Millstone Rice Rolls" /
+     * "(Richmond Hill)"), which the area ("Fennell St & Sheppard Ave W, North York") never has.
+     * The rest is the drop-off, also wrapped at times.
      */
     private fun places(lines: List<String>): Pair<String?, String?> {
         val start = lines.indexOfFirst { TRIP_LIKE.containsMatchIn(it) }
         if (start < 0) return null to null
         val places = lines.drop(start + 1)
             .takeWhile { !STOP.containsMatchIn(it) }
+            .map { it.replace(ROUTE_ICON, "") }
             .filter { it.count(Char::isLetter) >= 3 && !NOT_A_PLACE.containsMatchIn(it) && !TRIP_LIKE.containsMatchIn(it) }
             .distinct()
         if (places.isEmpty()) return null to null
+        // A name cut short with no closing line ("3 Mariachis Express (") keeps the area out of it.
+        var next = 1
+        while (next < places.size && places[next].any { it == '(' || it == ')' }) next++
+        val name = places.take(next).joinToString(" ")
         // Uber wraps one address over lines ("…, North" / "York"), so the lines join with a space.
-        val dropoff = places.drop(1).joinToString(" ").trim().trimEnd(',').ifEmpty { null }
-        return places.first().trimEnd(',') to dropoff
+        val dropoff = places.drop(next).joinToString(" ").trim().trimEnd(',').ifEmpty { null }
+        return name.trimEnd(',') to dropoff
     }
 
     /**
@@ -215,17 +240,21 @@ object OfferParser {
 
     /**
      * The lines under the trip line, down to the card's button: the restaurant and drop-off area.
-     * Only lines starting near the trip line's left edge, so map labels beside the card stay out.
+     * Only lines starting near the trip line's left edge, so map labels beside the card stay out:
+     * left of it ("ort", "UI") and right of it, where the map shows past the card's edge ("brt",
+     * "Pai", "ark", 2026-11-01), which would otherwise be taken for the restaurant.
      */
     private fun placeLines(lines: List<OcrLine>, screenHeight: Int): List<OcrLine> {
         val trip = lines.firstOrNull { isTripLine(it.text) } ?: return emptyList()
         val bottom = trip.bottom + (screenHeight * OCR_BELOW).toInt()
         val slack = trip.bottom - trip.top
-        val below = lines.filter { it.top >= trip.bottom - 4 && it.top <= bottom }
-            .filter { trip.right == 0 || it.left >= trip.left - slack }
-            .sortedBy { it.top }
+        val below = lines.filter { it.top >= trip.bottom - 4 && it.top <= bottom }.sortedBy { it.top }
+        // The button is centred, right of where the place lines start, so find it before filtering.
         val stop = below.indexOfFirst { STOP.containsMatchIn(it.text) }
-        return if (stop >= 0) below.take(stop + 1) else below
+        val card = if (stop >= 0) below.take(stop + 1) else below
+        if (trip.right == 0) return card
+        val middle = (trip.left + trip.right) / 2
+        return card.filter { STOP.containsMatchIn(it.text) || it.left in (trip.left - slack)..middle }
     }
 
     /**

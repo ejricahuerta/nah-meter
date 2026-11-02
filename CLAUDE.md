@@ -98,15 +98,20 @@ app/   Android
   service/OnlineClock.kt   Uber online or offline (as Uber's screen last said) and today's online
                            time, kept on the phone; Home shows both
   service/Voice.kt         says the verdict out loud ("nah. 14 an hour"), on-device TTS, on the
-                           accessibility volume at the user's level, then restores it (Uber moves the
-                           navigation volume, and the media volume during its offer sound);
-                           speed, voice and ducking from the settings; silent at 0% and on calls.
+                           accessibility volume (Uber moves the navigation volume, and the media
+                           volume during its offer sound). The user's level is a gain on the voice
+                           itself (Android's media volume curve, `gain`); while the reader is on the
+                           accessibility volume goes to its top for the verdict, then back. Setting
+                           only the stream level did nothing over Bluetooth (absolute volume plays
+                           every step above 3 at full strength) or with the reader off. Test buttons
+                           pass `restart = true`; speed, voice and ducking from the settings; silent
+                           at 0% and on calls.
                            With the Toronto voice on (default), the word is a recorded line from res/raw
                            (ElevenLabs, "nah fam.") played before the TTS rates; a clip that won't
                            play falls back to TTS
   service/ReadingTileService.kt, PauseReceiver.kt  pause / resume from the shade (tile, notification)
   service/PriorityTileService.kt  "Strict on $/hr / $/km" tile: flips the strict rate from the shade
-  data/                    DataStore settings (incl. flagged restaurants), Room offer log (last 200), CSV export
+  data/                    DataStore settings (incl. flagged restaurants), Room offer log (last 200, v4), CSV export
   ui/Nah.kt                design tokens (Mono/Daylight), Geist, components
   ui/MainActivity.kt       the four tabs: Home, History (LogScreen), Rules (ThresholdsScreen), Settings
   ui/HomeScreen.kt         power button, today's overview (with time online in Uber), app tiles
@@ -147,12 +152,25 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
   `l hr 3 min` (Uber's "1" reads as l or I). Uber always shows cents. A trip line with an hours word
   but no readable hours number is `can't read.`: the minutes alone once scored 63 min as 3
   ($270.80/hr), and "1 hr12 min" as 2 ($190.40/hr). A trip faster than 100 km/h is a misread
-  time, also `can't read.`
+  time, also `can't read.`, and so is one over 4 hours (`MAX_HOURS`): a glyph against the "1"
+  once made "1 hr 4 min" 11 hr 4 min ($1.72/hr, 2026-11-01).
 - **Pay is the dollar amount in the tallest text** in the band above the trip line, never the
   largest value: pages behind the pop-up have their own dollar amounts.
 - The restaurant and drop-off area are the lines between the trip line and the card's button
-  (Accept/Match); OCR place lines must start near the trip line's left edge, so map labels beside
-  the card stay out. They're stored with each logged offer (Room v2) and shown in the Log's detail sheet.
+  (Accept/Match); OCR place lines must start between just left of the trip line's left edge and its
+  middle, so map labels beside the card stay out on both sides ("ort" left, "brt"/"Pai" right, which
+  were once logged as the restaurant). Uber wraps long restaurant names; the following lines with a
+  bracket belong to the name ("(Yonge" / "Street)", "(Richmond Hill)"), since the area never has
+  one. The route icon read as a letter ("9 ", "P ", "o ", "b ") and Uber's "Orders have the same
+  drop-off" are dropped. They're stored with each logged offer and shown in the Log's detail sheet.
+- The log (Room v4) keeps Uber's own minutes (`cardMinutes`), the drive-back km (`extraKm`) and
+  the tip cushion taken off (`tipCushion`) beside the scored `minutes`. History shows Uber's
+  minutes and a "Scored as 70 min · 26.6 km · on $23.48" line, and rescores from `cardMinutes`,
+  never from the scored minutes (that added the drive back twice). CSV: `minutes`/`km` as on
+  Uber's card, `scored_minutes`/`extra_km`/`tip_cushion` what the rates use
+  (`dollars_per_hr = (pay − tip_cushion) × 60 / scored_minutes`,
+  `dollars_per_km = (pay − tip_cushion) / (km + extra_km)`). Offers logged before v4 leave the
+  new columns blank.
 - Whether a restaurant is open can't be checked (no internet). Instead the courier flags one from
   the Log's detail sheet ("Slow pickup", "Was closed"; `PlaceFlag`, kept in DataStore), and later
   offers whose restaurant matches (`flagFor`: `samePlace`, so OCR slips still match, but each

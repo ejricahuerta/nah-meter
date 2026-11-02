@@ -1,19 +1,25 @@
 package dev.edmel.offerchecker.service
 
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.Context
 import android.media.AudioAttributes
+import android.media.AudioDeviceInfo
 import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.MediaPlayer
+import android.os.Build
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import android.view.accessibility.AccessibilityManager
 import dev.edmel.offerchecker.R
 import dev.edmel.offerchecker.core.Verdict
 import dev.edmel.offerchecker.data.AppSettings
 import java.util.Locale
+import kotlin.math.pow
 import android.speech.tts.Voice as TtsVoice
 
 /**
@@ -26,9 +32,14 @@ import android.speech.tts.Voice as TtsVoice
  * accessibility service (flagEnableAccessibilityVolume). Uber changes the navigation volume around
  * its own prompts, and the media volume during its offer sound (20 → 0 in the middle of a verdict,
  * Pixel 11, 2026-10-30), which cut the verdict off; it doesn't touch this one. Just for the verdict,
- * that volume is set to the user's chosen level, then put back; music ducks under it meanwhile
- * (unless turned off). It stays silent at 0%, and during a phone call. If the engine can't start,
- * it stays silent and says so once in the diagnostics log.
+ * that volume goes to its top, then back; music ducks under it meanwhile (unless turned off).
+ *
+ * The user's level is applied to the voice itself, as a gain on the recording and the phone voice
+ * ([gain]). Setting the stream to the level alone did nothing in the car (2026-11-02): on a Bluetooth
+ * device with absolute volume Android plays every step above 3 at full strength and the car's volume
+ * sets the loudness, and with the reader off Android doesn't let nah.meter set that volume at all.
+ * It stays silent at 0%, and during a phone call. If the engine can't start, it stays silent and
+ * says so once in the diagnostics log.
  *
  * [onReady] is called once the engine has started, when [englishVoices] has something to list.
  */
@@ -69,6 +80,10 @@ class Voice(context: Context, private val onReady: () -> Unit = {}) {
     private val events = mutableListOf<String>()
     /** The volume this verdict set, to notice another app changing it. */
     private var volumeSet: Int? = null
+    /** The user's level as a gain on the voice (1 is full), for the verdict being said. */
+    private var level = 1f
+    /** How loud the verdict being said is and where it plays, for its "Spoke" log entry. */
+    private var levelNote: String? = null
 
     init {
         tts = TextToSpeech(app) { status ->
@@ -95,23 +110,24 @@ class Voice(context: Context, private val onReady: () -> Unit = {}) {
 
     /**
      * Says [parts] ([NahCopy.speechParts]) with the voice settings in [s]: at
-     * [AppSettings.voiceVolume] percent of the accessibility volume range (0 says nothing), at
-     * [AppSettings.voiceSpeed], in the picked voice. A new verdict cuts off the one being said; the
-     * same verdict again while it's still being said (the card read again) lets it finish.
+     * [AppSettings.voiceVolume] percent (0 says nothing), at [AppSettings.voiceSpeed], in the picked
+     * voice. A new verdict cuts off the one being said; the same verdict again while it's still
+     * being said (the card read again) lets it finish, unless [restart] (a test button, where the
+     * volume, speed or voice may just have changed).
      */
-    fun say(parts: List<NahCopy.SpeechPart>, s: AppSettings) {
+    fun say(parts: List<NahCopy.SpeechPart>, s: AppSettings, restart: Boolean = false) {
         if (!ready || s.voiceVolume <= 0 || parts.isEmpty()) return
         if (onCall()) {
             ServiceState.log("Verdict not spoken", "a phone call is in progress")
             return
         }
         main.post {
-            if (parts == saying) {
+            if (parts == saying && !restart) {
                 note("same verdict again, not restarted")
                 return@post
             }
             runCatching {
-                if (saying != null) logSpoken("cut off by the next verdict")
+                if (saying != null) logSpoken(if (parts == saying) "restarted" else "cut off by the next verdict")
                 stopSpeaking()
                 saying = parts
                 startedAt = SystemClock.elapsedRealtime()
@@ -119,7 +135,8 @@ class Voice(context: Context, private val onReady: () -> Unit = {}) {
                 applyVoice(s.voiceName)
                 tts.setSpeechRate(s.voiceSpeed)
                 clipSpeed = s.voiceSpeed
-                setVolume(s.voiceVolume)
+                level = gain(s.voiceVolume)
+                raiseVolume(s.voiceVolume)
                 if (s.voiceDuck) {
                     val granted = audio?.requestAudioFocus(focus)
                     if (granted != null && granted != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) note("audio focus not granted ($granted)")
@@ -171,7 +188,8 @@ class Voice(context: Context, private val onReady: () -> Unit = {}) {
         // Parts without a recording go to the engine as one line, so they sound as they always have.
         val line = StringBuilder(part.text)
         while (queue.isNotEmpty() && queue.first().clip == null) line.append(' ').append(queue.removeFirst().text)
-        if (tts.speak(line, TextToSpeech.QUEUE_FLUSH, null, utterance()) != TextToSpeech.SUCCESS) {
+        val params = Bundle().apply { putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, level) }
+        if (tts.speak(line, TextToSpeech.QUEUE_FLUSH, params, utterance()) != TextToSpeech.SUCCESS) {
             queue.clear()
             finish("the phone voice didn't start")
         }
@@ -199,6 +217,7 @@ class Voice(context: Context, private val onReady: () -> Unit = {}) {
                 true
             }
             player = p
+            p.setVolume(level, level)
             // A speed other than 0 also starts a prepared player.
             runCatching { p.playbackParams = p.playbackParams.setSpeed(clipSpeed) }
             if (!p.isPlaying) p.start()
@@ -249,6 +268,7 @@ class Voice(context: Context, private val onReady: () -> Unit = {}) {
         ServiceState.log(
             "Spoke: ${parts.joinToString(" ") { it.text }}",
             parts.joinToString(" + ") { if (it.clip != null) "recording" else "phone voice" } + " · $outcome after $seconds s",
+            *listOfNotNull(levelNote).toTypedArray(),
             *events.toTypedArray(),
         )
         events.clear()
@@ -293,14 +313,52 @@ class Voice(context: Context, private val onReady: () -> Unit = {}) {
         return mode == AudioManager.MODE_IN_CALL || mode == AudioManager.MODE_IN_COMMUNICATION
     }
 
-    private fun setVolume(percent: Int) {
+    /**
+     * The accessibility volume to its top for the verdict ([gain] makes it the user's level), saving
+     * what it was to put back. Only while the reader is on: otherwise Android ties that volume to the
+     * media volume, which nah.meter must not raise. Notes how loud and where the verdict plays.
+     */
+    private fun raiseVolume(percent: Int) {
         val am = audio ?: return
+        val db = String.format(Locale.US, "%.1f", gainDb(percent))
+        val out = output()?.let { " · out: $it" } ?: ""
+        if (!readerOn()) {
+            levelNote = "volume $percent% ($db dB) · reader off, so on the media volume$out"
+            return
+        }
         val max = am.getStreamMaxVolume(STREAM)
-        val wanted = (max * percent.coerceIn(1, 100) + 50) / 100
         val current = am.getStreamVolume(STREAM)
         if (savedVolume == null) savedVolume = current
-        if (wanted != current) runCatching { am.setStreamVolume(STREAM, wanted.coerceAtLeast(1), 0) }
-        volumeSet = am.getStreamVolume(STREAM)
+        if (current != max) runCatching { am.setStreamVolume(STREAM, max, 0) }
+        val now = am.getStreamVolume(STREAM)
+        volumeSet = now
+        levelNote = "volume $percent% ($db dB) · accessibility volume $now of $max$out"
+        if (now != max) note("Android kept the accessibility volume at $now of $max")
+    }
+
+    /** Whether nah.meter's reader (its accessibility service) is on, which gives it its own accessibility volume. */
+    private fun readerOn(): Boolean = runCatching {
+        app.getSystemService(AccessibilityManager::class.java)
+            ?.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
+            ?.any { it.resolveInfo?.serviceInfo?.packageName == app.packageName } == true
+    }.getOrDefault(false)
+
+    /** Where the verdict plays (Bluetooth, the phone speaker…); null before Android 13, which can't say. */
+    private fun output(): String? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return null
+        val device = runCatching { audio?.getAudioDevicesForAttributes(attributes)?.firstOrNull() }.getOrNull() ?: return null
+        return when (device.type) {
+            AudioDeviceInfo.TYPE_BUILTIN_SPEAKER, AudioDeviceInfo.TYPE_BUILTIN_SPEAKER_SAFE -> "phone speaker"
+            AudioDeviceInfo.TYPE_BUILTIN_EARPIECE -> "earpiece"
+            AudioDeviceInfo.TYPE_BLUETOOTH_A2DP -> "Bluetooth"
+            AudioDeviceInfo.TYPE_BLUETOOTH_SCO -> "Bluetooth (call audio)"
+            AudioDeviceInfo.TYPE_BLE_HEADSET, AudioDeviceInfo.TYPE_BLE_SPEAKER, AudioDeviceInfo.TYPE_BLE_BROADCAST -> "Bluetooth LE"
+            AudioDeviceInfo.TYPE_WIRED_HEADSET, AudioDeviceInfo.TYPE_WIRED_HEADPHONES -> "wired headphones"
+            AudioDeviceInfo.TYPE_USB_HEADSET, AudioDeviceInfo.TYPE_USB_DEVICE, AudioDeviceInfo.TYPE_USB_ACCESSORY -> "USB"
+            AudioDeviceInfo.TYPE_HEARING_AID -> "hearing aid"
+            AudioDeviceInfo.TYPE_BUS -> "car audio"
+            else -> "device type ${device.type}"
+        }
     }
 
     /** After the verdict: the volume back to what it was, and music back up. */
@@ -308,6 +366,7 @@ class Voice(context: Context, private val onReady: () -> Unit = {}) {
         savedVolume?.let { v -> runCatching { audio?.setStreamVolume(STREAM, v, 0) } }
         savedVolume = null
         volumeSet = null
+        levelNote = null
         runCatching { audio?.abandonAudioFocusRequest(focus) }
     }
 
@@ -324,5 +383,23 @@ class Voice(context: Context, private val onReady: () -> Unit = {}) {
 
         /** The accessibility volume: what [attributes] plays on, and the volume nah.meter sets. */
         const val STREAM = AudioManager.STREAM_ACCESSIBILITY
+
+        /**
+         * Android's default media volume curve, (percent, dB): what a volume step sounds like. The
+         * user's level follows it, so 80% sounds as the accessibility volume at 80% did before.
+         */
+        val CURVE = listOf(1 to -58f, 20 to -40f, 60 to -17f, 100 to 0f)
+
+        /** The user's level ([AppSettings.voiceVolume], 1–100) in dB, on [CURVE]. */
+        fun gainDb(percent: Int): Float {
+            val p = percent.coerceIn(1, 100)
+            val i = CURVE.indexOfFirst { p <= it.first }.coerceAtLeast(1)
+            val (x0, y0) = CURVE[i - 1]
+            val (x1, y1) = CURVE[i]
+            return y0 + (y1 - y0) * (p - x0) / (x1 - x0)
+        }
+
+        /** The user's level as a gain on the voice: 0 dB is 1, −6 dB about half. */
+        fun gain(percent: Int): Float = 10f.pow(gainDb(percent) / 20f)
     }
 }
