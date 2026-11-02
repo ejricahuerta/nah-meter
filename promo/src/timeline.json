@@ -1,0 +1,166 @@
+{
+  "fps": 30,
+  "durationSec": 45.67,
+  "bpm": 120,
+  "musicInSec": 4.58,
+  "scenes": {
+    "hook": [
+      0,
+      4.58
+    ],
+    "answer": [
+      4.58,
+      6.86
+    ],
+    "what": [
+      6.86,
+      11.43
+    ],
+    "bet": [
+      11.43,
+      15.94
+    ],
+    "meh": [
+      15.94,
+      23.72
+    ],
+    "nah": [
+      23.72,
+      26.49
+    ],
+    "money": [
+      26.49,
+      29.77
+    ],
+    "road": [
+      29.77,
+      32.68
+    ],
+    "rules": [
+      32.68,
+      37.1
+    ],
+    "trust": [
+      37.1,
+      41.74
+    ],
+    "end": [
+      41.74,
+      45.67
+    ]
+  },
+  "offers": [
+    {
+      "id": "hero",
+      "offer": "hero",
+      "from": 0,
+      "until": 11.43,
+      "offerInSec": 1.39,
+      "verdictInSec": 4.58,
+      "timer": true
+    },
+    {
+      "id": "bet",
+      "offer": "bet",
+      "from": 11.43,
+      "until": 15.94,
+      "offerInSec": 11.43,
+      "verdictInSec": 11.78,
+      "timer": false
+    },
+    {
+      "id": "meh",
+      "offer": "meh",
+      "from": 15.94,
+      "until": 23.72,
+      "offerInSec": 15.94,
+      "verdictInSec": 16.29,
+      "timer": false
+    },
+    {
+      "id": "nah",
+      "offer": "nah",
+      "from": 23.72,
+      "until": 26.49,
+      "offerInSec": 23.72,
+      "verdictInSec": 24.07,
+      "timer": false
+    }
+  ],
+  "speech": [
+    {
+      "id": "vo_01",
+      "at": 0.15
+    },
+    {
+      "id": "clip_nah",
+      "at": 4.73
+    },
+    {
+      "id": "vo_02",
+      "at": 6.86
+    },
+    {
+      "id": "clip_bet",
+      "at": 11.93
+    },
+    {
+      "id": "vo_03",
+      "at": 14.07
+    },
+    {
+      "id": "clip_meh",
+      "at": 16.44
+    },
+    {
+      "id": "vo_04",
+      "at": 19.59
+    },
+    {
+      "id": "vo_05",
+      "at": 24.32
+    },
+    {
+      "id": "vo_06",
+      "at": 26.69
+    },
+    {
+      "id": "vo_07",
+      "at": 29.97
+    },
+    {
+      "id": "vo_08",
+      "at": 33.03
+    },
+    {
+      "id": "vo_09",
+      "at": 37.3
+    },
+    {
+      "id": "vo_10",
+      "at": 42.44
+    }
+  ],
+  "hookLinesSec": [
+    1.39,
+    3.54
+  ],
+  "roadVoSec": 29.97,
+  "rulesStepsSec": [
+    34.18,
+    35.4
+  ],
+  "trustLinesSec": [
+    37.3,
+    39.93
+  ],
+  "endCue": {
+    "wordSec": 41.84,
+    "stopSec": 42.19,
+    "taglineSec": 42.44,
+    "fadeOutSec": [
+      45.07,
+      45.67
+    ]
+  }
+}
