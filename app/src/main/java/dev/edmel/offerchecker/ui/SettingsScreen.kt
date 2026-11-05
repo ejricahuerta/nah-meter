@@ -190,7 +190,7 @@ fun SegmentedRow(title: String, desc: String?, options: List<String>, selected: 
 
 /**
  * The restaurants flagged from History, with a way to remove each: flags outlive the offers in
- * History, which keeps only the last 200.
+ * History, which keeps only the last 2000.
  */
 @Composable
 private fun FlaggedPlacesScreen(settings: AppSettings, onBack: () -> Unit, modifier: Modifier = Modifier) {

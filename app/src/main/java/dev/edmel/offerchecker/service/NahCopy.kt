@@ -62,28 +62,71 @@ object NahCopy {
 
     // A rate missed in red is the strict one ([Thresholds.priority]): "Under your $20" or "Under
     // your $1/km". Missed in yellow it's the other one: "Short on $/hr" or "Short on $/km".
+    // Under the idle-aware rules, a bar lowered by waiting says so ("Under $14 · waited 18 min"),
+    // just under the bar is "Just under your $17.50", and a stack ending home names where.
     private fun baseReason(e: Evaluation, t: Thresholds): String = when {
         e.verdict == Verdict.GREY -> "Check this offer yourself"
+        e.homeBonus -> "${e.offer?.orders ?: 2} orders ending in ${e.area}"
         e.failed == Check.MIN_PAY -> "Under ${minimum(e, t)}"
         e.failed == Check.MAX_KM -> "Over your ${t.maxKm?.let { Scorer.km(it) } ?: "max"} km"
-        e.failed == Check.HOURLY && e.verdict == Verdict.RED -> "Under your ${hourlyTarget(t)}"
+        e.failed == Check.HOURLY && e.verdict == Verdict.RED -> "Under ${hourlyBar(e, t)}"
+        e.failed == Check.HOURLY && nearMiss(e, t) -> "Just under ${hourlyBar(e, t)}"
         e.failed == Check.HOURLY -> "Short on $/hr"
         e.failed == Check.PER_KM && e.verdict == Verdict.RED -> "Under your ${perKmTarget(t)}"
         e.failed == Check.PER_KM -> "Short on $/km"
-        else -> "Clears your ${strictTarget(t)}"
+        t.priority == Priority.PER_KM -> "Clears your ${perKmTarget(t)}"
+        else -> "Clears ${hourlyBar(e, t)}"
     }
 
     /** The short reason after the offer's numbers: "$6.07 · 23 min · 11.5 km · under your $20". */
     fun shortReason(e: Evaluation, t: Thresholds): String = when {
         e.verdict == Verdict.GREY -> "check it yourself"
+        e.homeBonus -> "${e.offer?.orders ?: 2} orders ending in ${e.area}"
         e.failed == Check.MIN_PAY -> "under your ${minimum(e, t)}"
         e.failed == Check.MAX_KM -> "over your ${t.maxKm?.let { Scorer.km(it) } ?: "max"} km"
-        e.failed == Check.HOURLY && e.verdict == Verdict.RED -> "under your ${hourlyTarget(t)}"
+        e.failed == Check.HOURLY && e.verdict == Verdict.RED -> "under ${hourlyBar(e, t)}"
+        e.failed == Check.HOURLY && nearMiss(e, t) -> "just under ${hourlyBar(e, t)}"
         e.failed == Check.HOURLY -> "short on $/hr"
         e.failed == Check.PER_KM && e.verdict == Verdict.RED -> "under your ${perKmTarget(t)}"
         e.failed == Check.PER_KM -> "short on $/km"
-        else -> "clears your ${strictTarget(t)}"
+        t.priority == Priority.PER_KM -> "clears your ${perKmTarget(t)}"
+        else -> "clears ${hourlyBar(e, t)}"
     }
+
+    /**
+     * The $/hr bar as the reason names it: "your $20", or, lowered by waiting under the idle-aware
+     * rules, "$14 · waited 18 min".
+     */
+    private fun hourlyBar(e: Evaluation, t: Thresholds): String {
+        val bar = e.bar
+        val waited = e.idleMin
+        return if (bar != null && waited != null && bar < t.minHourly) "${Scorer.money(bar)} · waited $waited min"
+        else "your ${Scorer.money(bar ?: t.minHourly)}"
+    }
+
+    /** meh. for a strict $/hr just under the bar (the idle-aware rules' meh. band). */
+    private fun nearMiss(e: Evaluation, t: Thresholds) =
+        e.bar != null && e.verdict == Verdict.YELLOW && e.failed == Check.HOURLY && t.priority == Priority.HOURLY
+
+    /**
+     * Under the reason when the idle-aware rules added a drop-off area's drive back: "+30 min back
+     * from Stouffville". Null otherwise.
+     */
+    fun driveBackLine(e: Evaluation): String? {
+        val min = e.returnMin ?: return null
+        val area = e.area ?: return null
+        return if (e.verdict == Verdict.GREY || min <= 0) null else "+$min min back from $area"
+    }
+
+    /**
+     * Compare mode: the idle-aware rules' verdict, on a line under the card's own: "New rules:
+     * bet! · bar $14".
+     */
+    fun compareLine(other: Evaluation): String =
+        "New rules: ${word(other.verdict)}" + (other.bar?.let { " · bar ${Scorer.money(it)}" } ?: "")
+
+    /** [compareLine] for the compact pill: "new bet!". */
+    fun compareShort(other: Evaluation): String = "new ${word(other.verdict)}"
 
     /**
      * The minimum this card missed, by its orders: "$5.50 minimum", "$9 for 2 orders", or for an
@@ -95,12 +138,7 @@ object NahCopy {
         return if (o != null && !o.addOn && o.orders > 1) "$min for ${o.orders} orders" else "$min minimum"
     }
 
-    /** "$20": the hourly target reads as plain dollars, as it always has. */
-    private fun hourlyTarget(t: Thresholds) = Scorer.money(t.minHourly)
-
     private fun perKmTarget(t: Thresholds) = "${Scorer.money(t.minPerKm)}/km"
-
-    private fun strictTarget(t: Thresholds) = if (t.priority == Priority.PER_KM) perKmTarget(t) else hourlyTarget(t)
 
     /**
      * Said out loud while driving. By default the word and whole dollars an hour, "nah. 14 an hour"
@@ -206,13 +244,20 @@ object NahCopy {
     /**
      * What TalkBack announces, the card in reading order: "nah. $15.83 per hour. Under your $20,
      * $0.53 per km." With $/km strict the $/km comes first: "nah. $0.53 per km. Under your $1 per
-     * km, $15.83 per hour." A flagged restaurant ends it: "Flagged: slow pickup."
+     * km, $15.83 per hour." Then the drive back ("+30 min back from Stouffville."), a flagged
+     * restaurant ("Flagged: slow pickup.") and, comparing, the new rules' verdict.
      */
-    fun spoken(e: Evaluation, t: Thresholds, flag: PlaceFlag? = null): String {
+    fun spoken(e: Evaluation, t: Thresholds, flag: PlaceFlag? = null, compare: Evaluation? = null): String {
         val (big, chip) = rates(e, t) ?: return "can't read. Check this offer yourself."
         return "${word(e.verdict)} ${spokenRate(big)}. " +
             (cardReason(e, t) + (chip?.let { " · $it" } ?: ""))
                 .replace(" · ", ", ").replace("/km", " per km").replace("/hr", " per hour") + "." +
-            (flag?.let { " ${flagLine(it)}." } ?: "")
+            (driveBackLine(e)?.let { " $it." } ?: "") +
+            (flag?.let { " ${flagLine(it)}." } ?: "") +
+            (compare?.let { " " + sentence(compareLine(it).replace(" · ", ", ")) } ?: "")
     }
+
+    /** Ends [s] with a full stop, unless a verdict word already ends it ("New rules: nah."). */
+    private fun sentence(s: String) = if (s.endsWith('.') || s.endsWith('!')) s else "$s."
+
 }

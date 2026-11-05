@@ -74,6 +74,11 @@ data class Thresholds(
      * per order is taken off the pay before every check and rate. 0 is off.
      */
     val tipCushion: BigDecimal = BigDecimal.ZERO,
+    /**
+     * The idle-aware rules: a $/hr bar that drops the longer Uber hasn't paid, the drive back by
+     * drop-off area, the meh. band and the stack bonus. Null is the fixed rules above.
+     */
+    val idle: IdleRules? = null,
 ) {
     /** The minimum pay for this card: by its number of orders, or the add-on minimum. */
     fun minPayFor(offer: Offer?): BigDecimal = when {
@@ -83,6 +88,78 @@ data class Thresholds(
         offer.orders == 2 -> minPay2
         else -> minPay
     }
+}
+
+/** Once Uber hasn't paid for [afterMin] minutes, the $/hr bar is [hourly] (never above the courier's own). */
+data class IdleStep(val afterMin: Int, val hourly: BigDecimal)
+
+/**
+ * A drop-off area, as the town at the end of Uber's drop-off line names it ("…, Markham"), and the
+ * unpaid minutes driving back from it. A stack ending in a [home] area gets the stack bonus.
+ */
+data class ReturnArea(val names: List<String>, val minutes: Int, val home: Boolean = false) {
+    /** How Rules lists it: "Markham, Richmond Hill, Vaughan, Concord". */
+    val label: String get() = names.joinToString(", ")
+}
+
+/**
+ * The idle-aware rules (the nah.meter findings PRD, decided 2026-11-05). Declining an offer means
+ * waiting, and late in a slow night waiting earns far less than the fixed bar, so:
+ *  - the $/hr bar steps down the longer Uber hasn't paid ([steps]; from [lateFromHour] until 5am each
+ *    step comes [lateSoonerMin] sooner, since good offers are rarer then);
+ *  - a $/hr up to [mehBand] under the bar is meh., not nah. (0 turns it off);
+ *  - a drop-off in a listed area adds its drive back ([areas]) instead of the % rule;
+ *  - a stack ending in a home area moves from meh. to bet! when it clears the lowest step
+ *    ([homeStackBonus]).
+ */
+data class IdleRules(
+    val steps: List<IdleStep> = DEFAULT_STEPS,
+    val lateFromHour: Int = 22,
+    val lateSoonerMin: Int = 5,
+    val mehBand: BigDecimal = BigDecimal("2.00"),
+    val homeStackBonus: Boolean = true,
+    val areas: List<ReturnArea> = DEFAULT_AREAS,
+) {
+    /** From [lateFromHour] until [LATE_UNTIL_HOUR]; unknown hour is not late. */
+    fun isLate(hour: Int?): Boolean = hour != null && (hour >= lateFromHour || hour < LATE_UNTIL_HOUR)
+
+    companion object {
+        const val LATE_UNTIL_HOUR = 5
+        val DEFAULT_STEPS = listOf(IdleStep(10, BigDecimal("14.00")), IdleStep(25, BigDecimal("12.00")))
+
+        /** The PRD's starting estimates from the Yonge corridor (Sheppard to Steeles). */
+        val DEFAULT_AREAS = listOf(
+            ReturnArea(listOf("North York", "Thornhill"), 0, home = true),
+            ReturnArea(listOf("Markham", "Richmond Hill", "Vaughan", "Concord"), 15),
+            ReturnArea(listOf("Scarborough", "Woodbridge", "Maple"), 20),
+            ReturnArea(listOf("Toronto"), 25),
+            ReturnArea(listOf("Stouffville", "Mississauga"), 30),
+        )
+    }
+}
+
+/**
+ * What an offer is scored against besides its card, for the idle-aware rules: minutes since Uber
+ * last paid ([idleMin], null when unknown) and the hour of day (0–23).
+ */
+data class ScoreContext(val idleMin: Int? = null, val hour: Int? = null)
+
+/**
+ * The drop-off's area, and the name it matched ("Stouffville"), from the part after the drop-off's
+ * last comma ("Main St, Whitchurch-Stouffville"). Letters only, so spacing and dashes don't matter;
+ * the town may end the part ("Whitchurch-Stouffville") and one slip is allowed in longer names.
+ * Null when the drop-off wasn't read, has no area part, or the area isn't listed.
+ */
+fun returnAreaFor(dropoff: String?, areas: List<ReturnArea>): Pair<ReturnArea, String>? {
+    if (dropoff == null || ',' !in dropoff) return null
+    val part = placeKey(dropoff.substringAfterLast(','))
+    if (part.isEmpty()) return null
+    for (area in areas) for (name in area.names) {
+        val key = placeKey(name)
+        if (key.isEmpty()) continue
+        if (part == key || part.endsWith(key) || (key.length >= 6 && editDistance(part, key) <= 1)) return area to name
+    }
+    return null
 }
 
 data class Evaluation(
@@ -102,6 +179,16 @@ data class Evaluation(
     val extraKm: BigDecimal? = null,
     /** The dollars taken off the pay for tips that may not come ([Thresholds.tipCushion]); null when none. */
     val tipCushion: BigDecimal? = null,
+    /** The $/hr bar under the idle-aware rules ([Thresholds.idle]); null under the fixed rules. */
+    val bar: BigDecimal? = null,
+    /** Minutes since Uber last paid, under the idle-aware rules, when known. */
+    val idleMin: Int? = null,
+    /** The minutes added for the drive back (either rule); null when none. */
+    val returnMin: Int? = null,
+    /** The drop-off area the idle-aware rules matched ("Stouffville"); null when none. */
+    val area: String? = null,
+    /** A stack ending in a home area, moved up from meh. to bet! ([IdleRules.homeStackBonus]). */
+    val homeBonus: Boolean = false,
 ) {
     /** "$15.83/hr · $0.53/km", or "Can't read" for grey. */
     val ratesText: String
@@ -152,6 +239,11 @@ fun samePlace(a: String?, b: String?): Boolean {
     val y = placeKey(b)
     if (x.isEmpty() || y.isEmpty() || x == y) return true
     // Levenshtein distance, allowed up to a quarter of the longer name.
+    return editDistance(x, y) <= maxOf(x.length, y.length) / 4
+}
+
+/** Levenshtein distance: the fewest single-letter changes that turn [x] into [y]. */
+private fun editDistance(x: String, y: String): Int {
     var prev = IntArray(y.length + 1) { it }
     for (i in 1..x.length) {
         val cur = IntArray(y.length + 1)
@@ -161,7 +253,7 @@ fun samePlace(a: String?, b: String?): Boolean {
         }
         prev = cur
     }
-    return prev[y.length] <= maxOf(x.length, y.length) / 4
+    return prev[y.length]
 }
 
 /** One line of text recognised (OCR) in a screenshot, with its vertical position in pixels. */

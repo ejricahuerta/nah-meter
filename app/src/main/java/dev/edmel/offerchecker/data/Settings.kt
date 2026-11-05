@@ -10,6 +10,8 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dev.edmel.offerchecker.core.FlaggedPlace
+import dev.edmel.offerchecker.core.IdleRules
+import dev.edmel.offerchecker.core.IdleStep
 import dev.edmel.offerchecker.core.PlaceFlag
 import dev.edmel.offerchecker.core.Priority
 import dev.edmel.offerchecker.core.Thresholds
@@ -27,6 +29,13 @@ enum class Appearance { MONO, DAYLIGHT, PHONE }
  * is the strict rate ([Thresholds.priority]) it's said in place of, or before, the $/hr.
  */
 enum class VoiceMode { WORD, WORD_HOURLY, WORD_HOURLY_KM }
+
+/**
+ * Whether the idle-aware rules ([IdleRules]) set the verdict. [OFF]: the fixed rules only.
+ * [COMPARE]: the fixed rules' verdict, with the idle-aware one on a line under it and in the log
+ * (the PRD's shadow mode). [ON]: the idle-aware verdict.
+ */
+enum class IdleMode { OFF, COMPARE, ON }
 
 data class AppSettings(
     val thresholds: Thresholds = Thresholds(),
@@ -57,7 +66,22 @@ data class AppSettings(
     val apps: Set<String> = setOf("uber", "doordash", "skip"),
     /** Restaurants flagged from History ("Slow pickup", "Was closed"), A to Z; later offers from them say so. */
     val flaggedPlaces: List<FlaggedPlace> = emptyList(),
-)
+    val idleMode: IdleMode = IdleMode.OFF,
+    /** The idle-aware rules as set on Rules; used when [idleMode] isn't [IdleMode.OFF]. */
+    val idleRules: IdleRules = IdleRules(),
+) {
+    /** The rules for the verdict on the card: the idle-aware ones when they're [IdleMode.ON]. */
+    val mainThresholds: Thresholds
+        get() = if (idleMode == IdleMode.ON) thresholds.copy(idle = idleRules) else thresholds
+
+    /** The idle-aware rules when they're on or being compared; null when off. */
+    val idleThresholds: Thresholds?
+        get() = if (idleMode == IdleMode.OFF) null else thresholds.copy(idle = idleRules)
+}
+
+/** The key for an area's drive-back minutes, from its first name: "return_min_northyork". */
+private fun areaKey(firstName: String) =
+    intPreferencesKey("return_min_" + firstName.lowercase().filter { it in 'a'..'z' })
 
 /** A flag as stored: "SLOW\tKakuya (Yonge St)". */
 private fun encode(f: FlaggedPlace) = f.flag.name + "\t" + f.name
@@ -100,6 +124,14 @@ class SettingsRepository(context: Context) {
         val appearance = stringPreferencesKey("appearance")
         val apps = stringSetPreferencesKey("apps")
         val flaggedPlaces = stringSetPreferencesKey("flagged_places")
+        val idleMode = stringPreferencesKey("idle_mode")
+        val idleStep1Min = intPreferencesKey("idle_step1_min")
+        val idleStep1Hourly = stringPreferencesKey("idle_step1_hr")
+        val idleStep2Min = intPreferencesKey("idle_step2_min")
+        val idleStep2Hourly = stringPreferencesKey("idle_step2_hr")
+        val lateSoonerMin = intPreferencesKey("idle_late_sooner_min")
+        val mehBand = stringPreferencesKey("meh_band")
+        val homeStackBonus = booleanPreferencesKey("home_stack_bonus")
     }
 
     val settings: Flow<AppSettings> = store.data.map { it.toSettings() }
@@ -138,6 +170,24 @@ class SettingsRepository(context: Context) {
             appearance = this[Keys.appearance]?.let { v -> Appearance.entries.firstOrNull { it.name == v } } ?: d.appearance,
             apps = this[Keys.apps] ?: d.apps,
             flaggedPlaces = this[Keys.flaggedPlaces]?.mapNotNull(::decode)?.sortedBy { it.name.lowercase() } ?: d.flaggedPlaces,
+            idleMode = this[Keys.idleMode]?.let { v -> IdleMode.entries.firstOrNull { it.name == v } } ?: d.idleMode,
+            idleRules = idleRules(),
+        )
+    }
+
+    private fun Preferences.idleRules(): IdleRules {
+        val d = IdleRules()
+        val (s1, s2) = d.steps
+        fun dec(key: Preferences.Key<String>, default: BigDecimal) = this[key]?.toBigDecimalOrNull() ?: default
+        return IdleRules(
+            steps = listOf(
+                IdleStep((this[Keys.idleStep1Min] ?: s1.afterMin).coerceIn(0, MAX_IDLE_MIN), dec(Keys.idleStep1Hourly, s1.hourly)),
+                IdleStep((this[Keys.idleStep2Min] ?: s2.afterMin).coerceIn(0, MAX_IDLE_MIN), dec(Keys.idleStep2Hourly, s2.hourly)),
+            ),
+            lateSoonerMin = (this[Keys.lateSoonerMin] ?: d.lateSoonerMin).coerceIn(0, MAX_SOONER_MIN),
+            mehBand = dec(Keys.mehBand, d.mehBand),
+            homeStackBonus = this[Keys.homeStackBonus] ?: d.homeStackBonus,
+            areas = d.areas.map { a -> a.copy(minutes = (this[areaKey(a.names.first())] ?: a.minutes).coerceIn(0, MAX_RETURN_MIN)) },
         )
     }
 
@@ -177,6 +227,21 @@ class SettingsRepository(context: Context) {
     suspend fun setOnboarded() = store.edit { it[Keys.onboarded] = true }
     suspend fun setAppearance(v: Appearance) = store.edit { it[Keys.appearance] = v.name }
     suspend fun setApps(v: Set<String>) = store.edit { it[Keys.apps] = v }
+    suspend fun setIdleMode(v: IdleMode) = store.edit { it[Keys.idleMode] = v.name }
+    /** The [step]th drop of the idle bar (0 or 1): after how many minutes without pay. */
+    suspend fun setIdleStepMin(step: Int, v: Int) = store.edit {
+        it[if (step == 0) Keys.idleStep1Min else Keys.idleStep2Min] = v.coerceIn(0, MAX_IDLE_MIN)
+    }
+    /** The [step]th drop of the idle bar (0 or 1): the $/hr bar from then on. */
+    suspend fun setIdleStepHourly(step: Int, v: BigDecimal) = store.edit {
+        it[if (step == 0) Keys.idleStep1Hourly else Keys.idleStep2Hourly] = v.toPlainString()
+    }
+    suspend fun setLateSoonerMin(v: Int) = store.edit { it[Keys.lateSoonerMin] = v.coerceIn(0, MAX_SOONER_MIN) }
+    /** $/hr under the bar that is still meh.; 0 is off. */
+    suspend fun setMehBand(v: BigDecimal) = store.edit { it[Keys.mehBand] = v.toPlainString() }
+    suspend fun setHomeStackBonus(v: Boolean) = store.edit { it[Keys.homeStackBonus] = v }
+    /** The drive back from an area, by the area's first name ("Markham"). */
+    suspend fun setAreaMinutes(firstName: String, v: Int) = store.edit { it[areaKey(firstName)] = v.coerceIn(0, MAX_RETURN_MIN) }
 
     /**
      * Flags the restaurant [name], or clears its flag when [flag] is null. Any flag already on the
@@ -188,5 +253,11 @@ class SettingsRepository(context: Context) {
             f != null && f.name != name && flagFor(name, listOf(f)) == null
         }.toSet()
         prefs[Keys.flaggedPlaces] = if (flag == null) kept else kept + encode(FlaggedPlace(name.trim(), flag))
+    }
+
+    companion object {
+        const val MAX_IDLE_MIN = 120
+        const val MAX_SOONER_MIN = 30
+        const val MAX_RETURN_MIN = 90
     }
 }

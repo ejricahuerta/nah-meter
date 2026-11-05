@@ -80,12 +80,15 @@ never a push to `main`.
 
 ```
 core/  pure Kotlin, no Android: what to read and how to score it (unit-tested)
-  OfferParser.kt  all text patterns; card texts -> ReadResult; OCR lines -> card texts
+  OfferParser.kt  all text patterns; card texts -> ReadResult; OCR lines -> card texts; Uber's
+                  earnings figure (uberEarnings); misread-looking log rows (suspect)
   Scorer.kt       the five rules (minimum pay by orders: 1, 2, 3+ or add-on; max km off by default;
                   Thresholds.priority picks the strict rate, $/hr or $/km, the other gives meh.), the tip
-                  cushion and the unpaid extra km, exact BigDecimal maths -> Evaluation
+                  cushion and the unpaid extra km, and the idle-aware rules when Thresholds.idle is set
+                  (ScoreContext: idle minutes and hour), exact BigDecimal maths -> Evaluation
   Model.kt        Offer, ReadResult, Thresholds, Priority, Evaluation, Verdict, Check, OcrLine,
-                  OnlineState/StatusRead, FlaggedPlace and flagFor (restaurant flags, matched like samePlace)
+                  OnlineState/StatusRead, FlaggedPlace and flagFor (restaurant flags, matched like samePlace),
+                  IdleRules/IdleStep/ReturnArea/ScoreContext and returnAreaFor (drop-off area)
 app/   Android
   service/OfferAccessibilityService.kt  event loop: find Uber windows, read, score, show, log
   service/CardReader.kt    accessibility tree -> the offer card's texts and its top edge
@@ -96,7 +99,10 @@ app/   Android
   service/CrashLog.kt      the last crash's stack trace, saved on the phone, shown in Diagnostics
   service/ReaderWatch.kt   "nah.meter stopped reading" notification if the reader stops mid-shift
   service/OnlineClock.kt   Uber online or offline (as Uber's screen last said) and today's online
-                           time, kept on the phone; Home shows both
+                           time and sessions (a day starts at 4am, shiftDayStart), kept on the phone;
+                           Home shows both
+  service/TripClock.kt     Uber's earnings figure: when it last went up (a delivery paid) and today's
+                           rises; the idle minutes the idle-aware rules score with; Home's pay rows
   service/Voice.kt         says the verdict out loud ("nah. 14 an hour"), on-device TTS, on the
                            accessibility volume (Uber moves the navigation volume, and the media
                            volume during its offer sound). The user's level is a gain on the voice
@@ -111,11 +117,13 @@ app/   Android
                            play falls back to TTS
   service/ReadingTileService.kt, PauseReceiver.kt  pause / resume from the shade (tile, notification)
   service/PriorityTileService.kt  "Strict on $/hr / $/km" tile: flips the strict rate from the shade
-  data/                    DataStore settings (incl. flagged restaurants), Room offer log (last 200, v4), CSV export
+  data/                    DataStore settings (incl. flagged restaurants, IdleMode and IdleRules), Room offer
+                           log (last 2000, v5), CSV export
   ui/Nah.kt                design tokens (Mono/Daylight), Geist, components
   ui/MainActivity.kt       the four tabs: Home, History (LogScreen), Rules (ThresholdsScreen), Settings
-  ui/HomeScreen.kt         power button, today's overview (with time online in Uber), app tiles
-                           (DeliveryApps; Uber's says Online or Offline), rules strip
+  ui/HomeScreen.kt         power button, today's overview (with time online in Uber, what Uber paid, $ per
+                           online hour today and in the last 2 hours, minutes since Uber paid), app
+                           tiles (DeliveryApps; Uber's says Online or Offline), rules strip
   ui/SettingsScreen.kt     Settings and its pages (incl. Flagged restaurants); PermissionsScreen.kt holds
                            the setup steps and Diagnostics
   ui/VoiceScreen.kt        Settings → Voice: what it says (3 lines), which verdicts, volume, speed, voice
@@ -163,14 +171,19 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
   bracket belong to the name ("(Yonge" / "Street)", "(Richmond Hill)"), since the area never has
   one. The route icon read as a letter ("9 ", "P ", "o ", "b ") and Uber's "Orders have the same
   drop-off" are dropped. They're stored with each logged offer and shown in the Log's detail sheet.
-- The log (Room v4) keeps Uber's own minutes (`cardMinutes`), the drive-back km (`extraKm`) and
-  the tip cushion taken off (`tipCushion`) beside the scored `minutes`. History shows Uber's
-  minutes and a "Scored as 70 min · 26.6 km · on $23.48" line, and rescores from `cardMinutes`,
-  never from the scored minutes (that added the drive back twice). CSV: `minutes`/`km` as on
-  Uber's card, `scored_minutes`/`extra_km`/`tip_cushion` what the rates use
+- The log (Room v5, the last 2000 offers; 200 kept less than one night) keeps Uber's own minutes
+  (`cardMinutes`), the drive-back km (`extraKm`) and the tip cushion taken off (`tipCushion`)
+  beside the scored `minutes`, and since v5 the idle minutes (`idleMin`), the drive-back minutes
+  and area (`returnMin`, `returnArea`) and the idle-aware bar and verdict (`barHourly`,
+  `idleVerdict`). History shows Uber's minutes and a "Scored as 70 min · 26.6 km · on $23.48"
+  line, and rescores from `cardMinutes` (with the logged drop-off, idle minutes and hour), never
+  from the scored minutes (that added the drive back twice). CSV: `minutes`/`km` as on Uber's
+  card, `scored_minutes`/`extra_km`/`tip_cushion` what the rates use
   (`dollars_per_hr = (pay − tip_cushion) × 60 / scored_minutes`,
-  `dollars_per_km = (pay − tip_cushion) / (km + extra_km)`). Offers logged before v4 leave the
-  new columns blank.
+  `dollars_per_km = (pay − tip_cushion) / (km + extra_km)`), then at the end `idle_min`,
+  `return_min`, `return_area`, `threshold_hr`, `idle_verdict` and `suspect` (over $3/km, a
+  restaurant cut off inside its brackets, or a drop-off with no area). New columns go at the end.
+  Offers logged before a version leave its columns blank.
 - Whether a restaurant is open can't be checked (no internet). Instead the courier flags one from
   the Log's detail sheet ("Slow pickup", "Was closed"; `PlaceFlag`, kept in DataStore), and later
   offers whose restaurant matches (`flagFor`: `samePlace`, so OCR slips still match, but each
@@ -178,7 +191,8 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
 - The verdict card is excluded from OCR (`badge.screenRect`) so the app never reads itself.
 - The log holds each offer once: a card equal (pay, minutes, km, ×2) to the last logged offer, or
   to one logged in the last 30 min, still gets its verdict but isn't logged again
-  (`OfferDao.addIfNew`). Uber re-shows the same card after you leave and come back.
+  (`OfferDao.addIfNew`). Uber re-shows the same card after you leave and come back. So is one with
+  the same restaurant and drop-off (both read) within 60 s, whatever its numbers: OCR re-scans.
 - One verdict per card (decided 2026-10-29): a screenshot read counts only when the next read
   agrees (a grey read in between doesn't break the pair), so a one-off misread ($19.04 read as
   $9.04) never shows or replaces a verdict. The verdict comes about 1 s after the card. Re-reads of
@@ -194,12 +208,35 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
   lines saying both give nothing). Read only from Uber's windows (visible accessibility text, or the
   screenshot when it was cropped to Uber), never while an offer card is read; an offer card itself
   counts as online. A change counts once two reads agree, and is logged as "Uber: online" with the
-  line that showed it. `OnlineClock` keeps the state and today's online time. Pausing or the reader
+  line that showed it. `OnlineClock` keeps the state and today's online time (a day starts at 4am,
+  so a 5pm–3am shift is one day; Home's Today counts from 4am too). Pausing or the reader
   stopping ends the session (unknown until Uber is seen again). If Uber goes offline by itself while
   it isn't on screen, the time keeps counting until Uber is next seen offline.
+- **Uber's earnings figure** ("$124.40" above its map, screenshots 2026-11-01) is the only sign
+  of a trip ending: it goes up when a delivery pays (`OfferParser.uberEarnings`: only on a screen
+  that also says online or offline, exactly one standalone amount with cents, "+$2.50" boosts
+  skipped). Read like the online state (Uber's windows only, two reads agree) into `TripClock`:
+  the first read is a baseline, a rise is "Uber paid" (and restarts the idle time), a fall back to
+  no lower than before the last rise takes that rise back as a misread, a bigger fall is Uber
+  starting its figure again, and a rise over $100 is a new baseline, not pay. Home's "Paid by Uber"
+  is the rises nah.meter saw since 4am. A tip added later also counts as a rise.
+- **Idle-aware rules** (the findings PRD, decided 2026-11-05; `Thresholds.idle`, off by default,
+  Rules → Off / Compare / On, `IdleMode`). Idle minutes are since Uber last paid, or since Uber
+  was first seen online this session; unknown (not seen online) keeps the courier's own bar.
+  - The $/hr bar steps down: 10 min $14, 25 min $12 (the floor), each 5 min sooner from 10pm to
+    5am, never above the courier's own. Add-ons keep the courier's bar: they come mid-trip.
+  - A strict $/hr up to $2 under the bar (`mehBand`) is meh., not nah.
+  - The drop-off's area (the part after its last comma, `returnAreaFor`) adds its drive back
+    (North York, Thornhill 0 and home; Markham, Richmond Hill, Vaughan, Concord 15; Scarborough,
+    Woodbridge, Maple 20; Toronto 25; Stouffville, Mississauga 30 min), km at the offer's own pace,
+    only on trips over the extra km rule's "over N km" (a "…, Toronto" drop on a short trip isn't
+    downtown). Other or unread areas keep the % rule.
+  - A meh. stack ending in a home area is bet! once it clears the floor (`homeStackBonus`).
+  - Compare shows the fixed rules' verdict with "New rules: bet! · bar $14" under it (the pill:
+    "new bet!"); the voice says only the card's verdict. Both verdicts go in the log.
 - Accepted vs passed isn't known yet (nah.meter sees the screen, never the tap). To learn it from
   real text, the log has "After the card (4 s / 12 s)" entries: Uber's text after each read card
-  goes. Build accepted/passed tracking from those pastes, not from guesses.
+  goes. Build accepted/passed tracking (and % active) from those pastes, not from guesses.
 - Card docking: `cardTop` comes from the accessibility node, else from OCR (pay line top minus
   1.4× its height), else from Uber's pop-up window top; unknown means the top of the screen.
   The verdict card sits `DOCK_GAP_DP` (20dp) above it; the OCR estimate runs about 8dp low, so
@@ -227,8 +264,13 @@ Kotlin packages are still `dev.edmel.offerchecker.*` (the old name); the `applic
   pill shows the same); under them the reason (17sp semibold, `cardSoft`: "Under your $20",
   "Under $5.50 minimum", "Under $9 for 2 orders", "Add-on · Under $4 minimum", "Short on $/km",
   "Clears your $20"; strict on $/km: "Under your $1/km",
-  "Short on $/hr", "Clears your $1/km") and the other rate in its own chip (`cardChip`). Which
-  rate goes where comes only from `NahCopy.rates`. Nothing under 15sp.
+  "Short on $/hr", "Clears your $1/km"; idle-aware: "Under $14 · waited 18 min", "Just under your
+  $17.50", "Clears $12 · waited 30 min", "2 orders ending in North York") and the other rate in its
+  own chip (`cardChip`). A drive back from a listed area adds a `cardSoft` line, "+30 min back from
+  Stouffville" (`NahCopy.driveBackLine`). Which rate goes where comes only from `NahCopy.rates`.
+  Nothing under 15sp.
+- Comparing the idle-aware rules adds a white 17sp line, "New rules: bet! · bar $14"
+  (`NahCopy.compareLine`), under the flag line if any.
 - A flagged restaurant adds a white 17sp line under the reason, "Flagged: slow pickup" or
   "Flagged: was closed" (`NahCopy.flagLine`); the pill puts "slow pickup" after the rate, and the
   voice says it after the rates in every voice mode. It's the courier's own note: it never changes

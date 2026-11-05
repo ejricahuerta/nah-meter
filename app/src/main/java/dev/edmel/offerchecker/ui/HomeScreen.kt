@@ -52,15 +52,21 @@ import dev.edmel.offerchecker.core.Priority
 import dev.edmel.offerchecker.core.Scorer
 import dev.edmel.offerchecker.core.Verdict
 import dev.edmel.offerchecker.data.AppSettings
+import dev.edmel.offerchecker.data.IdleMode
 import dev.edmel.offerchecker.data.OfferDatabase
 import dev.edmel.offerchecker.data.OfferEntry
 import dev.edmel.offerchecker.data.SettingsRepository
 import dev.edmel.offerchecker.service.NahCopy
 import dev.edmel.offerchecker.service.OnlineClock
 import dev.edmel.offerchecker.service.ServiceState
+import dev.edmel.offerchecker.service.TripClock
+import dev.edmel.offerchecker.service.UberPay
+import dev.edmel.offerchecker.service.UberStatus
+import dev.edmel.offerchecker.service.shiftDayStart
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.util.Calendar
+import java.math.BigDecimal
+import java.math.RoundingMode
 import java.util.Locale
 
 /**
@@ -86,19 +92,24 @@ fun HomeScreen(
     val on = reading && settings.readingEnabled
 
     val offers by remember { OfferDatabase.get(ctx).offers().observeAll() }.collectAsState(initial = emptyList())
-    val startOfDay = remember(offers) { startOfToday() }
-    val today = offers.filter { it.time >= startOfDay }
 
-    // Uber's online or offline state, and today's online time, re-read every minute.
+    // Uber's online or offline state, today's online time and what Uber paid, re-read every minute.
+    // A day starts at 4am, so a 5pm–3am shift is one day.
     val uber by remember { OnlineClock.status(ctx) }.collectAsState()
+    val pay by remember { TripClock.pay(ctx) }.collectAsState()
     val minute by produceState(System.currentTimeMillis()) {
         while (true) {
             delay(60_000L)
             value = System.currentTimeMillis()
         }
     }
-    val onlineMs = uber.todayMs(maxOf(minute, System.currentTimeMillis()))
+    val now = maxOf(minute, System.currentTimeMillis())
+    val startOfDay = remember(offers, minute) { shiftDayStart(now) }
+    val today = offers.filter { it.time >= startOfDay }
+    val onlineMs = uber.todayMs(now)
     val onlineToday = if (uber.state == OnlineState.ONLINE || onlineMs > 0) NahCopy.onlineTime(onlineMs) else null
+    val earnings = remember(uber, pay, minute) { earningsOf(uber, pay, now) }
+    val sincePaid = remember(uber, pay, minute) { TripClock.idleMin(ctx, now) }
 
     val c = Nah.c
     Column(
@@ -129,7 +140,7 @@ fun HomeScreen(
 
         Column {
             SectionLabel("Today")
-            Overview(today, onlineToday, Modifier.alpha(if (settings.readingEnabled) 1f else 0.5f))
+            Overview(today, onlineToday, earnings, sincePaid, Modifier.alpha(if (settings.readingEnabled) 1f else 0.5f))
         }
 
         Column {
@@ -153,7 +164,12 @@ fun HomeScreen(
                     "${Scorer.money(t.minPay)} min · $rates" +
                         (t.maxKm?.let { " · ${Scorer.km(it)} km max" } ?: "") +
                         (if (t.extraKmPercent > 0) " · +${t.extraKmPercent}% km" + (if (t.extraKmOverKm > 0) " over ${t.extraKmOverKm} km" else "") else "") +
-                        (if (t.tipCushion.signum() > 0) " · ${Scorer.money(t.tipCushion)}/order tip cushion" else ""),
+                        (if (t.tipCushion.signum() > 0) " · ${Scorer.money(t.tipCushion)}/order tip cushion" else "") +
+                        when (settings.idleMode) {
+                            IdleMode.OFF -> ""
+                            IdleMode.COMPARE -> " · comparing idle-aware"
+                            IdleMode.ON -> " · idle-aware"
+                        },
                     style = Nah.style(16.sp, 600, 22.sp, color = c.ink),
                 )
             }
@@ -162,9 +178,22 @@ fun HomeScreen(
     }
 }
 
-private fun startOfToday(): Long = Calendar.getInstance().apply {
-    set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
-}.timeInMillis
+/** What Uber paid today (as its earnings figure went up) and per online hour, today and in the last 2 hours. */
+private class Earnings(val earned: BigDecimal, val perOnlineHour: BigDecimal?, val lastTwoHours: BigDecimal?)
+
+/** Less online time than this gives no rate: a few minutes would make one delivery look like a fortune. */
+private const val MIN_RATE_MS = 15 * 60_000L
+private const val TWO_HOURS_MS = 2 * 60 * 60_000L
+
+/** [Earnings], once Uber's earnings figure has been read today; null before. */
+private fun earningsOf(uber: UberStatus, pay: UberPay, now: Long): Earnings? {
+    if (!pay.seenToday(now)) return null
+    fun perHour(dollars: BigDecimal, ms: Long) =
+        if (ms < MIN_RATE_MS) null else dollars.multiply(BigDecimal(3_600_000L)).divide(BigDecimal(ms), 2, RoundingMode.HALF_UP)
+    val from = now - TWO_HOURS_MS
+    val earned = pay.earned(now)
+    return Earnings(earned, perHour(earned, uber.todayMs(now)), perHour(pay.earned(now, from), uber.onlineMs(from, now)))
+}
 
 /** The big on/off button: black with a green ring and glow while reading, outlined when not. */
 @Composable
@@ -185,20 +214,31 @@ private fun PowerButton(on: Boolean, label: String, active: Boolean, onChange: (
 }
 
 /**
- * Today's numbers: offers read, average $/hr, the bet · meh · nah split, the best offer, and the
- * time online in Uber ([online], e.g. "2h 14m"; null before Uber has been seen online today).
+ * Today's numbers: offers read, average $/hr, the bet · meh · nah split, the best offer, the time
+ * online in Uber ([online], e.g. "2h 14m"; null before Uber has been seen online today), what Uber
+ * paid and per online hour ([earnings], once its earnings figure has been read today), and the
+ * minutes since Uber last paid ([sincePaid], while online).
  */
 @Composable
-private fun Overview(today: List<OfferEntry>, online: String?, modifier: Modifier = Modifier) {
+private fun Overview(today: List<OfferEntry>, online: String?, earnings: Earnings?, sincePaid: Int?, modifier: Modifier = Modifier) {
+    fun perHour(v: BigDecimal) = "$" + v.setScale(2, RoundingMode.HALF_UP).toPlainString() + "/hr"
     NahGroup(modifier) {
         if (today.isEmpty()) NahRow("No offers yet today") else OfferStats(today)
-        if (online != null) {
-            NahDivider()
-            NahRow("Online in Uber") {
-                Text(online, style = Nah.style(16.sp, 600, 22.sp, color = Nah.c.ink))
-            }
+        if (online != null) ValueRow("Online in Uber", online)
+        if (earnings != null) {
+            ValueRow("Paid by Uber", "$" + earnings.earned.setScale(2, RoundingMode.HALF_UP).toPlainString())
+            earnings.perOnlineHour?.let { ValueRow("Per online hour", perHour(it)) }
+            earnings.lastTwoHours?.let { ValueRow("Last 2 hours", perHour(it)) }
         }
+        if (sincePaid != null) ValueRow("Since Uber paid", NahCopy.onlineTime(sincePaid * 60_000L))
     }
+}
+
+/** A divider, then a label with its value on the right. */
+@Composable
+private fun ValueRow(label: String, value: String) {
+    NahDivider()
+    NahRow(label) { Text(value, style = Nah.style(16.sp, 600, 22.sp, color = Nah.c.ink)) }
 }
 
 @Composable

@@ -6,7 +6,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.util.Calendar
 
-/** Whether the courier is online in Uber, as nah.meter last saw it, and their online time today. */
+/**
+ * Whether the courier is online in Uber, as nah.meter last saw it, and their online time today.
+ * "Today" starts at 4am ([shiftDayStart]), so a 5pm–3am shift is one day.
+ */
 data class UberStatus(
     /** What Uber's screen last said; null until the reader sees it (after starting, or a pause). */
     val state: OnlineState? = null,
@@ -18,17 +21,37 @@ data class UberStatus(
     val day: Long = 0L,
     /** The last time Uber confirmed [state]; ends a session a crash left open. */
     val seenAt: Long = 0L,
+    /** Today's ended online sessions (start to end, ms), for online time in a window ([onlineMs]). */
+    val sessions: List<Pair<Long, Long>> = emptyList(),
 ) {
-    /** Online time today, counting the session still open from midnight at the earliest. */
+    /** Online time today, counting the session still open from 4am at the earliest. */
     fun todayMs(now: Long): Long {
-        val today = startOfDay(now)
+        val today = shiftDayStart(now)
         val done = if (day == today) doneMs else 0L
         val open = if (state == OnlineState.ONLINE) (now - maxOf(since, today)).coerceAtLeast(0L) else 0L
         return done + open
     }
 
-    /** The current session ended at [at]: its time today is added to [doneMs]. */
-    internal fun closedAt(at: Long) = copy(doneMs = todayMs(at), day = startOfDay(at))
+    /** Online time between [from] and [now] (today's sessions only), e.g. the last 2 hours. */
+    fun onlineMs(from: Long, now: Long): Long {
+        val today = shiftDayStart(now)
+        val closed = if (day == today) sessions else emptyList()
+        val open = if (state == OnlineState.ONLINE) listOf(maxOf(since, today) to now) else emptyList()
+        return (closed + open).sumOf { (start, end) -> (minOf(end, now) - maxOf(start, from)).coerceAtLeast(0L) }
+    }
+
+    /** The current session ended at [at]: its time today is added to [doneMs] and [sessions]. */
+    internal fun closedAt(at: Long): UberStatus {
+        val today = shiftDayStart(at)
+        val kept = if (day == today) sessions else emptyList()
+        val start = if (state == OnlineState.ONLINE) maxOf(since, today) else null
+        val all = if (start != null && at > start) kept + (start to at) else kept
+        return copy(doneMs = todayMs(at), day = today, sessions = all.takeLast(MAX_SESSIONS))
+    }
+
+    private companion object {
+        const val MAX_SESSIONS = 50
+    }
 }
 
 /**
@@ -95,6 +118,10 @@ object OnlineClock {
             doneMs = p.getLong("done_ms", 0L),
             day = p.getLong("day", 0L),
             seenAt = p.getLong("seen_at", 0L),
+            sessions = p.getString("sessions", null).orEmpty().split(';').mapNotNull { s ->
+                val (a, b) = s.split('-').takeIf { it.size == 2 } ?: return@mapNotNull null
+                (a.toLongOrNull() ?: return@mapNotNull null) to (b.toLongOrNull() ?: return@mapNotNull null)
+            },
         )
         loaded = true
     }
@@ -107,6 +134,7 @@ object OnlineClock {
             .putLong("done_ms", s.doneMs)
             .putLong("day", s.day)
             .putLong("seen_at", s.seenAt)
+            .putString("sessions", s.sessions.joinToString(";") { "${it.first}-${it.second}" })
             .apply()
     }
 
@@ -114,8 +142,12 @@ object OnlineClock {
         context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 }
 
-/** Local midnight at the start of [t]'s day. */
-private fun startOfDay(t: Long): Long = Calendar.getInstance().apply {
+/** When a day starts for a courier: 4am, like Uber's earnings day, so a 5pm–3am shift is one day. */
+const val SHIFT_DAY_START_HOUR = 4
+
+/** 4am at the start of [t]'s day (the day before's 4am between midnight and 4am). */
+fun shiftDayStart(t: Long): Long = Calendar.getInstance().apply {
     timeInMillis = t
-    set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+    if (get(Calendar.HOUR_OF_DAY) < SHIFT_DAY_START_HOUR) add(Calendar.DAY_OF_MONTH, -1)
+    set(Calendar.HOUR_OF_DAY, SHIFT_DAY_START_HOUR); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
 }.timeInMillis

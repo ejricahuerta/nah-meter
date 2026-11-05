@@ -2,6 +2,7 @@ package dev.edmel.offerchecker.data
 
 import android.content.Context
 import androidx.room.ColumnInfo
+import dev.edmel.offerchecker.core.OfferParser
 import dev.edmel.offerchecker.core.samePlace
 import androidx.room.Dao
 import androidx.room.Database
@@ -42,6 +43,16 @@ data class OfferEntry(
     val extraKm: Double? = null,
     /** The dollars taken off the pay for tips that may not come; null when none, or logged before v4. */
     val tipCushion: Double? = null,
+    /** Minutes since Uber last paid (or since going online), when known; null before v5. */
+    val idleMin: Int? = null,
+    /** The minutes added for the drive back; null when none, or logged before v5. */
+    val returnMin: Int? = null,
+    /** The drop-off area the drive back came from ("Stouffville"), under the idle-aware rules. */
+    val returnArea: String? = null,
+    /** The idle-aware $/hr bar; null when those rules were off, or logged before v5. */
+    val barHourly: Double? = null,
+    /** The idle-aware rules' verdict (shown, or compared); null when they were off, or logged before v5. */
+    val idleVerdict: String? = null,
 ) {
     /**
      * Same offer: same pay, minutes, km and order count (time and verdict aside), and the same
@@ -49,6 +60,14 @@ data class OfferEntry(
      */
     fun sameOfferAs(o: OfferEntry) = pay == o.pay && minutes == o.minutes && km == o.km && orders == o.orders &&
         addOn == o.addOn && samePlace(pickup, o.pickup)
+
+    /**
+     * The same card read again with other numbers: within [OfferDao.SAME_CARD_MS], the same
+     * restaurant and drop-off (both read) and order count. Text recognition varies between reads.
+     */
+    fun sameCardAs(o: OfferEntry) = kotlin.math.abs(time - o.time) <= OfferDao.SAME_CARD_MS &&
+        pickup != null && o.pickup != null && dropoff != null && o.dropoff != null &&
+        orders == o.orders && addOn == o.addOn && samePlace(pickup, o.pickup) && samePlace(dropoff, o.dropoff)
 }
 
 @Dao
@@ -77,30 +96,45 @@ abstract class OfferDao {
     /**
      * Logs [entry] unless it's an offer already logged: the same as the last one logged, or as any
      * logged in the last [REPEAT_WINDOW_MS]. Uber shows the same card again (after you close the
-     * app and come back, or when it re-offers it), and that is still one offer. Keeps only the
-     * last [MAX_OFFERS]. Returns whether it was logged.
+     * app and come back, or when it re-offers it), and that is still one offer. So is the same
+     * card read again within [SAME_CARD_MS] with other numbers ([OfferEntry.sameCardAs]). Keeps
+     * only the last [MAX_OFFERS]. Returns whether it was logged.
      */
     @Transaction
     open suspend fun addIfNew(entry: OfferEntry): Boolean {
         if (latest()?.sameOfferAs(entry) == true) return false
-        if (since(entry.time - REPEAT_WINDOW_MS).any { it.sameOfferAs(entry) }) return false
+        val recent = since(entry.time - REPEAT_WINDOW_MS)
+        if (recent.any { it.sameOfferAs(entry) || it.sameCardAs(entry) }) return false
         insert(entry)
         trim(MAX_OFFERS)
         return true
     }
 
     companion object {
-        const val MAX_OFFERS = 200
+        /** About two weeks of shifts; 200 kept less than one night (2026-11-04: 7:30pm on only). */
+        const val MAX_OFFERS = 2000
         const val REPEAT_WINDOW_MS = 30 * 60 * 1000L
+        const val SAME_CARD_MS = 60 * 1000L
     }
 }
 
-@Database(entities = [OfferEntry::class], version = 4, exportSchema = false)
+@Database(entities = [OfferEntry::class], version = 5, exportSchema = false)
 abstract class OfferDatabase : RoomDatabase() {
     abstract fun offers(): OfferDao
 
     companion object {
         @Volatile private var instance: OfferDatabase? = null
+
+        /** v5: idle time, drive back, the idle-aware bar and verdict. Existing offers have none (null). */
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE offers ADD COLUMN idleMin INTEGER")
+                db.execSQL("ALTER TABLE offers ADD COLUMN returnMin INTEGER")
+                db.execSQL("ALTER TABLE offers ADD COLUMN returnArea TEXT")
+                db.execSQL("ALTER TABLE offers ADD COLUMN barHourly REAL")
+                db.execSQL("ALTER TABLE offers ADD COLUMN idleVerdict TEXT")
+            }
+        }
 
         /** v4: Uber's own minutes, the drive-back km and the tip cushion. Existing offers have none (null). */
         private val MIGRATION_3_4 = object : Migration(3, 4) {
@@ -130,7 +164,7 @@ abstract class OfferDatabase : RoomDatabase() {
 
         fun get(context: Context): OfferDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(context.applicationContext, OfferDatabase::class.java, "offers.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .build().also { instance = it }
         }
     }
@@ -140,14 +174,21 @@ abstract class OfferDatabase : RoomDatabase() {
  * The offer log as CSV. minutes and km are Uber's, as on the card (minutes is blank for offers
  * logged before v4); scored_minutes, extra_km and tip_cushion are what the rates were worked out
  * on, so dollars_per_hr = (pay − tip_cushion) × 60 / scored_minutes and
- * dollars_per_km = (pay − tip_cushion) / (km + extra_km).
+ * dollars_per_km = (pay − tip_cushion) / (km + extra_km). The effective rates: they already count
+ * the drive back (return_min of scored_minutes, from return_area when the idle-aware rules set it).
+ * idle_min is the minutes since Uber last paid; threshold_hr and idle_verdict are the idle-aware
+ * rules' bar and verdict (blank when they were off). suspect marks rows that look misread
+ * ([OfferParser.suspect]). Columns added later go at the end.
  */
 object OfferCsv {
     /** Quotes a text field; addresses have commas. */
     private fun csv(s: String?): String = if (s == null) "" else "\"" + s.replace("\"", "\"\"") + "\""
 
     fun write(entries: List<OfferEntry>): String = buildString {
-        appendLine("time,pay,minutes,km,scored_minutes,extra_km,tip_cushion,dollars_per_hr,dollars_per_km,verdict,orders,add_on,restaurant,dropoff")
+        appendLine(
+            "time,pay,minutes,km,scored_minutes,extra_km,tip_cushion,dollars_per_hr,dollars_per_km,verdict,orders,add_on,restaurant,dropoff," +
+                "idle_min,return_min,return_area,threshold_hr,idle_verdict,suspect",
+        )
         val fmt = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US)
         for (e in entries) {
             // Offers logged before v4 don't know their drive back or cushion, so those stay blank, not 0.
@@ -170,6 +211,12 @@ object OfferCsv {
                     e.addOn,
                     csv(e.pickup),
                     csv(e.dropoff),
+                    e.idleMin?.toString() ?: "",
+                    e.returnMin?.toString() ?: "",
+                    csv(e.returnArea),
+                    e.barHourly?.let { "%.2f".format(java.util.Locale.US, it) } ?: "",
+                    e.idleVerdict ?: "",
+                    OfferParser.suspect(e.perKm?.toBigDecimal(), e.pickup, e.dropoff),
                 ).joinToString(","),
             )
         }

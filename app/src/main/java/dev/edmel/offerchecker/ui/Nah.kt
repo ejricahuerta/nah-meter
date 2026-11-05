@@ -197,12 +197,12 @@ private fun rate(amount: String, unit: String, unitSize: TextUnit, unitColor: Co
 
 /**
  * VerdictCard: black, the word left in its colour, the strict rate right (normally $/hr), the
- * reason underneath with the other rate in its own chip.
+ * reason underneath with the other rate in its own chip, and any [more] reason lines (the drive back).
  */
 @Composable
 fun VerdictCard(
     verdict: Verdict, bigRate: NahCopy.Rate?, reason: String, modifier: Modifier = Modifier, spoken: String? = null,
-    chip: String? = null,
+    chip: String? = null, more: List<String> = emptyList(),
 ) {
     val unknown = verdict == Verdict.GREY
     Column(
@@ -239,6 +239,7 @@ fun VerdictCard(
                 ) { Text(chip, style = Nah.style(15.sp, 700, 20.sp, color = Color.White), maxLines = 1) }
             }
         }
+        more.forEach { Text(it, style = Nah.style(17.sp, 600, 22.sp, color = Nah.cardSoft)) }
     }
 }
 
@@ -248,7 +249,7 @@ fun VerdictCard(e: Evaluation, t: Thresholds, modifier: Modifier = Modifier) {
     val rates = NahCopy.rates(e, t)
     VerdictCard(
         e.verdict, rates?.first, NahCopy.cardReason(e, t), modifier,
-        spoken = NahCopy.spoken(e, t), chip = rates?.second?.toString(),
+        spoken = NahCopy.spoken(e, t), chip = rates?.second?.toString(), more = listOfNotNull(NahCopy.driveBackLine(e)),
     )
 }
 

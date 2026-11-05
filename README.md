@@ -98,15 +98,21 @@ long as the signing secrets below are set, because every build is then signed wi
 - Four tabs: **Home** (a power button for reading on or off, today's offers, the delivery apps to
   open, your rules in one line), **History** (the offer log), **Rules** (which rate is strict, $/hr, $/km, max km,
   unpaid extra km for the drive back, wait buffer, and minimum pay for 1, 2 and 3+ orders and add-ons, with the
-  tip cushion) and **Settings** (permissions, verdict card, voice, haptics, appearance, delivery apps).
+  tip cushion, and the idle-aware rules) and **Settings** (permissions, verdict card, voice, haptics, appearance,
+  delivery apps).
 - Settings → Permissions: each setup step with a one-tap link, and Diagnostics with the **raw
   text** it saw (for diagnosing a grey badge).
-- History: the last 200 offers by day (offers and average $/hr per day), filtered by bet, meh or nah,
+- History: the last 2000 offers by day (offers and average $/hr per day), filtered by bet, meh or nah,
   with CSV export. Tap an offer for its restaurant, drop-off and rates.
+- Idle-aware rules (Rules, off by default; Compare shows both verdicts first): the $/hr bar drops
+  the longer Uber hasn't paid ($14 after 10 min, $12 after 25, sooner after 10pm), just under the
+  bar is meh., far drop-offs add their drive back by area ("+30 min back from Stouffville"), and a
+  stack ending home is bet!. nah.meter knows Uber paid when the earnings figure above Uber's map
+  goes up; Home shows what Uber paid today and per online hour, today and in the last 2 hours.
 - Stacked offers are scored on the combined numbers, with 2 min per order for waiting on food,
   against the minimum for their number of orders.
-- Home's Uber tile says whether Uber last showed you **Online** or **Offline**, and Today shows
-  your time online in Uber. It's read from Uber's own screen ("Finding trips", "Go Online"), on
+- Home's Uber tile says whether Uber last showed you **Online** or **Offline**, and Today (from
+  4am, so a night shift is one day) shows your time online in Uber. It's read from Uber's own screen ("Finding trips", "Go Online"), on
   the phone. Other delivery apps' screens are never read.
 - Restaurant flags: open an offer in History and flag its restaurant **Slow pickup** or **Was
   closed**. Later offers from that restaurant show the flag on the verdict card and the voice says

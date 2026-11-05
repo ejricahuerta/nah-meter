@@ -557,6 +557,37 @@ class OfferParserTest {
         )
     }
 
+    /** The earnings figure above Uber's map, online and offline: it goes up when a delivery pays. */
+    @Test fun uberEarnings20261101() {
+        assertEquals(BigDecimal("124.40"), OfferParser.uberEarnings(offlineMap))
+        assertEquals(BigDecimal("124.40"), OfferParser.uberEarnings(onlineMapLabels + listOf("Finding trips", "Unlock Diamond")))
+        assertEquals(BigDecimal("124.40"), OfferParser.uberEarnings(onlineMapLabels + listOf("You're online")))
+        // Text recognition slips in the amount.
+        assertEquals(BigDecimal("124.40"), OfferParser.uberEarnings(listOf("\$l24.40", "Finding trips")))
+        assertEquals(BigDecimal("124.40"), OfferParser.uberEarnings(listOf("\$124,40", "Finding trips")))
+        // A map boost isn't earnings.
+        assertEquals(BigDecimal("124.40"), OfferParser.uberEarnings(onlineMapLabels + listOf("+\$2.50", "Finding trips")))
+    }
+
+    @Test fun uberEarningsNeverGuessed() {
+        // No online or offline line on the screen: maybe an earnings page or an offer card.
+        assertEquals(null, OfferParser.uberEarnings(onlineMapLabels))
+        assertEquals(null, OfferParser.uberEarnings(listOf("Delivery", "\$6.07", "including estimated tip", "23 min (11.5 km) total", "Accept")))
+        // No amount.
+        assertEquals(null, OfferParser.uberEarnings(offlineHome))
+        // Two different amounts: which one?
+        assertEquals(null, OfferParser.uberEarnings(listOf("\$124.40", "\$56.10", "Finding trips")))
+    }
+
+    @Test fun suspectRows() {
+        // One offer read as 1.9 km in the 2026-11-04 log: $5.49/km.
+        assertTrue(OfferParser.suspect(BigDecimal("5.49"), "Kakuya (Yonge St)", "Yonge St, Markham"))
+        assertFalse(OfferParser.suspect(BigDecimal("3.00"), "Kakuya (Yonge St)", "Yonge St, Markham"))
+        assertTrue(OfferParser.suspect(BigDecimal("1.20"), "Khorak Supermarket (6125 Yonge Sy", "Annette St & Indian Road Cres, Toronto"))
+        assertTrue(OfferParser.suspect(BigDecimal("1.20"), null, "5831 THORNHILL"))
+        assertFalse(OfferParser.suspect(null, null, null))
+    }
+
     /** What text recognition may make of the same lines: a curly or missing apostrophe, a button's icon or ring. */
     @Test fun uberStatusOcrVariants() {
         assertEquals(OnlineState.ONLINE, OfferParser.onlineStatus(listOf("You’re online"))?.state)
