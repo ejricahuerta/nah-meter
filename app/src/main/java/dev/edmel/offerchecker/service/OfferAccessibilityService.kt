@@ -17,11 +17,13 @@ import dev.edmel.offerchecker.core.Offer
 import dev.edmel.offerchecker.core.OfferParser
 import dev.edmel.offerchecker.core.OnlineState
 import dev.edmel.offerchecker.core.ReadResult
+import dev.edmel.offerchecker.core.ScoreContext
 import dev.edmel.offerchecker.core.Scorer
 import dev.edmel.offerchecker.core.StatusRead
 import dev.edmel.offerchecker.core.Verdict
 import dev.edmel.offerchecker.core.flagFor
 import dev.edmel.offerchecker.data.AppSettings
+import dev.edmel.offerchecker.data.IdleMode
 import dev.edmel.offerchecker.data.OfferDatabase
 import dev.edmel.offerchecker.data.OfferEntry
 import dev.edmel.offerchecker.data.SettingsRepository
@@ -80,6 +82,9 @@ class OfferAccessibilityService : AccessibilityService() {
     /** The last online or offline line read, waiting for the next read to agree ([onStatusRead]). */
     private var pendingStatus: OnlineState? = null
 
+    /** The last earnings figure read from Uber's map, waiting for the next read to agree ([onEarningsRead]). */
+    private var pendingEarnings: BigDecimal? = null
+
     override fun onServiceConnected() {
         CrashLog.install(this)
         OnlineClock.started(this)
@@ -99,6 +104,7 @@ class OfferAccessibilityService : AccessibilityService() {
                     // Paused, nah.meter can't see Uber: the online time stops here.
                     OnlineClock.stopped(this@OfferAccessibilityService)
                     pendingStatus = null
+                    pendingEarnings = null
                 }
             }
         }
@@ -171,8 +177,12 @@ class OfferAccessibilityService : AccessibilityService() {
         }
         val read = scan?.cardTexts?.let(OfferParser::parse) ?: ReadResult.NoOffer
         if (read is ReadResult.Read) cardTop = scan?.cardTop
-        // Uber's "You're online" / "Go Online", if it shares them (an offer card says online itself).
-        if (scan != null && scan.cardTexts == null) onStatusRead(OfferParser.onlineStatus(scan.visibleTexts), "accessibility")
+        // Uber's "You're online" / "Go Online", if it shares them (an offer card says online itself),
+        // and the earnings figure above its map.
+        if (scan != null && scan.cardTexts == null) {
+            onStatusRead(OfferParser.onlineStatus(scan.visibleTexts), "accessibility")
+            onEarningsRead(OfferParser.uberEarnings(scan.visibleTexts))
+        }
         if (read !is ReadResult.Read && uber.present && Build.VERSION.SDK_INT >= 30) {
             // Uber is on screen but shares no (or only part of the) offer text: read a screenshot
             // instead, keeping a partial accessibility read as the grey fallback.
@@ -219,8 +229,13 @@ class OfferAccessibilityService : AccessibilityService() {
         val lines = if (badgeArea == null) allLines
         else allLines.filter { it.bottom <= badgeArea.top || it.top >= badgeArea.bottom }
         val card = OfferParser.cardFromOcr(lines, screenHeight)
-        // Uber's "Finding trips" / "GO", only from Uber's own windows; an offer card says online itself.
-        if (card == null && onlyUber) onStatusRead(OfferParser.onlineStatus(lines.map { it.text }), "screenshot")
+        // Uber's "Finding trips" / "GO" and its earnings figure, only from Uber's own windows; an
+        // offer card says online itself.
+        if (card == null && onlyUber) {
+            val texts = lines.map { it.text }
+            onStatusRead(OfferParser.onlineStatus(texts), "screenshot")
+            onEarningsRead(OfferParser.uberEarnings(texts))
+        }
         // Only the card's own lines: map labels and whatever app is behind the pop-up stay out.
         if (card != null) logIfChanged("ocr", "Uber card text (screenshot)", card.take(MAX_LOG_LINES))
         cardTop = OfferParser.ocrCardTop(lines, screenHeight)
@@ -233,7 +248,9 @@ class OfferAccessibilityService : AccessibilityService() {
     }
 
     private fun handleRead(read: ReadResult, source: String) {
-        val evaluation = Scorer.evaluate(read, settings.thresholds)
+        val s = settings
+        val ctx = TripClock.scoreContext(this)
+        val evaluation = Scorer.evaluate(read, s.mainThresholds, ctx)
         if (evaluation == null) {
             onCardGone()
             return
@@ -267,8 +284,14 @@ class OfferAccessibilityService : AccessibilityService() {
         shownOffer = offer
         lastKey = key
         lastKeyAt = now
-        ServiceState.log("Offer: ${NahCopy.word(evaluation.verdict)} ($source)", *offerDetails(evaluation, raw).toTypedArray())
-        onNewCard(evaluation, raw)
+        // The idle-aware rules' verdict beside the fixed one: shown under it in Compare, logged in both.
+        val idle = when (s.idleMode) {
+            IdleMode.OFF -> null
+            IdleMode.COMPARE -> s.idleThresholds?.let { Scorer.evaluate(read, it, ctx) }
+            IdleMode.ON -> evaluation
+        }
+        ServiceState.log("Offer: ${NahCopy.word(evaluation.verdict)} ($source)", *offerDetails(evaluation, raw, ctx, idle, s).toTypedArray())
+        onNewCard(evaluation, raw, ctx, idle)
     }
 
     /**
@@ -292,6 +315,19 @@ class OfferAccessibilityService : AccessibilityService() {
 
     private fun statusSeen(state: OnlineState, seen: String) {
         if (OnlineClock.seen(this, state)) ServiceState.log("Uber: ${NahCopy.onlineWord(state)}", "seen: $seen")
+    }
+
+    /**
+     * Uber's earnings figure ([OfferParser.uberEarnings]). It counts once the next read agrees, so
+     * one misread amount never counts as pay; a rise is a delivery paid ([TripClock]).
+     */
+    private fun onEarningsRead(amount: BigDecimal?) {
+        if (amount == null) return
+        if (pendingEarnings?.compareTo(amount) != 0) {
+            pendingEarnings = amount
+            return
+        }
+        TripClock.seen(this, amount)?.let { (title, detail) -> ServiceState.log(title, detail) }
     }
 
     /**
@@ -335,15 +371,21 @@ class OfferAccessibilityService : AccessibilityService() {
         }
     }
 
-    /** What the log says about a verdict: the numbers read, how they were scored, and why. */
-    private fun offerDetails(e: Evaluation, raw: List<String>): List<String> {
+    /**
+     * What the log says about a verdict: the numbers read, how they were scored, and why, with the
+     * idle time and, when the idle-aware rules are on or compared, their verdict ([idle]).
+     */
+    private fun offerDetails(e: Evaluation, raw: List<String>, ctx: ScoreContext, idle: Evaluation?, s: AppSettings): List<String> {
         val o = e.offer ?: return listOf("card text:") + raw.map { "  $it" }
         val wait = (e.effectiveMinutes ?: o.minutes) - o.minutes
         return listOfNotNull(
             "pay ${Scorer.money(o.pay)}" + (if (o.addOn) " (add-on)" else "") + " · ${o.minutes} min · ${o.km.toPlainString()} km" +
                 (if (o.orders > 1) " · ${o.orders} orders" else ""),
             if (wait > 0) "scored as ${e.effectiveMinutes} min (+$wait min)" else null,
-            e.extraKm?.let { "extra: ${Scorer.km(it)} km back, unpaid" },
+            e.extraKm?.let {
+                "extra: ${Scorer.km(it)} km back, unpaid" + (e.area?.let { a -> " (+${e.returnMin} min from $a)" } ?: "")
+            },
+            ctx.idleMin?.let { "waiting: $it min since Uber paid" } ?: "waiting: not known",
             e.tipCushion?.let {
                 "tip cushion: −${Scorer.money(it)}" + (if (o.orders > 1) " (${o.orders} × ${Scorer.money(it.divide(BigDecimal(o.orders)))})" else "") +
                     ", scored on ${Scorer.money((o.pay - it).max(BigDecimal.ZERO))}"
@@ -353,6 +395,12 @@ class OfferAccessibilityService : AccessibilityService() {
             o.pickup?.let { "restaurant: $it" },
             flagFor(o.pickup, settings.flaggedPlaces)?.let { "flag: ${NahCopy.placeFlag(it.flag).lowercase()} (flagged as ${it.name})" },
             o.dropoff?.let { "drop-off: $it" },
+            idle?.let {
+                (if (s.idleMode == IdleMode.ON) "idle-aware rules" else "new rules") + ": ${NahCopy.word(it.verdict)}" +
+                    (it.bar?.let { b -> " · bar ${Scorer.money(b)}/hr" } ?: "") +
+                    (if (it.homeBonus) " · stack ending in ${it.area}" else "") +
+                    (if (it !== e) " · ${it.ratesText}" else "")
+            },
         )
     }
 
@@ -433,11 +481,14 @@ class OfferAccessibilityService : AccessibilityService() {
         )
     }
 
-    private fun onNewCard(e: Evaluation, raw: List<String>) {
+    /** [idle]: the idle-aware rules' verdict (the same as [e] when they're on); null when they're off. */
+    private fun onNewCard(e: Evaluation, raw: List<String>, ctx: ScoreContext, idle: Evaluation?) {
         val s = settings
         // The courier's own flag on this restaurant, if any: shown and said, never part of the verdict.
         val flag = flagFor(e.offer?.pickup, s.flaggedPlaces)?.flag
-        guarded("verdict card") { badge.show(e, s.thresholds, s.compactBadge, cardTop ?: popupTop, flag) }
+        // Compare: the new rules' verdict on a line under the card's own.
+        val compare = idle?.takeIf { s.idleMode == IdleMode.COMPARE && e.verdict != Verdict.GREY }
+        guarded("verdict card") { badge.show(e, s.mainThresholds, s.compactBadge, cardTop ?: popupTop, flag, compare) }
         if (s.vibration) runCatching { alerts.vibrate(e.verdict) }
         if (s.voice && e.verdict in s.voiceVerdicts) voice?.say(NahCopy.speechParts(e, s, flag), s)
         ServiceState.lastReadFlow.value = LastRead(System.currentTimeMillis(), e, raw)
@@ -459,6 +510,11 @@ class OfferAccessibilityService : AccessibilityService() {
             cardMinutes = offer.minutes,
             extraKm = e.extraKm?.toDouble(),
             tipCushion = e.tipCushion?.toDouble(),
+            idleMin = ctx.idleMin,
+            returnMin = e.returnMin,
+            returnArea = e.area,
+            barHourly = idle?.bar?.toDouble(),
+            idleVerdict = idle?.verdict?.name,
         )
         // The verdict always shows; the log only gets offers it doesn't already have.
         scope.launch {
@@ -469,9 +525,12 @@ class OfferAccessibilityService : AccessibilityService() {
 
     /** The sample offer from the PRD: $6.07, 23 min, 11.5 km → red. Not logged. */
     fun showTestBadge() {
-        val e = Scorer.score(Offer(BigDecimal("6.07"), 23, BigDecimal("11.5")), settings.thresholds)
         val s = settings
-        badge.show(e, s.thresholds, s.compactBadge, null)
+        val sample = Offer(BigDecimal("6.07"), 23, BigDecimal("11.5"))
+        val ctx = TripClock.scoreContext(this)
+        val e = Scorer.score(sample, s.mainThresholds, ctx)
+        val compare = if (s.idleMode == IdleMode.COMPARE) s.idleThresholds?.let { Scorer.score(sample, it, ctx) } else null
+        badge.show(e, s.mainThresholds, s.compactBadge, null, compare = compare)
         if (s.vibration) alerts.vibrate(e.verdict)
         if (s.voice) voice?.say(NahCopy.speechParts(e, s), s)
     }

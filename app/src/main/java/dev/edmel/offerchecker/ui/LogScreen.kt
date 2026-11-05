@@ -54,6 +54,7 @@ import dev.edmel.offerchecker.core.Check
 import dev.edmel.offerchecker.core.FlaggedPlace
 import dev.edmel.offerchecker.core.Offer
 import dev.edmel.offerchecker.core.PlaceFlag
+import dev.edmel.offerchecker.core.ScoreContext
 import dev.edmel.offerchecker.core.Scorer
 import dev.edmel.offerchecker.core.Thresholds
 import dev.edmel.offerchecker.core.Verdict
@@ -78,7 +79,8 @@ import java.util.Locale
 
 @Composable
 fun LogScreen(settings: AppSettings, modifier: Modifier = Modifier) {
-    val thresholds = settings.thresholds
+    // Offers are rescored with the rules that set the card's verdict now.
+    val thresholds = settings.mainThresholds
     val ctx = LocalContext.current
     val dao = remember { OfferDatabase.get(ctx).offers() }
     val scope = rememberCoroutineScope()
@@ -251,10 +253,16 @@ private fun OfferDetails(e: OfferEntry, thresholds: Thresholds, flags: List<Flag
     val verdict = runCatching { Verdict.valueOf(e.verdict) }.getOrDefault(Verdict.GREY)
     // Rescored from Uber's minutes with today's rules. Offers logged before v4 kept only the scored
     // minutes, which already hold the buffer, pickup waits and drive back, so none is added again.
+    // The idle-aware rules use the drop-off, and the wait and hour logged with it.
     val cardMinutes = e.cardMinutes
+    val hour = remember(e.time) { Calendar.getInstance().apply { timeInMillis = e.time }.get(Calendar.HOUR_OF_DAY) }
     val rescored = Scorer.score(
-        Offer(BigDecimal.valueOf(e.pay), cardMinutes ?: e.minutes, BigDecimal.valueOf(e.km), e.stacked, orders = e.orders, addOn = e.addOn),
-        if (cardMinutes != null) thresholds else thresholds.copy(waitBufferMin = 0, perOrderWaitMin = 0, extraKmPercent = 0),
+        Offer(
+            BigDecimal.valueOf(e.pay), cardMinutes ?: e.minutes, BigDecimal.valueOf(e.km), e.stacked,
+            dropoff = e.dropoff, orders = e.orders, addOn = e.addOn,
+        ),
+        if (cardMinutes != null) thresholds else thresholds.copy(waitBufferMin = 0, perOrderWaitMin = 0, extraKmPercent = 0, idle = null),
+        ScoreContext(e.idleMin, hour),
     )
     val sameVerdict = rescored.verdict == verdict
     // The logged rates, the strict one big as on the card. The reason comes from today's rules, so
@@ -296,6 +304,19 @@ private fun OfferDetails(e: OfferEntry, thresholds: Thresholds, flags: List<Flag
                 if (e.addOn) {
                     NahDivider()
                     Detail("Type", "Add-on to the current trip")
+                }
+                e.returnMin?.let {
+                    NahDivider()
+                    Detail("Drive back", "+$it min" + (e.returnArea?.let { a -> " from $a" } ?: ""))
+                }
+                e.idleMin?.let {
+                    NahDivider()
+                    Detail("Since paid", NahCopy.onlineTime(it * 60_000L))
+                }
+                e.idleVerdict?.let { v ->
+                    NahDivider()
+                    val word = runCatching { NahCopy.word(Verdict.valueOf(v)) }.getOrDefault(v)
+                    Detail("Idle-aware", word + (e.barHourly?.let { " · bar $" + "%.2f".format(Locale.US, it) + "/hr" } ?: ""))
                 }
             }
             NahGroup {

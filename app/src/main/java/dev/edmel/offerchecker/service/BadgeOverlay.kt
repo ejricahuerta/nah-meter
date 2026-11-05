@@ -78,15 +78,17 @@ class BadgeOverlay(private val context: Context) {
      * Shows [e]. The card docks above [cardTop] (the offer card's top edge in screen px); when
      * that's unknown it sits near the top of the screen like the pill. [flag] is the courier's own
      * flag on the restaurant ("Flagged: slow pickup"), in neutral text: it never changes the verdict.
+     * [compare] is the idle-aware rules' verdict while comparing ("New rules: bet! · bar $14"),
+     * also in neutral text.
      */
-    fun show(e: Evaluation, t: Thresholds, compact: Boolean, cardTop: Int?, flag: PlaceFlag? = null) {
+    fun show(e: Evaluation, t: Thresholds, compact: Boolean, cardTop: Int?, flag: PlaceFlag? = null, compare: Evaluation? = null) {
         hide(animate = false)
         val screen = context.resources.displayMetrics
-        val v = if (compact) pill(e, t, flag) else card(e, t, flag)
-        v.contentDescription = NahCopy.spoken(e, t, flag)
+        val v = if (compact) pill(e, t, flag, compare) else card(e, t, flag, compare)
+        v.contentDescription = NahCopy.spoken(e, t, flag, compare)
         v.accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
         // Card: tap to dismiss. Pill: tap to expand to the full card.
-        v.setOnClickListener { if (compact) show(e, t, compact = false, cardTop = cardTop, flag = flag) else hide() }
+        v.setOnClickListener { if (compact) show(e, t, compact = false, cardTop = cardTop, flag = flag, compare = compare) else hide() }
 
         if (compact) {
             v.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED)
@@ -142,7 +144,7 @@ class BadgeOverlay(private val context: Context) {
 
     // ---------- Verdict card (nah-card) ----------
 
-    private fun card(e: Evaluation, t: Thresholds, flag: PlaceFlag?): View {
+    private fun card(e: Evaluation, t: Thresholds, flag: PlaceFlag?, compare: Evaluation?): View {
         val root = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(20), dp(18), dp(20), dp(18))
@@ -189,10 +191,24 @@ class BadgeOverlay(private val context: Context) {
             )
         }
         root.addView(foot, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) })
+        // The drive back from the drop-off's area is part of the reason: card-soft, under it.
+        NahCopy.driveBackLine(e)?.let {
+            root.addView(
+                text(it, 17f, font600, CARD_SOFT),
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(6) },
+            )
+        }
         // The courier's flag on this restaurant: white, like the rates, since colour only means a verdict.
         flag?.let {
             root.addView(
                 text(NahCopy.flagLine(it), 17f, font600, Color.WHITE),
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(10) },
+            )
+        }
+        // Comparing: the new rules' verdict, white too (the colour belongs to the card's own verdict).
+        compare?.let {
+            root.addView(
+                text(NahCopy.compareLine(it), 17f, font600, Color.WHITE),
                 LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(10) },
             )
         }
@@ -201,7 +217,7 @@ class BadgeOverlay(private val context: Context) {
 
     // ---------- Compact pill (nah-pill) ----------
 
-    private fun pill(e: Evaluation, t: Thresholds, flag: PlaceFlag?): View {
+    private fun pill(e: Evaluation, t: Thresholds, flag: PlaceFlag?, compare: Evaluation?): View {
         val root = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -223,6 +239,14 @@ class BadgeOverlay(private val context: Context) {
         flag?.let {
             root.addView(
                 text(NahCopy.placeFlag(it).lowercase(), 17f, font600, Color.WHITE).apply { maxLines = 1 },
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                    .apply { marginStart = dp(12) },
+            )
+        }
+        // Comparing: the new rules' word after it ("new bet!"), white.
+        compare?.let {
+            root.addView(
+                text(NahCopy.compareShort(it), 17f, font600, Color.WHITE).apply { maxLines = 1 },
                 LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
                     .apply { marginStart = dp(12) },
             )
