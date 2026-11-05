@@ -97,6 +97,36 @@ object OfferParser {
         return if (found.all { it.state == state }) found.first() else null
     }
 
+    /** Uber's earnings figure: a line that is only a dollar amount with cents. Not "+$2.50" (a map boost). */
+    private val EARNINGS = Regex("""^[^\w$+]*(?:CA)?\$\s?(\d{1,4}\.\d{2})$""")
+
+    /**
+     * What Uber's map says you've earned today ("$124.40" above the map, screenshots 2026-11-01).
+     * Only on a screen that also says online or offline ([onlineStatus]: the map or home screen,
+     * never an earnings page or an offer card), and only when exactly one amount stands alone on a
+     * line. Otherwise null: never a guess. It goes up when a delivery pays, which is how nah.meter
+     * knows a trip ended.
+     */
+    fun uberEarnings(texts: List<String>): BigDecimal? {
+        val ls = lines(texts)
+        if (onlineStatus(ls) == null) return null
+        return ls.mapNotNull { EARNINGS.matchEntire(fixPayDigits(it))?.groupValues?.get(1)?.toBigDecimalOrNull() }
+            .distinct().singleOrNull()
+    }
+
+    /** More than this per km is almost always a misread km (one offer read as 1.9 km, $5.49/km). */
+    private val SUSPECT_PER_KM = BigDecimal(3)
+
+    /**
+     * Whether a logged offer looks misread, for the CSV: over $3/km, a restaurant name cut off
+     * inside its brackets ("Khorak Supermarket (6125 Yonge Sy"), or a drop-off with no area after a
+     * comma ("5831 THORNHILL").
+     */
+    fun suspect(perKm: BigDecimal?, pickup: String?, dropoff: String?): Boolean =
+        (perKm != null && perKm > SUSPECT_PER_KM) ||
+            (pickup != null && pickup.count { it == '(' } != pickup.count { it == ')' }) ||
+            (dropoff != null && ',' !in dropoff)
+
     /** True if this text contains an offer's "min (… km) total" line, readable or not. */
     fun isTripLine(text: String): Boolean = lines(listOf(text)).any { TRIP_LIKE.containsMatchIn(it) }
 
